@@ -24,17 +24,16 @@ def main() -> None:
 
         Use the pages in the sidebar to walk through the flow:
 
-        - **Chat**: Capture natural-language requirements and move toward a Book Specification Object (BSO).
-        - **Outline**: View and (later) refine the automatically generated outline.
-        - **Download**: (Later) access generated exports such as DOCX, EPUB, and PDF.
-
-        The full multi-agent flow (supervisor, outline agent, preview agent, full-book generation, sync state)
-        will be implemented step by step on top of this shell.
+        - **Chat**: Capture requirements and get a Book Specification (BSO).
+        - **Outline**: Generate and view the chapter outline.
+        - **Preview**: Read a 6–8 page sample, then **Buy full book**.
+        - **Download**: Get DOCX, EPUB, and PDF (after formatting pipeline).
         """
     )
 
     st.info(
-        "Phase 0: repository scaffolded. Next steps: implement Chat → BSO extraction via the FastAPI AI API."
+        "Phase 3: Chat → BSO → Outline → Preview (intro + first chapter). "
+        "Buy full book and Download will connect to Stripe and the formatting pipeline next."
     )
 
 

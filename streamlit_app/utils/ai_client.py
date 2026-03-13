@@ -43,3 +43,18 @@ def outline(book_spec: dict) -> dict:
         resp = client.post(url, json={"book_spec": book_spec})
         resp.raise_for_status()
         return resp.json()
+
+
+def preview(book_spec: dict, book_outline: dict) -> dict[str, Any]:
+    """
+    Request a 6–8 page preview from the AI API (intro + first chapter).
+    Returns dict with preview_content (markdown string).
+    """
+    url = f"{get_ai_api_url().rstrip('/')}/api/preview"
+    with httpx.Client(timeout=180.0) as client:
+        resp = client.post(
+            url,
+            json={"book_spec": book_spec, "book_outline": book_outline},
+        )
+        resp.raise_for_status()
+        return resp.json()

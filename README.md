@@ -14,15 +14,15 @@ Backend (Go API, Stripe, auth, etc.) lives in a **separate repo** as per the arc
 - `learning.md` — Product and architecture spec (source of truth)
 - `streamlit_app/` — Streamlit UI
   - `app.py` — main entrypoint
-  - `pages/` — 1_chat (intake), 2_outline, 3_download
+  - `pages/` — 1_chat, 2_outline, 3_preview, 4_download
   - `utils/` — `ai_client` (HTTP client for AI API)
 - `api/` — FastAPI app
-  - `main.py` — FastAPI entrypoint, includes chat router
-  - `state/` — `schema.py` (BookSpecification, IntakeResponse, etc.)
+  - `main.py` — FastAPI entrypoint, includes chat, outline, preview routers
+  - `state/` — `schema.py` (BookSpecification, BookOutline, etc.)
   - `llm/` — `factory.py` (provider-agnostic `get_llm(provider)`)
-  - `agents/` — `intake_agent.py`, `outline_agent.py`, `supervisor.py`, `prompts.py`
+  - `agents/` — `intake_agent.py`, `outline_agent.py`, `preview_agent.py`, `supervisor.py`, `prompts.py`
   - `services/` — `bso_validator.py`
-  - `api/` — `chat.py` (POST /api/chat), `outline.py` (POST /api/outline)
+  - `api/` — `chat.py`, `outline.py`, `preview.py` (POST /api/preview)
 
 ---
 
@@ -77,13 +77,14 @@ FastAPI will default to `http://127.0.0.1:8000`.
 
 ---
 
-### 4. Current Status (Phase 2 — Supervisor + Outline)
+### 4. Current Status (Phase 3 — Preview)
 
 - **Phase 1:** Intake agent, POST /api/chat, Streamlit Chat → BSO in session state.
-- **Supervisor** (`api/agents/supervisor.py`): deterministic `get_next_stage(has_bso, has_outline, payment_status)` for routing.
-- **Outline agent**: BSO → `BookOutline` (chapter titles, subtopics, word_target per chapter) via structured LLM output.
-- **POST /api/outline**: accepts `book_spec`, returns full outline (validated with `BookOutline`).
-- **Streamlit Outline page**: requires BSO from Chat; "Generate outline" calls API and displays chapters; "Continue to preview" placeholder for Phase 3.
+- **Phase 2:** Supervisor, outline agent, POST /api/outline, Streamlit Outline page.
+- **Preview agent** (`api/agents/preview_agent.py`): BSO + outline → 6–8 page markdown (intro + first chapter).
+- **POST /api/preview**: accepts `book_spec` and `book_outline`, returns `preview_content` (markdown).
+- **Streamlit Preview page** (3_preview): requires BSO + outline; "Generate preview" then shows sample; **Buy full book** button (placeholder until Stripe/Go backend).
+- **Download page** moved to 4_download.
 
-Next: Phase 3 — Preview agent + Stripe (preview generation, payment, webhook).
+Next: Phase 4 — Stripe checkout, webhook, full-book generation (Celery).
 

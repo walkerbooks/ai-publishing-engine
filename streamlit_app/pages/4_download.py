@@ -1,3 +1,12 @@
+"""Download page: DOCX, EPUB, PDF exports (Phase 5)."""
+
+import sys
+from pathlib import Path
+
+_root = Path(__file__).resolve().parent.parent.parent
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
+
 import streamlit as st
 
 
@@ -7,13 +16,13 @@ def main() -> None:
     st.title("Download Exports")
     st.markdown(
         """
-        This page will eventually list downloadable exports for each book:
+        This page will list downloadable exports for each book:
 
         - DOCX (6×9, KDP-ready)
         - EPUB (Kindle)
         - PDF (print)
 
-        Files will be produced by the deterministic formatting pipeline described in `learning.md`.
+        Files are produced by the formatting pipeline (Phase 5).
         """
     )
 
@@ -22,4 +31,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

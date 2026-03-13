@@ -76,9 +76,8 @@ def main() -> None:
                 st.markdown(f"- {sub}")
 
     st.divider()
-    st.success("Outline ready. Preview and payment will be available in a later phase.")
-    if st.button("Continue to preview (Phase 3)"):
-        st.info("Preview page coming in Phase 3.")
+    st.success("Outline ready. Generate a preview next, then buy the full book.")
+    st.page_link("pages/3_preview.py", label="Go to Preview", icon="📖")
 
 
 if __name__ == "__main__":

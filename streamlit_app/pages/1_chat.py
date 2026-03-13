@@ -51,6 +51,8 @@ def main() -> None:
             st.session_state["book_spec"] = None
             st.session_state["book_outline"] = None
             st.session_state["outline_error"] = None
+            st.session_state["preview_content"] = None
+            st.session_state["preview_error"] = None
             st.session_state["session_id"] = str(uuid.uuid4())
             st.rerun()
         return
