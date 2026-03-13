@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     # Optional: backend URL for future book persistence
     backend_url: str | None = None
 
+    # LangSmith tracing (set LANGSMITH_API_KEY to enable)
+    langchain_tracing_v2: str = "false"
+    langsmith_api_key: str | None = None
+    langsmith_project: str = "ebook-engine"
+    langchain_endpoint: str = "https://api.smith.langchain.com"
+
 
 @lru_cache
 def get_settings() -> Settings:

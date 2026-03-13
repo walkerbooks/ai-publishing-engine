@@ -45,11 +45,16 @@ def run_intake(
 
     if response.bso is not None:
         partial = response.bso.model_dump()
-        # Only validate when we have all required fields (no nulls for required keys)
-        if all(partial.get(k) is not None for k in ("genre", "audience", "tone", "target_length_pages")):
-            valid, _ = validate_bso(partial)
+        required = ("genre", "audience", "tone", "target_length_pages")
+        if all(partial.get(k) is not None for k in required):
+            # Fill defaults for optional fields so strict BookSpecification validates
+            full = {**partial}
+            full.setdefault("format_type", "all")
+            full.setdefault("page_size", "6x9")
+            full.setdefault("language", "English")
+            valid, _ = validate_bso(full)
             if valid:
-                book_spec = partial
+                book_spec = full
             else:
                 intake_complete = False
         else:

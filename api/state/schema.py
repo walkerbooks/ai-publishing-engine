@@ -28,7 +28,7 @@ class BookSpecification(BaseModel):
 class IntakeBookSpecification(BaseModel):
     """
     Partial BSO for LLM structured output. All fields optional so the model
-    can return null for missing info (e.g. target_length_pages until user says it).
+    can return null for missing info; Groq validates the tool payload strictly.
     """
 
     genre: Optional[str] = Field(None, description="Primary genre")
@@ -36,9 +36,9 @@ class IntakeBookSpecification(BaseModel):
     audience: Optional[str] = Field(None, description="Target audience")
     tone: Optional[str] = Field(None, description="Tone, e.g. motivational, academic")
     target_length_pages: Optional[int] = Field(None, ge=50, le=300, description="Target length in pages")
-    format_type: Literal["kindle", "paperback", "hardback", "all"] = "all"
-    page_size: Literal["6x9", "8.5x11", "8.25x11"] = "6x9"
-    language: str = Field(default="English", min_length=1)
+    format_type: Optional[Literal["kindle", "paperback", "hardback", "all"]] = None
+    page_size: Optional[Literal["6x9", "8.5x11", "8.25x11"]] = None
+    language: Optional[str] = Field(default="English", description="Language")
     title: Optional[str] = Field(None, description="Working title if provided")
     custom_instructions: Optional[str] = Field(None, description="Extra author instructions")
 

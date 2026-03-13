@@ -20,9 +20,10 @@ Backend (Go API, Stripe, auth, etc.) lives in a **separate repo** as per the arc
   - `main.py` — FastAPI entrypoint, includes chat, outline, preview routers
   - `state/` — `schema.py` (BookSpecification, BookOutline, etc.)
   - `llm/` — `factory.py` (provider-agnostic `get_llm(provider)`)
-  - `agents/` — `intake_agent.py`, `outline_agent.py`, `preview_agent.py`, `supervisor.py`, `prompts.py`
+  - `agents/` — `graph.py` (LangGraph pipeline), `graph_state.py`, intake/outline/preview agents, `supervisor.py`, `prompts/`
   - `services/` — `bso_validator.py`
-  - `api/` — `chat.py`, `outline.py`, `preview.py` (POST /api/preview)
+  - `tracing/` — `langsmith_setup.py` (LangSmith init + `graph_config()` for run_name/tags)
+  - `api/` — `chat.py`, `outline.py`, `preview.py`
 
 ---
 
@@ -55,6 +56,10 @@ OPENAI_API_KEY=your-openai-key
 
 # Optional: AI API URL used by Streamlit (default http://localhost:8000)
 # AI_API_URL=http://localhost:8000
+
+# Optional: LangSmith tracing (set LANGSMITH_API_KEY to enable)
+# LANGSMITH_API_KEY=ls__...
+# LANGSMITH_PROJECT=ebook-engine
 ```
 
 ---
@@ -85,6 +90,8 @@ FastAPI will default to `http://127.0.0.1:8000`.
 - **POST /api/preview**: accepts `book_spec` and `book_outline`, returns `preview_content` (markdown).
 - **Streamlit Preview page** (3_preview): requires BSO + outline; "Generate preview" then shows sample; **Buy full book** button (placeholder until Stripe/Go backend).
 - **Download page** moved to 4_download.
+
+**LangGraph & LangSmith:** All chat, outline, and preview requests go through a single LangGraph pipeline (`api/agents/graph.py`): supervisor → intake | outline | preview → end. Each node delegates to the existing agents. At startup, `init_langsmith()` sets `LANGCHAIN_TRACING_V2` and `LANGCHAIN_API_KEY` when `LANGSMITH_API_KEY` is set, so every graph invocation (and thus every LLM call) is traced in LangSmith with run_name and tags (e.g. `chat`, `stage:intake`). Checkpointer is `MemorySaver` for now; swap to `AsyncPostgresSaver` for production.
 
 Next: Phase 4 — Stripe checkout, webhook, full-book generation (Celery).
 

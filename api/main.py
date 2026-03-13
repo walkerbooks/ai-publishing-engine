@@ -10,6 +10,7 @@ import openai
 from api.api.chat import router as chat_router
 from api.api.outline import router as outline_router
 from api.api.preview import router as preview_router
+from api.tracing import init_langsmith
 
 load_dotenv()
 
@@ -29,12 +30,11 @@ class TestChatResponse(BaseModel):
 
 
 @app.on_event("startup")
-def configure_openai() -> None:
+def on_startup() -> None:
     api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        # We do not fail hard here; instead, the endpoint will report misconfiguration.
-        return
-    openai.api_key = api_key
+    if api_key:
+        openai.api_key = api_key
+    init_langsmith()
 
 
 @app.get("/health")
