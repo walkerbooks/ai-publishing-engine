@@ -3,7 +3,7 @@
 This repo is the **AI side** of the AI Publishing Engine described in `learning.md`. It contains:
 
 - **Streamlit UI** (user-facing app)
-- **FastAPI AI API** (agents, LLM calls, sync state — to be implemented)
+- **FastAPI AI API** (agents, LLM calls, sync state)
 
 Backend (Go API, Stripe, auth, etc.) lives in a **separate repo** as per the architecture in `learning.md`.
 
@@ -11,14 +11,18 @@ Backend (Go API, Stripe, auth, etc.) lives in a **separate repo** as per the arc
 
 ### 1. Project Structure
 
-Planned structure for this repo:
-
 - `learning.md` — Product and architecture spec (source of truth)
 - `streamlit_app/` — Streamlit UI
   - `app.py` — main entrypoint
-  - `pages/` — multi-step flow pages (chat, outline, download)
+  - `pages/` — 1_chat (intake), 2_outline, 3_download
+  - `utils/` — `ai_client` (HTTP client for AI API)
 - `api/` — FastAPI app
-  - `main.py` — FastAPI entrypoint and initial LLM test endpoint
+  - `main.py` — FastAPI entrypoint, includes chat router
+  - `state/` — `schema.py` (BookSpecification, IntakeResponse, etc.)
+  - `llm/` — `factory.py` (provider-agnostic `get_llm(provider)`)
+  - `agents/` — `intake_agent.py`, `outline_agent.py`, `supervisor.py`, `prompts.py`
+  - `services/` — `bso_validator.py`
+  - `api/` — `chat.py` (POST /api/chat), `outline.py` (POST /api/outline)
 
 ---
 
@@ -39,13 +43,19 @@ pip install -r requirements.txt
 
 3. **Environment variables**
 
-Create a `.env` file in the repo root (or set system env vars) with:
+Create a `.env` file in the repo root (or set system env vars). Example:
 
 ```bash
+# Required for intake (default provider)
+LLM_PROVIDER=openai
 OPENAI_API_KEY=your-openai-key
-```
 
-The FastAPI app uses `OPENAI_API_KEY` for the initial test endpoint.
+# Optional: Groq (set LLM_PROVIDER=groq and GROQ_API_KEY)
+# GROQ_API_KEY=...
+
+# Optional: AI API URL used by Streamlit (default http://localhost:8000)
+# AI_API_URL=http://localhost:8000
+```
 
 ---
 
@@ -67,13 +77,13 @@ FastAPI will default to `http://127.0.0.1:8000`.
 
 ---
 
-### 4. Current Status (Phase 0)
+### 4. Current Status (Phase 2 — Supervisor + Outline)
 
-- `learning.md` captures the full system design.
-- Minimal **Streamlit shell** with placeholder pages is set up.
-- Minimal **FastAPI app** is set up with:
-  - `/health` — health check
-  - `/llm/test` — makes a small OpenAI call to prove keys + stack
+- **Phase 1:** Intake agent, POST /api/chat, Streamlit Chat → BSO in session state.
+- **Supervisor** (`api/agents/supervisor.py`): deterministic `get_next_stage(has_bso, has_outline, payment_status)` for routing.
+- **Outline agent**: BSO → `BookOutline` (chapter titles, subtopics, word_target per chapter) via structured LLM output.
+- **POST /api/outline**: accepts `book_spec`, returns full outline (validated with `BookOutline`).
+- **Streamlit Outline page**: requires BSO from Chat; "Generate outline" calls API and displays chapters; "Continue to preview" placeholder for Phase 3.
 
-Next phases will implement the multi-agent flow described in `learning.md` (BSO extraction, supervisor, outline agent, preview, full-book generation, sync state, and formatting pipeline).
+Next: Phase 3 — Preview agent + Stripe (preview generation, payment, webhook).
 

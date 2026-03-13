@@ -7,10 +7,14 @@ from pydantic import BaseModel
 
 import openai
 
+from api.api.chat import router as chat_router
+from api.api.outline import router as outline_router
 
 load_dotenv()
 
 app = FastAPI(title="AI Publishing Engine - AI API")
+app.include_router(chat_router)
+app.include_router(outline_router)
 
 
 class TestChatRequest(BaseModel):
