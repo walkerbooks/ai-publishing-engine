@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Optional: backend URL for future book persistence
     backend_url: str | None = None
 
+    # YouTube Data API v3 (for onboarding video block)
+    youtube_api_key: str | None = None
+
     # LangSmith tracing (set LANGSMITH_API_KEY to enable)
     langchain_tracing_v2: str = "false"
     langsmith_api_key: str | None = None

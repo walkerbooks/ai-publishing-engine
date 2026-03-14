@@ -10,6 +10,7 @@ import openai
 from api.api.chat import router as chat_router
 from api.api.outline import router as outline_router
 from api.api.preview import router as preview_router
+from api.api.videos import router as videos_router
 from api.tracing import init_langsmith
 
 load_dotenv()
@@ -18,6 +19,7 @@ app = FastAPI(title="AI Publishing Engine - AI API")
 app.include_router(chat_router)
 app.include_router(outline_router)
 app.include_router(preview_router)
+app.include_router(videos_router)
 
 
 class TestChatRequest(BaseModel):

@@ -45,6 +45,18 @@ def outline(book_spec: dict) -> dict:
         return resp.json()
 
 
+def videos(q: str = "make money selling ebooks on Amazon KDP", max_results: int = 10) -> dict:
+    """
+    Fetch YouTube videos for the onboarding block.
+    Returns dict with "videos" list of {title, thumbnail_url, video_id, link}.
+    """
+    url = f"{get_ai_api_url().rstrip('/')}/api/videos"
+    with httpx.Client(timeout=15.0) as client:
+        resp = client.get(url, params={"q": q, "max_results": max_results})
+        resp.raise_for_status()
+        return resp.json()
+
+
 def preview(book_spec: dict, book_outline: dict) -> dict[str, Any]:
     """
     Request a 6–8 page preview from the AI API (intro + first chapter).
