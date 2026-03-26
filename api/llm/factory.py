@@ -5,7 +5,10 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from api.config import get_settings
 
 
-def get_llm(provider: str | None = None) -> BaseChatModel:
+def get_llm(
+    provider: str | None = None,
+    streaming: bool = False,
+) -> BaseChatModel:
     """
     Return a LangChain chat model for the given provider.
     If provider is None, uses settings.llm_provider.
@@ -22,6 +25,7 @@ def get_llm(provider: str | None = None) -> BaseChatModel:
             model=settings.openai_model,
             api_key=settings.openai_api_key,
             temperature=0.3,
+            streaming=streaming,
         )
 
     if p == "groq":
@@ -29,10 +33,18 @@ def get_llm(provider: str | None = None) -> BaseChatModel:
 
         if not settings.groq_api_key:
             raise ValueError("GROQ_API_KEY is not set")
-        return ChatGroq(
-            model=settings.groq_model,
-            api_key=settings.groq_api_key,
-            temperature=0.3,
-        )
+        kwargs = {
+            "model": settings.groq_model,
+            "api_key": settings.groq_api_key,
+            "temperature": 0.3,
+        }
+        # Streaming support depends on provider capabilities; if the Groq SDK
+        # doesn't accept the `streaming` kwarg, we fall back to non-streaming.
+        if streaming:
+            try:
+                return ChatGroq(**kwargs, streaming=True)
+            except TypeError:
+                pass
+        return ChatGroq(**kwargs)
 
     raise ValueError(f"Unknown LLM provider: {provider}. Use 'openai' or 'groq'.")

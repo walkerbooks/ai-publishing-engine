@@ -8,6 +8,7 @@ from pydantic import BaseModel
 import openai
 
 from api.api.chat import router as chat_router
+from api.api.chat_unified import router as chat_unified_router
 from api.api.outline import router as outline_router
 from api.api.preview import router as preview_router
 from api.api.videos import router as videos_router
@@ -17,6 +18,7 @@ load_dotenv()
 
 app = FastAPI(title="AI Publishing Engine - AI API")
 app.include_router(chat_router)
+app.include_router(chat_unified_router)
 app.include_router(outline_router)
 app.include_router(preview_router)
 app.include_router(videos_router)

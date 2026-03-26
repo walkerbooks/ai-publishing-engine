@@ -9,7 +9,11 @@ from api.llm.factory import get_llm
 from api.state.schema import BookOutline
 
 
-def run_outline(book_spec: dict, provider: str | None = None) -> dict:
+def run_outline(
+    book_spec: dict,
+    revision_notes: str | None = None,
+    provider: str | None = None,
+) -> dict:
     """
     Generate a BookOutline from a Book Specification.
     Returns the outline as a dict (ready for JSON response and validation).
@@ -18,9 +22,12 @@ def run_outline(book_spec: dict, provider: str | None = None) -> dict:
     structured_llm = llm.with_structured_output(BookOutline)
     spec_text = json.dumps(book_spec, indent=2)
 
+    notes = f"\n\nRevision instructions from the user:\n{revision_notes}\n\n" if revision_notes else ""
     messages = [
         SystemMessage(content=OUTLINE_SYSTEM),
-        HumanMessage(content=f"Book Specification (BSO):\n\n{spec_text}\n\nProduce the chapter outline."),
+        HumanMessage(
+            content=f"Book Specification (BSO):\n\n{spec_text}\n\n{notes}Produce the chapter outline."
+        ),
     ]
     outline: BookOutline = structured_llm.invoke(messages)
     return outline.model_dump()
