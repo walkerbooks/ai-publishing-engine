@@ -4,6 +4,10 @@ import { useState, FormEvent, useEffect, useRef } from "react";
 import { Plus, Mic, Send } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
+function focusInput(ref: { current: HTMLInputElement | null }) {
+  queueMicrotask(() => ref.current?.focus());
+}
+
 type Props = {
   disabled?: boolean;
   onSend: (text: string) => void;
@@ -21,16 +25,25 @@ export function ChatPillComposer({
 }: Props) {
   const [v, setV] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const wasDisabledRef = useRef(disabled);
 
   useEffect(() => {
-    if (autoFocus) inputRef.current?.focus();
+    if (autoFocus) focusInput(inputRef);
   }, [autoFocus]);
+
+  useEffect(() => {
+    if (wasDisabledRef.current && !disabled) {
+      focusInput(inputRef);
+    }
+    wasDisabledRef.current = disabled;
+  }, [disabled]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!v.trim() || disabled) return;
     onSend(v);
     setV("");
+    focusInput(inputRef);
   };
 
   return (
