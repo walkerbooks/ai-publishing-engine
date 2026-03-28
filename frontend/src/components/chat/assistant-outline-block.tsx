@@ -9,7 +9,7 @@ type Props = { outline: BookOutlineLite };
 export function AssistantOutlineBlock({ outline }: Props) {
   const chapters = outline.chapters ?? [];
   return (
-    <div className="w-full rounded-lg border border-border/80 bg-slate-100/95 p-3 backdrop-blur-md dark:bg-background/80">
+    <div className="w-full rounded-lg border border-border/80 bg-slate-100 p-3 dark:bg-background">
       <OutlineMetrics
         title={String(outline.book_title ?? "Book")}
         subtitle={outline.subtitle ? String(outline.subtitle) : undefined}

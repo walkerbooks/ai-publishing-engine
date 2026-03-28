@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useVideoInjection } from "@/hooks/use-video-injection";
 import { useUnifiedChatSend } from "@/hooks/use-unified-chat-send";
@@ -18,6 +19,11 @@ export function ChatPageClient() {
 
   const hasThread = messages.length > 0;
   const showConversationChrome = hasThread || conversationCount > 0;
+  const [outlineMobileOpen, setOutlineMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!bookOutline) setOutlineMobileOpen(false);
+  }, [bookOutline]);
 
   const proceedToOutline = () =>
     (usePublishingStore.getState().setAwaitingGate(null),
@@ -48,7 +54,12 @@ export function ChatPageClient() {
     usePublishingStore.getState().setComposerAction("revise"));
 
   return (
-    <ChatShell showConversationChrome={showConversationChrome}>
+    <ChatShell
+      showConversationChrome={showConversationChrome}
+      showGeneratedOutlineButton={Boolean(bookOutline)}
+      onOpenGeneratedOutline={() => setOutlineMobileOpen(true)}
+      onSidebarWillOpen={() => setOutlineMobileOpen(false)}
+    >
       <ChatWorkspace
         hasThread={hasThread}
         err={err}
@@ -56,6 +67,8 @@ export function ChatPageClient() {
         messages={messages}
         bookOutline={bookOutline}
         awaitingGate={awaitingGate}
+        outlineMobileOpen={outlineMobileOpen}
+        onCloseOutlineMobile={() => setOutlineMobileOpen(false)}
         onSend={(t) => void send(t)}
         clearErr={clearErr}
         proceedToOutline={proceedToOutline}

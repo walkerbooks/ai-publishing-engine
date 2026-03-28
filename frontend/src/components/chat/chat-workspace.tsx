@@ -9,6 +9,7 @@ import { ChatComposer } from "@/components/chat/chat-composer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatGatePanel } from "@/components/chat/chat-gate-panel";
 import { ChatOutlineSidecard } from "@/components/chat/chat-outline-sidecard";
+import { ChatOutlineDrawer } from "@/components/chat/shell/chat-outline-drawer";
 import { useChatScroll } from "@/hooks/use-chat-scroll";
 import { cn } from "@/lib/utils/cn";
 
@@ -30,6 +31,9 @@ type Props = {
   awaitingGate: null | "outline" | "preview" | "full";
   onSend: (text: string) => void;
   clearErr: () => void;
+  /** Mobile: controlled slide-over outline panel */
+  outlineMobileOpen?: boolean;
+  onCloseOutlineMobile?: () => void;
 } & GateHandlers;
 
 /**
@@ -50,6 +54,8 @@ export function ChatWorkspace({
   changeOutline,
   unlockFull,
   changePreview,
+  outlineMobileOpen = false,
+  onCloseOutlineMobile,
 }: Props) {
   const showOutlineColumn = Boolean(bookOutline);
   const threadScrollRef = useRef<HTMLDivElement>(null);
@@ -96,12 +102,6 @@ export function ChatWorkspace({
               <p className="mb-2 shrink-0 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Smith Book · Intake → outline → preview
               </p>
-              <div className="mb-2 shrink-0 lg:hidden">
-                <ChatOutlineSidecard
-                  outline={bookOutline}
-                  variant="embedded"
-                />
-              </div>
               {/* relative + absolute inset-0: guarantees a fixed-height clip so overflow-y scrolls inside nested flex/grid */}
               <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
                 <div
@@ -122,7 +122,7 @@ export function ChatWorkspace({
 
             {showOutlineColumn ? (
               <div
-                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-border bg-slate-100/95 backdrop-blur-sm dark:border-white/10 dark:bg-[#0d0d0d]/80 lg:flex xl:w-[320px]"
+                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-border bg-slate-100 dark:border-white/10 dark:bg-[#0d0d0d] lg:flex xl:w-[320px]"
                 role="region"
                 aria-label="Generated outline"
               >
@@ -133,6 +133,14 @@ export function ChatWorkspace({
                   />
                 </div>
               </div>
+            ) : null}
+
+            {showOutlineColumn && onCloseOutlineMobile ? (
+              <ChatOutlineDrawer
+                open={outlineMobileOpen}
+                onClose={onCloseOutlineMobile}
+                outline={bookOutline}
+              />
             ) : null}
           </div>
 

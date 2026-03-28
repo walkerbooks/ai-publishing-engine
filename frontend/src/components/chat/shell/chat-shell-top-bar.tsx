@@ -5,13 +5,21 @@ import { cn } from "@/lib/utils/cn";
 
 type Props = {
   onOpenSidebar: () => void;
+  /** Show when a book outline exists (mobile drawer trigger). */
+  showGeneratedOutlineButton?: boolean;
+  onOpenGeneratedOutline?: () => void;
   className?: string;
 };
 
 /**
  * Compact top bar for small / medium viewports (drawer trigger).
  */
-export function ChatShellTopBar({ onOpenSidebar, className }: Props) {
+export function ChatShellTopBar({
+  onOpenSidebar,
+  showGeneratedOutlineButton = false,
+  onOpenGeneratedOutline,
+  className,
+}: Props) {
   return (
     <div
       className={cn(
@@ -31,6 +39,16 @@ export function ChatShellTopBar({ onOpenSidebar, className }: Props) {
         <p className="truncate text-sm font-medium text-foreground">Smith Book</p>
         <p className="truncate text-xs text-muted-foreground">Unified chat</p>
       </div>
+      {showGeneratedOutlineButton && onOpenGeneratedOutline ? (
+        <button
+          type="button"
+          onClick={onOpenGeneratedOutline}
+          className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-medium text-slate-800 hover:bg-slate-100 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 sm:px-3 sm:text-sm"
+        >
+          <span className="hidden min-[380px]:inline">Generated outline</span>
+          <span className="min-[380px]:hidden">Outline</span>
+        </button>
+      ) : null}
     </div>
   );
 }

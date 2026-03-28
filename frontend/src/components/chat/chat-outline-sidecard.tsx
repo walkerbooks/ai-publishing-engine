@@ -9,6 +9,8 @@ type Props = {
   className?: string;
   /** embedded: mobile stack; sidebar: right column fills height with internal scroll */
   variant?: "embedded" | "sidebar";
+  /** Hide the “Generated Outline” caption (e.g. drawer already has a title). */
+  hideShellTitle?: boolean;
 };
 
 function toOutlineLite(outline: Record<string, unknown> | null): BookOutlineLite | null {
@@ -54,6 +56,7 @@ export function ChatOutlineSidecard({
   outline,
   className,
   variant = "embedded",
+  hideShellTitle = false,
 }: Props) {
   const safe = toOutlineLite(outline);
   if (!safe) return null;
@@ -63,7 +66,7 @@ export function ChatOutlineSidecard({
   return (
     <aside
       className={cn(
-        "w-full min-w-0 rounded-2xl border border-border/80 bg-slate-100/95 p-4 backdrop-blur-md dark:bg-background/80",
+        "w-full min-w-0 rounded-2xl border border-border/80 bg-slate-100 p-4 dark:bg-background",
         isSidebar
           ? "chat-outline-in flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           : "chat-outline-in h-fit",
@@ -72,9 +75,11 @@ export function ChatOutlineSidecard({
       aria-live="polite"
     >
       <div className="shrink-0">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Generated Outline
-        </p>
+        {hideShellTitle ? null : (
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Generated Outline
+          </p>
+        )}
         <h3 className="text-lg font-semibold text-foreground">{safe.book_title}</h3>
         {safe.subtitle ? (
           <p className="mt-1 text-sm text-muted-foreground">{safe.subtitle}</p>

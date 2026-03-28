@@ -12,13 +12,29 @@ type Props = {
   children: React.ReactNode;
   /** When false, hide conversation chrome (empty landing — no prior chats and no active thread). */
   showConversationChrome: boolean;
+  /** Mobile: show “Generated outline” next to menu when an outline exists. */
+  showGeneratedOutlineButton?: boolean;
+  onOpenGeneratedOutline?: () => void;
+  /** Called before opening the conversations drawer (e.g. close outline drawer). */
+  onSidebarWillOpen?: () => void;
 };
 
 /**
  * Layout shell for /chat: optional desktop sidebar + mobile drawer, hydration + sync.
  */
-export function ChatShell({ children, showConversationChrome }: Props) {
+export function ChatShell({
+  children,
+  showConversationChrome,
+  showGeneratedOutlineButton = false,
+  onOpenGeneratedOutline,
+  onSidebarWillOpen,
+}: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const openSidebar = () => {
+    onSidebarWillOpen?.();
+    setDrawerOpen(true);
+  };
   useChatSessionBootstrap();
   useChatSessionSync();
 
@@ -52,7 +68,11 @@ export function ChatShell({ children, showConversationChrome }: Props) {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {showConversationChrome ? (
-          <ChatShellTopBar onOpenSidebar={() => setDrawerOpen(true)} />
+          <ChatShellTopBar
+            onOpenSidebar={openSidebar}
+            showGeneratedOutlineButton={showGeneratedOutlineButton}
+            onOpenGeneratedOutline={onOpenGeneratedOutline}
+          />
         ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {children}
