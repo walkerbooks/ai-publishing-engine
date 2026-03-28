@@ -2,21 +2,30 @@ import type { ChatMessage } from "@/lib/types/chat";
 import { VideoCardRow } from "@/components/chat/video-card-row";
 import { AssistantOutlineBlock } from "@/components/chat/assistant-outline-block";
 import { AssistantPreviewBlock } from "@/components/chat/assistant-preview-block";
+import { cn } from "@/lib/utils/cn";
 
-type Props = { message: ChatMessage };
+type Props = {
+  message: ChatMessage;
+  variant?: "light" | "dark";
+};
 
-export function ChatMessageRow({ message }: Props) {
+export function ChatMessageRow({ message, variant = "light" }: Props) {
   const isUser = message.role === "user";
   const kind = message.kind ?? "intake";
+  const dark = variant === "dark";
 
   return (
-    <div className={`mb-3 flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`mb-4 flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={
-          isUser
-            ? "max-w-[85%] rounded-xl bg-[#1e3a5f] px-4 py-3 text-sm leading-relaxed text-white shadow"
-            : "max-w-[85%] py-2 text-sm leading-relaxed text-slate-800"
-        }
+        className={cn(
+          "max-w-[min(100%,36rem)] text-sm leading-relaxed",
+          isUser &&
+            (dark
+              ? "rounded-2xl bg-zinc-700 px-4 py-3 text-white shadow-md"
+              : "rounded-xl bg-[#1e3a5f] px-4 py-3 text-white shadow"),
+          !isUser && dark && "text-zinc-200",
+          !isUser && !dark && "text-slate-800",
+        )}
       >
         {message.role === "assistant" && kind === "outline" ? (
           message.outline ? (
@@ -38,27 +47,33 @@ export function ChatMessageRow({ message }: Props) {
           )
         ) : null}
 
-        {message.role === "assistant" && (kind === "intake" || !message.kind) ? (
+        {message.role === "assistant" &&
+        (kind === "intake" || !message.kind) ? (
           <>
             <div className="whitespace-pre-wrap break-words">
               {message.content}
             </div>
             {message.videos?.length ? (
-              <VideoCardRow videos={message.videos} />
+              <VideoCardRow videos={message.videos} dark={dark} />
             ) : null}
           </>
         ) : null}
 
         {message.role === "assistant" && kind === "gate" ? (
-          <div className="whitespace-pre-wrap break-words px-1">
+          <div
+            className={cn(
+              "rounded-xl border px-3 py-2",
+              dark
+                ? "border-white/15 bg-zinc-800/80 text-zinc-100"
+                : "border-slate-200 bg-slate-50 px-1 text-slate-800",
+            )}
+          >
             {message.content}
           </div>
         ) : null}
 
         {message.role === "user" ? (
-          <div className="whitespace-pre-wrap break-words">
-            {message.content}
-          </div>
+          <div className="whitespace-pre-wrap break-words">{message.content}</div>
         ) : null}
       </div>
     </div>

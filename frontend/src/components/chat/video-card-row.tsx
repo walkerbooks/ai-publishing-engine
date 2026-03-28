@@ -1,8 +1,8 @@
 import type { VideoMeta } from "@/lib/types/chat";
 
-type Props = { videos: VideoMeta[] };
+type Props = { videos: VideoMeta[]; dark?: boolean };
 
-export function VideoCardRow({ videos }: Props) {
+export function VideoCardRow({ videos, dark }: Props) {
   const list = videos.slice(0, 3);
   return (
     <div className="mt-2 flex flex-wrap gap-3">
@@ -22,7 +22,13 @@ export function VideoCardRow({ videos }: Props) {
               className="mb-1 block w-full rounded-lg object-cover"
             />
           ) : null}
-          <span className="block text-xs text-blue-600 hover:underline">
+          <span
+            className={
+              dark
+                ? "block text-xs text-sky-400 hover:underline"
+                : "block text-xs text-blue-600 hover:underline"
+            }
+          >
             {v.title}
           </span>
         </a>

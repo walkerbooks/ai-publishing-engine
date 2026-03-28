@@ -1,34 +1,23 @@
 "use client";
 
-import { useState, FormEvent } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { ChatPillComposer } from "@/components/chat/chat-pill-composer";
+import { cn } from "@/lib/utils/cn";
 
 type Props = {
   disabled?: boolean;
   onSend: (text: string) => void;
+  /** `dock` = bottom bar (full width pill); omit for same styling without extra margin */
+  variant?: "dock" | "default";
 };
 
-export function ChatComposer({ disabled, onSend }: Props) {
-  const [v, setV] = useState("");
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!v.trim() || disabled) return;
-    onSend(v);
-    setV("");
-  };
+export function ChatComposer({ disabled, onSend, variant = "default" }: Props) {
   return (
-    <form onSubmit={submit} className="mt-4 flex gap-2">
-      <Input
-        value={v}
-        onChange={(e) => setV(e.target.value)}
-        placeholder="Tell me about the book you want to create..."
-        disabled={disabled}
-        className="flex-1"
-      />
-      <Button type="submit" disabled={disabled || !v.trim()}>
-        Send
-      </Button>
-    </form>
+    <ChatPillComposer
+      disabled={disabled}
+      onSend={onSend}
+      placeholder="Message Smith Book…"
+      autoFocus={variant === "dock"}
+      className={cn("max-w-none", variant === "dock" && "w-full")}
+    />
   );
 }

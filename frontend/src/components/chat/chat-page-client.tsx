@@ -3,11 +3,9 @@ import { useRouter } from "next/navigation";
 import { useVideoInjection } from "@/hooks/use-video-injection";
 import { useUnifiedChatSend } from "@/hooks/use-unified-chat-send";
 import { usePublishingStore } from "@/stores/publishing-store";
-import { ChatWelcome } from "@/components/chat/chat-welcome";
-import { ChatThread } from "@/components/chat/chat-thread";
-import { ChatComposer } from "@/components/chat/chat-composer";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ChatGatePanel } from "@/components/chat/chat-gate-panel";
+import { useChatDirectoryStore } from "@/stores/chat-directory-store";
+import { ChatWorkspace } from "@/components/chat/chat-workspace";
+import { ChatShell } from "@/components/chat/shell/chat-shell";
 
 export function ChatPageClient() {
   const router = useRouter();
@@ -15,6 +13,11 @@ export function ChatPageClient() {
   const { send, busy, err, clearErr } = useUnifiedChatSend();
   const messages = usePublishingStore((s) => s.chatMessages);
   const awaitingGate = usePublishingStore((s) => s.awaitingGate);
+  const bookOutline = usePublishingStore((s) => s.bookOutline);
+  const conversationCount = useChatDirectoryStore((s) => s.conversations.length);
+
+  const hasThread = messages.length > 0;
+  const showConversationChrome = hasThread || conversationCount > 0;
 
   const onWelcomePick = (opt: string) =>
     (clearErr(),
@@ -49,52 +52,26 @@ export function ChatPageClient() {
     (usePublishingStore.getState().setAwaitingGate(null),
     usePublishingStore.getState().setComposerStep("preview"),
     usePublishingStore.getState().setComposerAction("revise"));
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="text-2xl font-semibold text-slate-900">
-        Unified chat (intake → outline → preview)
-      </h1>
-      <p className="mt-2 text-sm text-slate-600">
-        Alex streams the intake reply, then shows outline/preview steps as blocks in the same chat.
-      </p>
-      {err ? (
-        <p className="mt-2 text-sm text-red-600" role="alert">
-          {err}
-        </p>
-      ) : null}
-      {messages.length === 0 ? (
-        <div className="mt-6">
-          <ChatWelcome onPick={onWelcomePick} />
-        </div>
-      ) : (
-        <>
-          <div className="mt-6">
-            <ChatThread messages={messages} />
-            {busy ? (
-              <div className="mt-2 space-y-2">
-                <Skeleton className="h-4 w-2/3" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            ) : null}
-          </div>
-          {awaitingGate ? (
-            <ChatGatePanel
-              awaitingGate={awaitingGate}
-              onProceedToOutline={proceedToOutline}
-              onChangeRequirements={changeRequirements}
-              onProceedToPreview={proceedToPreview}
-              onChangeOutline={changeOutline}
-              onUnlockFull={unlockFull}
-              onChangePreview={changePreview}
-            />
-          ) : (
-            <ChatComposer
-              disabled={busy}
-              onSend={(t) => (clearErr(), void send(t))}
-            />
-          )}
-        </>
-      )}
-    </div>
+    <ChatShell showConversationChrome={showConversationChrome}>
+      <ChatWorkspace
+        hasThread={hasThread}
+        err={err}
+        busy={busy}
+        messages={messages}
+        bookOutline={bookOutline}
+        awaitingGate={awaitingGate}
+        onWelcomePick={onWelcomePick}
+        onSend={(t) => void send(t)}
+        clearErr={clearErr}
+        proceedToOutline={proceedToOutline}
+        changeRequirements={changeRequirements}
+        proceedToPreview={proceedToPreview}
+        changeOutline={changeOutline}
+        unlockFull={unlockFull}
+        changePreview={changePreview}
+      />
+    </ChatShell>
   );
 }
