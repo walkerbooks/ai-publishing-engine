@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import type { ChatMessage } from "@/lib/types/chat";
 import { ChatHero } from "@/components/chat/chat-hero";
 import { ChatThread } from "@/components/chat/chat-thread";
@@ -7,6 +8,7 @@ import { ChatComposer } from "@/components/chat/chat-composer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatGatePanel } from "@/components/chat/chat-gate-panel";
 import { ChatOutlineSidecard } from "@/components/chat/chat-outline-sidecard";
+import { useChatScroll } from "@/hooks/use-chat-scroll";
 import { cn } from "@/lib/utils/cn";
 
 type GateHandlers = {
@@ -51,6 +53,8 @@ export function ChatWorkspace({
   changePreview,
 }: Props) {
   const showOutlineColumn = Boolean(bookOutline);
+  const threadScrollRef = useRef<HTMLDivElement>(null);
+  useChatScroll(messages, threadScrollRef);
 
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
@@ -94,17 +98,21 @@ export function ChatWorkspace({
                     variant="embedded"
                   />
                 </div>
-                <div
-                  className="chat-pane-scroll min-h-0 min-w-0 flex-1"
-                  aria-label="Chat messages"
-                >
-                  <ChatThread messages={messages} variant="dark" />
-                  {busy ? (
-                    <div className="mt-3 space-y-2 pb-4">
-                      <Skeleton className="h-4 w-2/3 bg-zinc-700/60" />
-                      <Skeleton className="h-4 w-1/2 bg-zinc-700/60" />
-                    </div>
-                  ) : null}
+                {/* relative + absolute inset-0: guarantees a fixed-height clip so overflow-y scrolls inside nested flex/grid */}
+                <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+                  <div
+                    ref={threadScrollRef}
+                    className="chat-pane-scroll absolute inset-0 min-h-0 min-w-0 overflow-y-auto"
+                    aria-label="Chat messages"
+                  >
+                    <ChatThread messages={messages} variant="dark" />
+                    {busy ? (
+                      <div className="mt-3 space-y-2 pb-4">
+                        <Skeleton className="h-4 w-2/3 bg-zinc-700/60" />
+                        <Skeleton className="h-4 w-1/2 bg-zinc-700/60" />
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
