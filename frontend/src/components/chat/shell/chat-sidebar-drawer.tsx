@@ -44,19 +44,19 @@ export function ChatSidebarDrawer({ open, onClose, className }: Props) {
       />
       <aside
         className={cn(
-          "absolute left-0 top-0 flex h-full w-[min(100vw-3rem,300px)] max-w-[85vw] flex-col border-r border-white/10 bg-zinc-950 shadow-2xl transition-transform duration-300 ease-out sm:w-[min(100vw-4rem,320px)]",
+          "absolute left-0 top-0 flex h-full w-[min(100vw-3rem,300px)] max-w-[85vw] flex-col border-r border-border bg-background shadow-2xl transition-transform duration-300 ease-out dark:border-white/10 dark:bg-zinc-950 sm:w-[min(100vw-4rem,320px)]",
           open ? "translate-x-0" : "-translate-x-full",
         )}
         role="dialog"
         aria-modal="true"
         aria-label="Conversations"
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-3 py-3">
-          <span className="text-sm font-semibold text-white">Conversations</span>
+        <div className="flex items-center justify-between border-b border-border px-3 py-3 dark:border-white/10">
+          <span className="text-sm font-semibold text-foreground">Conversations</span>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/10 hover:text-white"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-slate-100 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white"
             aria-label="Close"
           >
             <X className="h-5 w-5" />

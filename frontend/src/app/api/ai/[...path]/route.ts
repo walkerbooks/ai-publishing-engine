@@ -40,16 +40,14 @@ async function forward(
   return new NextResponse(text, { status: res.status, headers: { "Content-Type": ct } });
 }
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
-  return forward(req, params.path, "GET");
+type RouteCtx = { params: Promise<{ path?: string[] }> };
+
+export async function GET(req: NextRequest, ctx: RouteCtx) {
+  const { path } = await ctx.params;
+  return forward(req, path ?? [], "GET");
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
-  return forward(req, params.path, "POST");
+export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const { path } = await ctx.params;
+  return forward(req, path ?? [], "POST");
 }

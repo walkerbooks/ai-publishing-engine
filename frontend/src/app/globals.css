@@ -6,12 +6,22 @@
   --background: 0 0% 100%;
   --foreground: 222 47% 11%;
   --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
   --accent: 210 40% 96%;
   --border: 214 32% 91%;
 }
 
+.dark {
+  --background: 240 6% 6%;
+  --foreground: 0 0% 98%;
+  --muted: 240 4% 16%;
+  --muted-foreground: 240 5% 65%;
+  --accent: 240 5% 12%;
+  --border: 240 4% 18%;
+}
+
 body {
-  @apply bg-white text-slate-900 antialiased;
+  @apply bg-background text-foreground antialiased;
 }
 
 @keyframes outline-in {
@@ -68,4 +78,15 @@ body {
 .chat-pane-scroll::-webkit-scrollbar-thumb {
   background: rgb(161 161 170 / 0.45);
   border-radius: 4px;
+}
+
+/* Light surfaces: match scrollbar to slate UI */
+:root:not(.dark) .chat-pane-scroll {
+  scrollbar-color: rgb(148 163 184 / 0.7) rgb(241 245 249 / 0.9);
+}
+:root:not(.dark) .chat-pane-scroll::-webkit-scrollbar-track {
+  background: rgb(241 245 249 / 0.9);
+}
+:root:not(.dark) .chat-pane-scroll::-webkit-scrollbar-thumb {
+  background: rgb(148 163 184 / 0.55);
 }

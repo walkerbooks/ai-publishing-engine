@@ -1,5 +1,6 @@
 "use client";
 
+import { useTheme } from "next-themes";
 import type { BookOutlineLite } from "@/lib/types/chat";
 import { OutlineChapters } from "@/components/outline/outline-chapters";
 import { cn } from "@/lib/utils/cn";
@@ -55,15 +56,21 @@ export function ChatOutlineSidecard({
   className,
   variant = "embedded",
 }: Props) {
+  const { resolvedTheme } = useTheme();
   const safe = toOutlineLite(outline);
   if (!safe) return null;
 
   const isSidebar = variant === "sidebar";
+  const isDark = resolvedTheme !== "light";
+  const chapterAppearance = isDark ? "dark" : "light";
 
   return (
     <aside
       className={cn(
-        "w-full min-w-0 rounded-2xl border border-white/15 bg-zinc-900/70 p-4 backdrop-blur",
+        "w-full min-w-0 rounded-2xl border p-4 backdrop-blur",
+        isDark
+          ? "border-white/15 bg-zinc-900/70"
+          : "border-slate-200 bg-white shadow-sm",
         isSidebar
           ? "chat-outline-in flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           : "chat-outline-in h-fit",
@@ -72,23 +79,66 @@ export function ChatOutlineSidecard({
       aria-live="polite"
     >
       <div className="shrink-0">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+        <p
+          className={cn(
+            "mb-1 text-[11px] font-semibold uppercase tracking-widest",
+            isDark ? "text-zinc-500" : "text-slate-500",
+          )}
+        >
           Generated Outline
         </p>
-        <h3 className="text-lg font-semibold text-white">{safe.book_title}</h3>
+        <h3
+          className={cn(
+            "text-lg font-semibold",
+            isDark ? "text-white" : "text-slate-900",
+          )}
+        >
+          {safe.book_title}
+        </h3>
         {safe.subtitle ? (
-          <p className="mt-1 text-sm text-zinc-400">{safe.subtitle}</p>
+          <p
+            className={cn(
+              "mt-1 text-sm",
+              isDark ? "text-zinc-400" : "text-slate-600",
+            )}
+          >
+            {safe.subtitle}
+          </p>
         ) : null}
         <div className="mt-3 flex gap-5 text-sm">
           <div>
-            <p className="text-[11px] uppercase text-zinc-500">Words</p>
-            <p className="font-medium text-zinc-100">
+            <p
+              className={cn(
+                "text-[11px] uppercase",
+                isDark ? "text-zinc-500" : "text-slate-500",
+              )}
+            >
+              Words
+            </p>
+            <p
+              className={cn(
+                "font-medium",
+                isDark ? "text-zinc-100" : "text-slate-900",
+              )}
+            >
               {Number(safe.total_word_target ?? 0).toLocaleString()}
             </p>
           </div>
           <div>
-            <p className="text-[11px] uppercase text-zinc-500">Pages</p>
-            <p className="font-medium text-zinc-100">
+            <p
+              className={cn(
+                "text-[11px] uppercase",
+                isDark ? "text-zinc-500" : "text-slate-500",
+              )}
+            >
+              Pages
+            </p>
+            <p
+              className={cn(
+                "font-medium",
+                isDark ? "text-zinc-100" : "text-slate-900",
+              )}
+            >
               {Number(safe.estimated_pages ?? 0)}
             </p>
           </div>
@@ -103,7 +153,7 @@ export function ChatOutlineSidecard({
             : "max-h-[50vh] overflow-y-auto overscroll-contain sm:max-h-[55vh]",
         )}
       >
-        <OutlineChapters appearance="dark" chapters={safe.chapters} />
+        <OutlineChapters appearance={chapterAppearance} chapters={safe.chapters} />
       </div>
     </aside>
   );

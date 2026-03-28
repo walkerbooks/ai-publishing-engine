@@ -9,7 +9,10 @@ const config: Config = {
         border: "hsl(var(--border))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        muted: "hsl(var(--muted))",
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
         accent: "hsl(var(--accent))",
         bubble: { user: "#1e3a5f" },
       },

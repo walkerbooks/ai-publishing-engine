@@ -27,17 +27,17 @@ export function ChatShell({ children, showConversationChrome }: Props) {
       <aside
         aria-hidden={!showConversationChrome}
         className={cn(
-          "hidden min-h-0 shrink-0 flex-col overflow-hidden border-r bg-zinc-950/90 transition-[width,opacity,transform] duration-300 ease-out lg:flex",
+          "hidden min-h-0 shrink-0 flex-col overflow-hidden border-r border-border bg-slate-100/95 transition-[width,opacity,transform] duration-300 ease-out dark:border-transparent dark:bg-zinc-950/90 lg:flex",
           showConversationChrome
-            ? "w-[280px] translate-x-0 border-white/10 opacity-100 xl:w-[300px]"
+            ? "w-[280px] translate-x-0 border-border opacity-100 dark:border-white/10 xl:w-[300px]"
             : "pointer-events-none w-0 -translate-x-2 border-transparent opacity-0",
         )}
         aria-label="Book conversations sidebar"
       >
         <div className="flex min-h-0 min-w-0 w-[280px] flex-1 flex-col overflow-hidden xl:w-[300px]">
-          <div className="shrink-0 border-b border-white/10 px-3 py-3">
-            <p className="text-sm font-semibold text-white">Smith Book</p>
-            <p className="text-xs text-zinc-500">Your conversations</p>
+          <div className="shrink-0 border-b border-border px-3 py-3 dark:border-white/10">
+            <p className="text-sm font-semibold text-foreground">Smith Book</p>
+            <p className="text-xs text-muted-foreground">Your conversations</p>
           </div>
           <div className="chat-pane-scroll min-h-0 min-w-0 flex-1 basis-0 overflow-y-auto overscroll-contain p-2">
             <ChatConversationSidebarPanel />

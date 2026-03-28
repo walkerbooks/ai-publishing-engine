@@ -25,12 +25,12 @@ export function ChatGatePanel({
   if (!awaitingGate) return null;
 
   const btnPrimary =
-    "bg-white text-zinc-900 hover:bg-zinc-100 focus-visible:ring-zinc-400";
+    "bg-slate-900 text-white hover:bg-slate-800 focus-visible:ring-slate-400 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 dark:focus-visible:ring-zinc-400";
   const btnGhost =
-    "border border-white/20 bg-transparent text-zinc-100 hover:bg-white/10 focus-visible:ring-zinc-500";
+    "border border-slate-300 bg-transparent text-slate-800 hover:bg-slate-100 focus-visible:ring-slate-400 dark:border-white/20 dark:text-zinc-100 dark:hover:bg-white/10 dark:focus-visible:ring-zinc-500";
 
   return (
-    <div className="space-y-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4">
+    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/60">
       {awaitingGate === "outline" ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Button

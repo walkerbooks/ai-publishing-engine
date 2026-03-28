@@ -25,10 +25,10 @@ export function ChatHero({
       )}
     >
       <div className="space-y-2 px-2">
-        <h1 className="text-balance text-2xl font-medium tracking-tight text-white sm:text-3xl">
+        <h1 className="text-balance text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
           What&apos;s on your mind today?
         </h1>
-        <p className="mx-auto max-w-md text-sm text-zinc-500">
+        <p className="mx-auto max-w-md text-sm text-muted-foreground">
           Describe the book you want to create — genre, audience, and tone. Or
           tap a quick start below.
         </p>
@@ -43,7 +43,7 @@ export function ChatHero({
       />
 
       <div className="w-full max-w-2xl space-y-3">
-        <p className="text-xs font-medium uppercase tracking-wider text-zinc-600">
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Quick start
         </p>
         <div className="flex flex-wrap justify-center gap-2">
@@ -53,7 +53,7 @@ export function ChatHero({
               type="button"
               disabled={disabled}
               onClick={() => onQuickPick(opt)}
-              className="rounded-full border border-white/10 bg-zinc-800/60 px-4 py-2 text-sm text-zinc-200 transition hover:border-white/20 hover:bg-zinc-800 disabled:opacity-40"
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-40 dark:border-white/10 dark:bg-zinc-800/60 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-zinc-800"
             >
               {opt}
             </button>

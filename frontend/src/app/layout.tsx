@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { AppHeader } from "@/components/layout/app-header";
+import { cn } from "@/lib/utils/cn";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -15,8 +16,8 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={cn(inter.className, "min-h-dvh bg-background text-foreground")}>
         <Providers>
           <div className="flex min-h-dvh flex-col">
             <AppHeader />

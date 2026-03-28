@@ -1,5 +1,6 @@
 "use client";
 
+import { useTheme } from "next-themes";
 import { useRef } from "react";
 import type { ChatMessage } from "@/lib/types/chat";
 import { ChatHero } from "@/components/chat/chat-hero";
@@ -54,6 +55,8 @@ export function ChatWorkspace({
 }: Props) {
   const showOutlineColumn = Boolean(bookOutline);
   const threadScrollRef = useRef<HTMLDivElement>(null);
+  const { resolvedTheme } = useTheme();
+  const msgVariant = resolvedTheme === "light" ? "light" : "dark";
   useChatScroll(messages, threadScrollRef);
 
   return (
@@ -77,8 +80,8 @@ export function ChatWorkspace({
             />
             {busy ? (
               <div className="mt-8 w-full max-w-2xl space-y-2">
-                <Skeleton className="mx-auto h-4 w-2/3 bg-zinc-700/60" />
-                <Skeleton className="mx-auto h-4 w-1/2 bg-zinc-700/60" />
+                <Skeleton className="mx-auto h-4 w-2/3" />
+                <Skeleton className="mx-auto h-4 w-1/2" />
               </div>
             ) : null}
           </div>
@@ -93,7 +96,7 @@ export function ChatWorkspace({
                 showOutlineColumn && "lg:mr-[300px] xl:mr-[320px]",
               )}
             >
-              <p className="mb-2 shrink-0 text-xs font-medium uppercase tracking-wider text-zinc-600">
+              <p className="mb-2 shrink-0 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Smith Book · Intake → outline → preview
               </p>
               <div className="mb-2 shrink-0 lg:hidden">
@@ -109,11 +112,11 @@ export function ChatWorkspace({
                   className="chat-pane-scroll absolute inset-0 min-h-0 min-w-0 overflow-y-auto"
                   aria-label="Chat messages"
                 >
-                  <ChatThread messages={messages} variant="dark" />
+                  <ChatThread messages={messages} variant={msgVariant} />
                   {busy ? (
                     <div className="mt-3 space-y-2 pb-4">
-                      <Skeleton className="h-4 w-2/3 bg-zinc-700/60" />
-                      <Skeleton className="h-4 w-1/2 bg-zinc-700/60" />
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-4 w-1/2" />
                     </div>
                   ) : null}
                 </div>
@@ -122,7 +125,7 @@ export function ChatWorkspace({
 
             {showOutlineColumn ? (
               <div
-                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-white/10 bg-[#0d0d0d]/80 lg:flex xl:w-[320px]"
+                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-slate-200/90 bg-white/95 backdrop-blur-sm dark:border-white/10 dark:bg-[#0d0d0d]/80 lg:flex xl:w-[320px]"
                 role="region"
                 aria-label="Generated outline"
               >
@@ -137,7 +140,7 @@ export function ChatWorkspace({
           </div>
 
           {/* Row 2: composer — grid auto row, always under thread */}
-          <div className="chat-dock-enter shrink-0 border-t border-white/10 bg-[#0d0d0d]/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-4 sm:py-4">
+          <div className="chat-dock-enter shrink-0 border-t border-slate-200/90 bg-background/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md dark:border-white/10 dark:bg-[#0d0d0d]/95 sm:px-4 sm:py-4">
             <div
               className={cn(
                 "mx-auto w-full max-w-3xl",
