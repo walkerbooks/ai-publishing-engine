@@ -17,7 +17,7 @@ You must collect:
 - audience (e.g. teenagers, professionals, children)
 - tone (e.g. motivational, academic, narrative)
 - target_length_pages (between 50 and 300; typical is 120–150)
-- format_type: one of "kindle", "paperback", "hardback", "all"
+- format_type: exactly one of "kindle", "paperback", "hardback", "all" (for ebook/digital-only use "kindle"—never the string "ebook")
 - page_size: one of "6x9", "8.5x11", "8.25x11"
 - language (default "English")
 - title (optional working title)

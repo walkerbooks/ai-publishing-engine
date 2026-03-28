@@ -2,7 +2,7 @@
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -36,11 +36,40 @@ class IntakeBookSpecification(BaseModel):
     audience: Optional[str] = Field(None, description="Target audience")
     tone: Optional[str] = Field(None, description="Tone, e.g. motivational, academic")
     target_length_pages: Optional[int] = Field(None, ge=50, le=300, description="Target length in pages")
-    format_type: Optional[Literal["kindle", "paperback", "hardback", "all"]] = None
+    # Kept as str (not strict Literal) so providers accept common synonyms; normalized below.
+    format_type: Optional[str] = Field(
+        None,
+        description='kindle (ebook/digital), paperback, hardback, or all',
+    )
     page_size: Optional[Literal["6x9", "8.5x11", "8.25x11"]] = None
     language: Optional[str] = Field(default="English", description="Language")
     title: Optional[str] = Field(None, description="Working title if provided")
     custom_instructions: Optional[str] = Field(None, description="Extra author instructions")
+
+    @field_validator("format_type", mode="before")
+    @classmethod
+    def normalize_format_type(cls, value: object) -> str | None:
+        """Map ebook/digital synonyms to kindle; unknown values → all (safe default)."""
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            return None
+        s = value.strip().lower().replace("-", "_").replace(" ", "_")
+        synonyms: dict[str, str] = {
+            "ebook": "kindle",
+            "e_book": "kindle",
+            "digital": "kindle",
+            "epub": "kindle",
+            "kdp": "kindle",
+            "hardcover": "hardback",
+            "hard_cover": "hardback",
+            "paper_back": "paperback",
+        }
+        if s in synonyms:
+            return synonyms[s]
+        if s in ("kindle", "paperback", "hardback", "all"):
+            return s
+        return None
 
 
 class ChatMessage(BaseModel):
