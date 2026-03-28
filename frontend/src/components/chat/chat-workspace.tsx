@@ -86,8 +86,7 @@ export function ChatWorkspace({
       ) : (
         <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
           {/* Row 1: messages + outline — bounded height so inner panes scroll */}
-          <div className="min-h-0 min-w-0 overflow-hidden">
-            <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden lg:flex-row lg:items-stretch">
+          <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden lg:flex-row lg:items-stretch">
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 pt-2 sm:px-4 sm:pt-3">
                 <p className="mb-2 shrink-0 text-xs font-medium uppercase tracking-wider text-zinc-600">
                   Smith Book · Intake → outline → preview
@@ -118,7 +117,7 @@ export function ChatWorkspace({
 
               <div
                 className={cn(
-                  "hidden min-h-0 shrink-0 flex-col border-white/10 lg:flex",
+                  "hidden min-h-0 shrink-0 flex-col overflow-hidden border-white/10 lg:flex lg:min-h-0",
                   showOutlineColumn
                     ? "w-[300px] border-l bg-[#0d0d0d]/80 xl:w-[320px]"
                     : "w-0 overflow-hidden border-0",
@@ -126,7 +125,7 @@ export function ChatWorkspace({
               >
                 {showOutlineColumn ? (
                   <div
-                    className="chat-pane-scroll flex h-full min-h-0 min-w-0 flex-1 flex-col py-3 pl-3 pr-2 xl:pl-4"
+                    className="chat-pane-scroll flex min-h-0 min-w-0 flex-1 flex-col py-3 pl-3 pr-2 xl:pl-4"
                     role="region"
                     aria-label="Generated outline"
                   >
@@ -137,7 +136,6 @@ export function ChatWorkspace({
                   </div>
                 ) : null}
               </div>
-            </div>
           </div>
 
           {/* Row 2: composer — grid auto row, always under thread */}

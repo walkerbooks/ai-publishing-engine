@@ -55,7 +55,7 @@ export function ChatOutlineSidecard({
       className={cn(
         "w-full min-w-0 rounded-2xl border border-white/15 bg-zinc-900/70 p-4 backdrop-blur",
         isSidebar
-          ? "chat-outline-in shrink-0"
+          ? "chat-outline-in w-full min-w-0"
           : "chat-outline-in h-fit",
         className,
       )}
