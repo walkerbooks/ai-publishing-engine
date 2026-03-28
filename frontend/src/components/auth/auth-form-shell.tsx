@@ -4,10 +4,26 @@ type Props = {
   title: string;
   children: React.ReactNode;
   className?: string;
+  /** Full page vs modal: dialog drops outer padding and uses a tighter heading. */
+  variant?: "page" | "dialog";
 };
 
 /** Same card shell as PayPal flow / chat gate: border, zinc dark surface, Smith Book eyebrow. */
-export function AuthFormShell({ title, children, className }: Props) {
+export function AuthFormShell({ title, children, className, variant = "page" }: Props) {
+  if (variant === "dialog") {
+    return (
+      <div className={cn("min-w-0 space-y-4", className)}>
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Smith Book · Account
+        </p>
+        <h2 className="text-balance text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+          {title}
+        </h2>
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(

@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { LoginForm } from "@/components/auth/login-form";
+import { SignupForm } from "@/components/auth/signup-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils/cn";
 
@@ -13,6 +17,8 @@ export function AppHeader() {
   const email = useAuthStore((s) => s.email);
   const firstName = useAuthStore((s) => s.firstName);
   const logout = useAuthStore((s) => s.logout);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [signupOpen, setSignupOpen] = useState(false);
 
   const onLogout = () => {
     logout();
@@ -63,12 +69,64 @@ export function AppHeader() {
               </Button>
             </>
           ) : (
-            <Button variant="ghost" size="sm" className="touch-manipulation" asChild>
-              <Link href="/login">Log in</Link>
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                className="touch-manipulation"
+                onClick={() => {
+                  setSignupOpen(false);
+                  setLoginOpen(true);
+                }}
+              >
+                Log in
+              </Button>
+              <Button
+                size="sm"
+                type="button"
+                className="touch-manipulation"
+                onClick={() => {
+                  setLoginOpen(false);
+                  setSignupOpen(true);
+                }}
+              >
+                Sign up
+              </Button>
+            </>
           )}
         </div>
       </div>
+
+      <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogTitle className="sr-only">Log in</DialogTitle>
+          <LoginForm
+            variant="dialog"
+            redirectAfterLogin="/chat"
+            onAuthenticated={() => setLoginOpen(false)}
+            onSwitchToSignup={() => {
+              setLoginOpen(false);
+              setSignupOpen(true);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={signupOpen} onOpenChange={setSignupOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogTitle className="sr-only">Sign up</DialogTitle>
+          <SignupForm
+            variant="dialog"
+            redirectAfterSignup="/chat"
+            onAuthenticated={() => setSignupOpen(false)}
+            onSwitchToLogin={() => {
+              setSignupOpen(false);
+              setLoginOpen(true);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

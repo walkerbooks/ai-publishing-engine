@@ -10,9 +10,29 @@ import { AuthFormShell } from "@/components/auth/auth-form-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function LoginForm() {
-  const router = useRouter();
+export type LoginFormProps = {
+  variant?: "page" | "dialog";
+  /** Post-login navigation (dialog defaults to /chat). */
+  redirectAfterLogin?: string;
+  onAuthenticated?: () => void;
+  onSwitchToSignup?: () => void;
+};
+
+export function LoginFormWithNextFromUrl() {
   const searchParams = useSearchParams();
+  const next = searchParams.get("next");
+  return (
+    <LoginForm redirectAfterLogin={next && next.startsWith("/") ? next : "/chat"} variant="page" />
+  );
+}
+
+export function LoginForm({
+  variant = "page",
+  redirectAfterLogin = "/chat",
+  onAuthenticated,
+  onSwitchToSignup,
+}: LoginFormProps) {
+  const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,9 +46,9 @@ export function LoginForm() {
     try {
       const { access_token, user } = await login(email, password);
       setSession(access_token, user.email, user.first_name);
-      const next = searchParams.get("next") || "/chat";
-      router.replace(next);
+      router.replace(redirectAfterLogin);
       router.refresh();
+      onAuthenticated?.();
     } catch (e) {
       setErr(authErrorFromUnknown(e, "login"));
     } finally {
@@ -36,8 +56,10 @@ export function LoginForm() {
     }
   }
 
+  const shellVariant = variant === "dialog" ? "dialog" : "page";
+
   return (
-    <AuthFormShell title="Log in">
+    <AuthFormShell title="Log in" variant={shellVariant}>
       <form onSubmit={(e) => void onSubmit(e)} className="min-w-0 space-y-4">
         <p className="text-sm text-muted-foreground sm:text-base">
           Sign in to sync your account, pay for full books, and pick up where you left off.
@@ -83,12 +105,22 @@ export function LoginForm() {
         </Button>
         <p className="flex flex-wrap items-baseline gap-x-1 text-sm text-muted-foreground">
           No account?{" "}
-          <Link
-            href="/signup"
-            className="font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
-          >
-            Sign up
-          </Link>
+          {variant === "dialog" && onSwitchToSignup ? (
+            <button
+              type="button"
+              className="font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+              onClick={onSwitchToSignup}
+            >
+              Sign up
+            </button>
+          ) : (
+            <Link
+              href="/signup"
+              className="font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+            >
+              Sign up
+            </Link>
+          )}
         </p>
       </form>
     </AuthFormShell>

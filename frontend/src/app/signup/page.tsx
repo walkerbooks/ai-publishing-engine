@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { SignupForm } from "@/components/auth/signup-form";
+import { SignupFormWithNextFromUrl } from "@/components/auth/signup-form";
 
 export default function SignupPage() {
   return (
@@ -10,7 +10,7 @@ export default function SignupPage() {
         </div>
       }
     >
-      <SignupForm />
+      <SignupFormWithNextFromUrl />
     </Suspense>
   );
 }
