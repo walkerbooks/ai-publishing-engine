@@ -1,16 +1,22 @@
 """Application config via environment. Uses pydantic-settings."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Repo root (parent of `api/`) so .env loads regardless of uvicorn cwd.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_ENV_FILE = _REPO_ROOT / ".env"
 
 
 class Settings(BaseSettings):
     """Load from env / .env. All keys optional with defaults where sensible."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_ENV_FILE) if _ENV_FILE.is_file() else ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -29,8 +35,11 @@ class Settings(BaseSettings):
     # Optional: backend URL for future book persistence
     backend_url: str | None = None
 
-    # YouTube Data API v3 (for onboarding video block)
-    youtube_api_key: str | None = None
+    # YouTube Data API v3 (for onboarding video block) — set YOUTUBE_API_KEY in .env
+    youtube_api_key: str | None = Field(
+        default=None,
+        validation_alias="YOUTUBE_API_KEY",
+    )
 
     # LangSmith tracing (set LANGSMITH_API_KEY to enable)
     langchain_tracing_v2: str = "false"

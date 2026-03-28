@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -14,6 +15,9 @@ from api.api.preview import router as preview_router
 from api.api.videos import router as videos_router
 from api.tracing import init_langsmith
 
+# Load repo-root .env even when cwd is `api/` or elsewhere
+_root_env = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(_root_env if _root_env.is_file() else None)
 load_dotenv()
 
 app = FastAPI(title="AI Publishing Engine - AI API")
