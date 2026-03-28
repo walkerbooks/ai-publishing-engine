@@ -65,40 +65,42 @@ export function ChatOutlineSidecard({
       className={cn(
         "w-full min-w-0 rounded-2xl border border-white/15 bg-zinc-900/70 p-4 backdrop-blur",
         isSidebar
-          ? "chat-outline-in w-full min-w-0"
+          ? "chat-outline-in flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           : "chat-outline-in h-fit",
         className,
       )}
       aria-live="polite"
     >
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
-        Generated Outline
-      </p>
-      <h3 className="text-lg font-semibold text-white">{safe.book_title}</h3>
-      {safe.subtitle ? (
-        <p className="mt-1 text-sm text-zinc-400">{safe.subtitle}</p>
-      ) : null}
-      <div className="mt-3 flex gap-5 text-sm">
-        <div>
-          <p className="text-[11px] uppercase text-zinc-500">Words</p>
-          <p className="font-medium text-zinc-100">
-            {Number(safe.total_word_target ?? 0).toLocaleString()}
-          </p>
-        </div>
-        <div>
-          <p className="text-[11px] uppercase text-zinc-500">Pages</p>
-          <p className="font-medium text-zinc-100">
-            {Number(safe.estimated_pages ?? 0)}
-          </p>
+      <div className="shrink-0">
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+          Generated Outline
+        </p>
+        <h3 className="text-lg font-semibold text-white">{safe.book_title}</h3>
+        {safe.subtitle ? (
+          <p className="mt-1 text-sm text-zinc-400">{safe.subtitle}</p>
+        ) : null}
+        <div className="mt-3 flex gap-5 text-sm">
+          <div>
+            <p className="text-[11px] uppercase text-zinc-500">Words</p>
+            <p className="font-medium text-zinc-100">
+              {Number(safe.total_word_target ?? 0).toLocaleString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase text-zinc-500">Pages</p>
+            <p className="font-medium text-zinc-100">
+              {Number(safe.estimated_pages ?? 0)}
+            </p>
+          </div>
         </div>
       </div>
 
       <div
         className={cn(
-          "mt-4 pr-1",
+          "chat-pane-scroll mt-4 min-h-0 pr-1",
           isSidebar
-            ? ""
-            : "max-h-[50vh] overflow-y-auto sm:max-h-[55vh]",
+            ? "flex-1 overflow-y-auto overscroll-contain"
+            : "max-h-[50vh] overflow-y-auto overscroll-contain sm:max-h-[55vh]",
         )}
       >
         <OutlineChapters appearance="dark" chapters={safe.chapters} />

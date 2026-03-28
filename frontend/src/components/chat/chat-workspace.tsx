@@ -85,57 +85,55 @@ export function ChatWorkspace({
         </div>
       ) : (
         <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
-          {/* Row 1: messages + outline — bounded height so inner panes scroll */}
-          <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden lg:flex-row lg:items-stretch">
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 pt-2 sm:px-4 sm:pt-3">
-                <p className="mb-2 shrink-0 text-xs font-medium uppercase tracking-wider text-zinc-600">
-                  Smith Book · Intake → outline → preview
-                </p>
-                <div className="mb-2 shrink-0 lg:hidden">
+          {/* Row 1: desktop outline is absolute inset-y-0 so height = grid row, not outline content min-height */}
+          <div className="relative min-h-0 min-w-0 overflow-hidden">
+            <div
+              className={cn(
+                "flex h-full min-h-0 min-w-0 flex-col overflow-hidden px-3 pt-2 sm:px-4 sm:pt-3",
+                showOutlineColumn && "lg:mr-[300px] xl:mr-[320px]",
+              )}
+            >
+              <p className="mb-2 shrink-0 text-xs font-medium uppercase tracking-wider text-zinc-600">
+                Smith Book · Intake → outline → preview
+              </p>
+              <div className="mb-2 shrink-0 lg:hidden">
+                <ChatOutlineSidecard
+                  outline={bookOutline}
+                  variant="embedded"
+                />
+              </div>
+              {/* relative + absolute inset-0: guarantees a fixed-height clip so overflow-y scrolls inside nested flex/grid */}
+              <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+                <div
+                  ref={threadScrollRef}
+                  className="chat-pane-scroll absolute inset-0 min-h-0 min-w-0 overflow-y-auto"
+                  aria-label="Chat messages"
+                >
+                  <ChatThread messages={messages} variant="dark" />
+                  {busy ? (
+                    <div className="mt-3 space-y-2 pb-4">
+                      <Skeleton className="h-4 w-2/3 bg-zinc-700/60" />
+                      <Skeleton className="h-4 w-1/2 bg-zinc-700/60" />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            {showOutlineColumn ? (
+              <div
+                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-white/10 bg-[#0d0d0d]/80 lg:flex xl:w-[320px]"
+                role="region"
+                aria-label="Generated outline"
+              >
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden py-3 pl-3 pr-2 xl:pl-4">
                   <ChatOutlineSidecard
                     outline={bookOutline}
-                    variant="embedded"
+                    variant="sidebar"
                   />
                 </div>
-                {/* relative + absolute inset-0: guarantees a fixed-height clip so overflow-y scrolls inside nested flex/grid */}
-                <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-                  <div
-                    ref={threadScrollRef}
-                    className="chat-pane-scroll absolute inset-0 min-h-0 min-w-0 overflow-y-auto"
-                    aria-label="Chat messages"
-                  >
-                    <ChatThread messages={messages} variant="dark" />
-                    {busy ? (
-                      <div className="mt-3 space-y-2 pb-4">
-                        <Skeleton className="h-4 w-2/3 bg-zinc-700/60" />
-                        <Skeleton className="h-4 w-1/2 bg-zinc-700/60" />
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
               </div>
-
-              <div
-                className={cn(
-                  "hidden min-h-0 shrink-0 flex-col overflow-hidden border-white/10 lg:flex lg:min-h-0",
-                  showOutlineColumn
-                    ? "w-[300px] border-l bg-[#0d0d0d]/80 xl:w-[320px]"
-                    : "w-0 overflow-hidden border-0",
-                )}
-              >
-                {showOutlineColumn ? (
-                  <div
-                    className="chat-pane-scroll flex min-h-0 min-w-0 flex-1 flex-col py-3 pl-3 pr-2 xl:pl-4"
-                    role="region"
-                    aria-label="Generated outline"
-                  >
-                    <ChatOutlineSidecard
-                      outline={bookOutline}
-                      variant="sidebar"
-                    />
-                  </div>
-                ) : null}
-              </div>
+            ) : null}
           </div>
 
           {/* Row 2: composer — grid auto row, always under thread */}
