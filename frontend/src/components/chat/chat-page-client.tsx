@@ -19,12 +19,6 @@ export function ChatPageClient() {
   const hasThread = messages.length > 0;
   const showConversationChrome = hasThread || conversationCount > 0;
 
-  const onWelcomePick = (opt: string) =>
-    (clearErr(),
-    usePublishingStore.getState().pushUserMessage(opt),
-    usePublishingStore.getState().setPendingPrompt(opt),
-    void send(null));
-
   const proceedToOutline = () =>
     (usePublishingStore.getState().setAwaitingGate(null),
     usePublishingStore.getState().setComposerStep("outline"),
@@ -62,7 +56,6 @@ export function ChatPageClient() {
         messages={messages}
         bookOutline={bookOutline}
         awaitingGate={awaitingGate}
-        onWelcomePick={onWelcomePick}
         onSend={(t) => void send(t)}
         clearErr={clearErr}
         proceedToOutline={proceedToOutline}

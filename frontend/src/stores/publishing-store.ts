@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { VIDEO_BLOCK_HEADING } from "@/lib/constants/welcome";
 import {
   createInitialPublishingState,
   type PublishingActions,
@@ -22,6 +23,21 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
       })),
     pushAssistantMessage: (msg) =>
       set((s) => ({ chatMessages: [...s.chatMessages, msg] })),
+    attachOnboardingVideosToMessage: (messageId, videos) =>
+      set((s) => ({
+        chatMessages: s.chatMessages.map((m) => {
+          if (m.id !== messageId) return m;
+          if (m.videos?.length) return m;
+          const list = videos.slice(0, 3);
+          if (!list.length) return m;
+          const base = m.content.trim();
+          const marker = "Look at this TON of videos";
+          const content = base.includes(marker)
+            ? m.content
+            : `${base}\n\n${VIDEO_BLOCK_HEADING}`;
+          return { ...m, content, videos: list };
+        }),
+      })),
     popLastUserMessage: () =>
       set((s) => {
         const m = s.chatMessages;

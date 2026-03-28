@@ -131,8 +131,8 @@ export function HomeLanding() {
 
           <div className="mt-14 flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/40 px-6 py-8 text-center dark:border-indigo-500/30 dark:bg-indigo-950/25 sm:flex-row sm:px-10">
             <p className="max-w-md text-sm leading-relaxed text-muted-foreground sm:text-left">
-              <span className="font-semibold text-foreground">Ready when you are.</span> Open chat,
-              pick a quick start or describe your dream book — we&apos;ll meet you there.
+              <span className="font-semibold text-foreground">Ready when you are.</span> Open chat
+              and describe your dream book — we&apos;ll meet you there.
             </p>
             <Button
               asChild

@@ -1,18 +1,14 @@
 import type { ChatMessage } from "@/lib/types/chat";
-import { VIDEO_BLOCK_HEADING, WELCOME_OPTIONS } from "@/lib/constants/welcome";
-
-const welcomePick = (content: string) =>
-  (WELCOME_OPTIONS as readonly string[]).includes(content);
 
 /**
- * After: user quick-pick → assistant → user (name) → assistant (first real reply),
- * inject the YouTube block once. Any of the three welcome pills qualifies (not only the first two).
+ * After first user message → assistant → user (name) → assistant reply finishes:
+ * auto-attach YouTube row to that assistant message (no extra bubble).
  */
-export function shouldInjectVideoBlock(messages: ChatMessage[]): boolean {
-  if (messages.some((m) => m.videos?.length)) return false;
+export function shouldAttachWelcomeVideos(messages: ChatMessage[]): boolean {
   if (messages.length !== 4) return false;
   const [m0, m1, m2, m3] = messages;
-  if (m0?.role !== "user" || !m0.content || !welcomePick(m0.content)) return false;
+  if (m3.videos?.length) return false;
+  if (m0?.role !== "user" || !m0.content.trim()) return false;
   if (m1?.role !== "assistant") return false;
   if (m2?.role !== "user" || !m2.content.trim()) return false;
   if (m3?.role !== "assistant") return false;
@@ -21,18 +17,7 @@ export function shouldInjectVideoBlock(messages: ChatMessage[]): boolean {
   return true;
 }
 
-export function buildVideoAssistantMessage(
-  videos: { title: string; link: string; thumbnail_url?: string }[],
-): ChatMessage {
-  return {
-    id: crypto.randomUUID(),
-    role: "assistant",
-    kind: "intake",
-    content: VIDEO_BLOCK_HEADING,
-    videos: videos.slice(0, 3),
-  };
-}
-
+/** Intake: first user turn → assistant → second user turn is treated as name. */
 export function extractUserNameFromMessages(
   messages: ChatMessage[],
 ): string | null {
@@ -40,7 +25,7 @@ export function extractUserNameFromMessages(
   const [a, b, c] = messages;
   if (
     a.role === "user" &&
-    welcomePick(a.content) &&
+    a.content.trim() &&
     b.role === "assistant" &&
     c.role === "user"
   ) {

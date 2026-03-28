@@ -1,4 +1,4 @@
-import type { BookOutlineLite, ChatMessage } from "@/lib/types/chat";
+import type { BookOutlineLite, ChatMessage, VideoMeta } from "@/lib/types/chat";
 
 export type PublishingState = {
   sessionId: string;
@@ -21,6 +21,11 @@ export type PublishingState = {
 export type PublishingActions = {
   pushUserMessage: (content: string) => void;
   pushAssistantMessage: (msg: ChatMessage) => void;
+  /** After name reply: append YouTube block + videos onto that assistant message (no extra bubble). */
+  attachOnboardingVideosToMessage: (
+    messageId: string,
+    videos: VideoMeta[],
+  ) => void;
   popLastUserMessage: () => void;
   appendAssistantDelta: (messageId: string, delta: string) => void;
   setAssistantOutline: (

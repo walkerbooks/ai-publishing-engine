@@ -28,7 +28,6 @@ type Props = {
   messages: ChatMessage[];
   bookOutline: Record<string, unknown> | null;
   awaitingGate: null | "outline" | "preview" | "full";
-  onWelcomePick: (opt: string) => void;
   onSend: (text: string) => void;
   clearErr: () => void;
 } & GateHandlers;
@@ -43,7 +42,6 @@ export function ChatWorkspace({
   messages,
   bookOutline,
   awaitingGate,
-  onWelcomePick,
   onSend,
   clearErr,
   proceedToOutline,
@@ -76,7 +74,6 @@ export function ChatWorkspace({
             <ChatHero
               disabled={busy}
               onSend={(t) => (clearErr(), onSend(t))}
-              onQuickPick={onWelcomePick}
             />
             {busy ? (
               <div className="mt-8 w-full max-w-2xl space-y-2">
