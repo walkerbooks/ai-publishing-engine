@@ -1,6 +1,7 @@
 "use client";
 
 import type { BookOutlineLite } from "@/lib/types/chat";
+import { OutlineChapters } from "@/components/outline/outline-chapters";
 import { cn } from "@/lib/utils/cn";
 
 type Props = {
@@ -16,12 +17,21 @@ function toOutlineLite(outline: Record<string, unknown> | null): BookOutlineLite
   const chapters = chaptersRaw
     .map((ch, i) => {
       const item = (ch ?? {}) as Record<string, unknown>;
+      const subRaw = item.subtopics;
+      const subtopics = Array.isArray(subRaw)
+        ? subRaw
+            .map((s) => (typeof s === "string" ? s : String(s ?? "")).trim())
+            .filter(Boolean)
+            .slice(0, 12)
+        : undefined;
+
       return {
         chapter_number:
           typeof item.chapter_number === "number" ? item.chapter_number : i + 1,
         title: String(item.title ?? `Chapter ${i + 1}`),
         word_target:
           typeof item.word_target === "number" ? item.word_target : undefined,
+        subtopics: subtopics?.length ? subtopics : undefined,
       };
     })
     .slice(0, 12);
@@ -91,23 +101,7 @@ export function ChatOutlineSidecard({
             : "max-h-[50vh] overflow-y-auto sm:max-h-[55vh]",
         )}
       >
-        <ul className="space-y-2">
-          {safe.chapters.map((ch) => (
-            <li
-              key={ch.chapter_number}
-              className="rounded-lg border border-white/10 bg-zinc-800/80 px-3 py-2"
-            >
-              <p className="text-sm font-medium text-zinc-100">
-                Ch{ch.chapter_number}: {ch.title}
-              </p>
-              {ch.word_target ? (
-                <p className="mt-0.5 text-xs text-zinc-400">
-                  {ch.word_target.toLocaleString()} words
-                </p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+        <OutlineChapters appearance="dark" chapters={safe.chapters} />
       </div>
     </aside>
   );
