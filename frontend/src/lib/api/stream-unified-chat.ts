@@ -1,3 +1,4 @@
+import { getAiAuthHeaders } from "@/lib/api/ai-auth-headers";
 import { AI_PROXY } from "@/lib/api/paths";
 import { drainSseBuffer } from "@/lib/stream/sse";
 
@@ -17,7 +18,10 @@ export async function streamUnifiedChat(
 ): Promise<void> {
   const res = await fetch(AI_PROXY.unifiedChatStream, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAiAuthHeaders(),
+    },
     body: JSON.stringify({
       message: input.message,
       history: input.history,
@@ -31,6 +35,16 @@ export async function streamUnifiedChat(
 
   if (!res.ok) {
     const t = await res.text();
+    if (res.status === 429) {
+      let msg = "Too many AI requests. Try again shortly.";
+      try {
+        const j = JSON.parse(t) as { error?: string };
+        if (j.error) msg = j.error;
+      } catch {
+        /* */
+      }
+      throw new Error(msg);
+    }
     throw new Error(t || `Request failed: ${res.status}`);
   }
 

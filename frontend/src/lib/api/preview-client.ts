@@ -1,3 +1,4 @@
+import { getAiAuthHeaders } from "@/lib/api/ai-auth-headers";
 import { AI_PROXY } from "@/lib/api/paths";
 import { postJson } from "@/lib/api/post-json";
 
@@ -10,5 +11,5 @@ export async function fetchPreview(
   return postJson(AI_PROXY.preview, {
     book_spec: bookSpec,
     book_outline: bookOutline,
-  });
+  }, { headers: getAiAuthHeaders() });
 }

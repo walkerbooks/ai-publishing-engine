@@ -1,3 +1,4 @@
+import { getAiAuthHeaders } from "@/lib/api/ai-auth-headers";
 import { AI_PROXY } from "@/lib/api/paths";
 import { getJson } from "@/lib/api/get-json";
 import type { VideoMeta } from "@/lib/types/chat";
@@ -30,6 +31,7 @@ export async function fetchVideos(
   const params = new URLSearchParams({ q, max_results: String(maxResults) });
   const data = await getJson<VideosPayload>(
     `${AI_PROXY.videos}?${params.toString()}`,
+    { headers: getAiAuthHeaders() },
   );
   const raw = data.videos ?? [];
   return raw
