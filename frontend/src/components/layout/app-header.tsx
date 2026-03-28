@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
 
 export function AppHeader() {
   return (
@@ -19,7 +19,15 @@ export function AppHeader() {
             Chat
           </Link>
         </nav>
-        <ThemeToggle />
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <ThemeToggle />
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/login">Log in</Link>
+          </Button>
+          <Button size="sm" asChild>
+            <Link href="/signup">Sign up</Link>
+          </Button>
+        </div>
       </div>
     </header>
   );
