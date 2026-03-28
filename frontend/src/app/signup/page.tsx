@@ -1,7 +1,16 @@
+import { Suspense } from "react";
+import { SignupForm } from "@/components/auth/signup-form";
+
 export default function SignupPage() {
   return (
-    <div className="mx-auto flex max-w-md flex-1 flex-col justify-center px-4 py-12">
-      <h1 className="text-2xl font-semibold tracking-tight">Sign up</h1>
-    </div>
+    <Suspense
+      fallback={
+        <div className="mx-auto flex min-h-[50vh] w-full max-w-md flex-col justify-center px-4 py-12 text-sm text-muted-foreground">
+          Loading…
+        </div>
+      }
+    >
+      <SignupForm />
+    </Suspense>
   );
 }

@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { useState } from "react";
+import { AuthHydrate } from "@/components/auth/auth-hydrate";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
@@ -16,7 +17,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      <QueryClientProvider client={client}>
+        <AuthHydrate />
+        {children}
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }

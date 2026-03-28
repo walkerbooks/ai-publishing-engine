@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { useVideoInjection } from "@/hooks/use-video-injection";
 import { useUnifiedChatSend } from "@/hooks/use-unified-chat-send";
 import { usePublishingStore } from "@/stores/publishing-store";
@@ -9,13 +9,19 @@ import { ChatWorkspace } from "@/components/chat/chat-workspace";
 import { ChatShell } from "@/components/chat/shell/chat-shell";
 
 export function ChatPageClient() {
-  const router = useRouter();
   useVideoInjection();
   const { send, busy, err, clearErr } = useUnifiedChatSend();
   const messages = usePublishingStore((s) => s.chatMessages);
   const awaitingGate = usePublishingStore((s) => s.awaitingGate);
   const bookOutline = usePublishingStore((s) => s.bookOutline);
   const conversationCount = useChatDirectoryStore((s) => s.conversations.length);
+  const {
+    startCheckout,
+    loading: payPalLoading,
+    error: payPalErr,
+    clearError: clearPayPalErr,
+  } = usePayPalCheckout();
+  const [payPalGateErr, setPayPalGateErr] = useState<string | null>(null);
 
   const hasThread = messages.length > 0;
   const showConversationChrome = hasThread || conversationCount > 0;
@@ -43,11 +49,16 @@ export function ChatPageClient() {
     (usePublishingStore.getState().setAwaitingGate(null),
     usePublishingStore.getState().setComposerStep("outline"),
     usePublishingStore.getState().setComposerAction("revise"));
-  const unlockFull = () =>
-    (usePublishingStore.getState().setMockPayment(true),
-    usePublishingStore.getState().activeBookId
-      ? router.push(`/book/${usePublishingStore.getState().activeBookId}/full`)
-      : null);
+  const unlockFull = () => {
+    clearPayPalErr();
+    setPayPalGateErr(null);
+    const id = usePublishingStore.getState().activeBookId;
+    if (!id) {
+      setPayPalGateErr("No book ID yet — continue until a book is created, then try again.");
+      return;
+    }
+    void startCheckout(id, "/chat");
+  };
   const changePreview = () =>
     (usePublishingStore.getState().setAwaitingGate(null),
     usePublishingStore.getState().setComposerStep("preview"),
@@ -77,6 +88,8 @@ export function ChatPageClient() {
         changeOutline={changeOutline}
         unlockFull={unlockFull}
         changePreview={changePreview}
+        payPalLoading={payPalLoading}
+        payPalError={payPalGateErr ?? payPalErr}
       />
     </ChatShell>
   );

@@ -1,7 +1,16 @@
+import { Suspense } from "react";
+import { LoginForm } from "@/components/auth/login-form";
+
 export default function LoginPage() {
   return (
-    <div className="mx-auto flex max-w-md flex-1 flex-col justify-center px-4 py-12">
-      <h1 className="text-2xl font-semibold tracking-tight">Log in</h1>
-    </div>
+    <Suspense
+      fallback={
+        <div className="mx-auto flex min-h-[50vh] w-full max-w-md flex-col justify-center px-4 py-12 text-sm text-muted-foreground">
+          Loading…
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

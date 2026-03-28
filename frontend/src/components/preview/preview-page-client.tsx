@@ -10,6 +10,7 @@ import { MarkdownBody } from "@/components/preview/markdown-body";
 import { BuyFullBookBar } from "@/components/preview/buy-full-book-bar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 
 type Props = { bookId: string };
 
@@ -20,6 +21,12 @@ export function PreviewPageClient({ bookId }: Props) {
   const preview = usePublishingStore((s) => s.previewContent);
   const stream = usePublishingStore((s) => s.streamedPreviewContent);
   const { mutate, isPending, isError, error, reset } = usePreviewMutation();
+  const {
+    startCheckout,
+    loading: checkoutLoading,
+    error: checkoutErr,
+    clearError: clearCheckoutErr,
+  } = usePayPalCheckout();
 
   useEffect(() => {
     if (!spec) router.replace("/chat");
@@ -69,9 +76,12 @@ export function PreviewPageClient({ bookId }: Props) {
         )}
       </div>
       <BuyFullBookBar
-        onCheckout={() =>
-          alert("Stripe checkout placeholder — connect Go backend next.")
-        }
+        loading={checkoutLoading}
+        error={checkoutErr}
+        onCheckout={() => {
+          clearCheckoutErr();
+          void startCheckout(bookId, `/book/${bookId}/preview`);
+        }}
       />
       <Link
         href={`/book/${bookId}/full`}

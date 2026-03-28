@@ -20,6 +20,8 @@ type GateHandlers = {
   changeOutline: () => void;
   unlockFull: () => void;
   changePreview: () => void;
+  payPalLoading?: boolean;
+  payPalError?: string | null;
 };
 
 type Props = {
@@ -54,6 +56,8 @@ export function ChatWorkspace({
   changeOutline,
   unlockFull,
   changePreview,
+  payPalLoading,
+  payPalError,
   outlineMobileOpen = false,
   onCloseOutlineMobile,
 }: Props) {
@@ -161,6 +165,8 @@ export function ChatWorkspace({
                   onChangeOutline={changeOutline}
                   onUnlockFull={unlockFull}
                   onChangePreview={changePreview}
+                  payPalLoading={payPalLoading}
+                  payPalError={payPalError}
                 />
               ) : (
                 <ChatComposer

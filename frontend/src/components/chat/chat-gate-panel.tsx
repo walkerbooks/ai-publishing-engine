@@ -11,6 +11,8 @@ type Props = {
   onChangeOutline: () => void;
   onUnlockFull: () => void;
   onChangePreview: () => void;
+  payPalLoading?: boolean;
+  payPalError?: string | null;
 };
 
 export function ChatGatePanel({
@@ -21,6 +23,8 @@ export function ChatGatePanel({
   onChangeOutline,
   onUnlockFull,
   onChangePreview,
+  payPalLoading,
+  payPalError,
 }: Props) {
   if (!awaitingGate) return null;
 
@@ -66,8 +70,17 @@ export function ChatGatePanel({
 
       {awaitingGate === "full" ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Button onClick={onUnlockFull} className={cn(btnPrimary)}>
-            Unlock full book (mock)
+          {payPalError ? (
+            <p className="w-full text-sm text-red-600" role="alert">
+              {payPalError}
+            </p>
+          ) : null}
+          <Button
+            onClick={onUnlockFull}
+            className={cn(btnPrimary)}
+            disabled={payPalLoading}
+          >
+            {payPalLoading ? "Opening PayPal…" : "Pay with PayPal (full book)"}
           </Button>
           <Button
             variant="outline"
