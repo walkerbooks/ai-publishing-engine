@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import type { ChatMessage } from "@/lib/types/chat";
 
 /**
@@ -11,9 +11,26 @@ export function useChatScroll(
   messages: ChatMessage[],
   containerRef: RefObject<HTMLElement | null>,
 ) {
+  const prevLenRef = useRef<number | null>(null);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+
+    const prev = prevLenRef.current;
+    const nextLen = messages.length;
+    prevLenRef.current = nextLen;
+
+    const fromEmptyThread =
+      prev !== null && prev === 0 && nextLen > 0;
+
+    const run = () =>
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: fromEmptyThread ? "auto" : "smooth",
+      });
+
+    // After first message the thread mounts and the keyboard may resize the pane; wait for layout.
+    requestAnimationFrame(() => requestAnimationFrame(run));
   }, [messages, containerRef]);
 }

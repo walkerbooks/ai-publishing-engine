@@ -1,14 +1,18 @@
+import type { Viewport } from "next";
 import { ChatViewportLock } from "./chat-viewport-lock";
+import { ChatVisualViewportFrame } from "./chat-visual-viewport-frame";
+
+/** Shrinks layout viewport on Android when the keyboard opens (pairs with visualViewport sync). */
+export const viewport: Viewport = {
+  interactiveWidget: "resizes-content",
+};
 
 export default function ChatLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ChatViewportLock>
-      {/* Fill <main> via flex-1 + min-h-0 (no calc — avoids header height mismatch) */}
-      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden overscroll-none bg-slate-100 text-slate-900 dark:bg-[#0d0d0d] dark:text-zinc-100">
-        {children}
-      </div>
+      <ChatVisualViewportFrame>{children}</ChatVisualViewportFrame>
     </ChatViewportLock>
   );
 }

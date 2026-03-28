@@ -5,7 +5,9 @@ import { Plus, Mic, Send } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 function focusInput(ref: { current: HTMLInputElement | null }) {
-  queueMicrotask(() => ref.current?.focus());
+  queueMicrotask(() =>
+    ref.current?.focus({ preventScroll: true }),
+  );
 }
 
 type Props = {
