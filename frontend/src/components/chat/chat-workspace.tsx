@@ -122,7 +122,7 @@ export function ChatWorkspace({
 
             {showOutlineColumn ? (
               <div
-                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-slate-200/90 bg-white/95 backdrop-blur-sm dark:border-white/10 dark:bg-[#0d0d0d]/80 lg:flex xl:w-[320px]"
+                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-border bg-slate-100/95 backdrop-blur-sm dark:border-white/10 dark:bg-[#0d0d0d]/80 lg:flex xl:w-[320px]"
                 role="region"
                 aria-label="Generated outline"
               >
