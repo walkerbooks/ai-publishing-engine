@@ -20,7 +20,11 @@ async function forward(
   }
 
   const headers = new Headers();
-  const auth = req.headers.get("authorization");
+  let auth = req.headers.get("authorization");
+  if (!auth) {
+    const x = req.headers.get("x-access-token");
+    if (x?.trim()) auth = `Bearer ${x.trim()}`;
+  }
   if (auth) headers.set("authorization", auth);
   const cookie = req.headers.get("cookie");
   if (cookie) headers.set("cookie", cookie);

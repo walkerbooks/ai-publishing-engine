@@ -1,4 +1,4 @@
-import { GO_API_PREFIX } from "@/lib/api/go-api";
+import { GO_API_PREFIX, goAuthHeaders } from "@/lib/api/go-api";
 import { getLogger } from "@/lib/log";
 
 const log = getLogger("auth-client");
@@ -70,10 +70,7 @@ export async function signup(
 
 export async function fetchAuthMe(accessToken: string): Promise<MeResponse> {
   const res = await fetch(`${GO_API_PREFIX}/v1/auth/me`, {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: goAuthHeaders(accessToken),
   });
   if (!res.ok) {
     log.warning(`auth/me failed: HTTP ${res.status}`);

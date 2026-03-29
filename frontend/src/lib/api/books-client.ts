@@ -1,4 +1,4 @@
-import { GO_API_PREFIX } from "@/lib/api/go-api";
+import { GO_API_PREFIX, goAuthHeaders } from "@/lib/api/go-api";
 import { getLogger } from "@/lib/log";
 
 const log = getLogger("books-client");
@@ -25,8 +25,9 @@ export async function getBook(
   bookPublicId: string,
   accessToken: string | null,
 ): Promise<BackendBook> {
-  const headers: HeadersInit = { Accept: "application/json" };
-  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  const headers: HeadersInit = accessToken
+    ? goAuthHeaders(accessToken)
+    : { Accept: "application/json" };
   const res = await fetch(`${GO_API_PREFIX}/v1/books/${encodeURIComponent(bookPublicId)}`, {
     headers,
     credentials: "include",

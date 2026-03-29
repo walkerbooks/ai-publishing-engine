@@ -1,4 +1,4 @@
-import { GO_API_PREFIX } from "@/lib/api/go-api";
+import { GO_API_PREFIX, goAuthHeaders } from "@/lib/api/go-api";
 import { getLogger } from "@/lib/log";
 
 const log = getLogger("payments-client");
@@ -24,8 +24,8 @@ export async function createPayPalCheckout(
   const res = await fetch(url, {
     method: "POST",
     headers: {
+      ...goAuthHeaders(accessToken),
       "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ book_public_id: bookPublicId }),
   });

@@ -39,8 +39,7 @@ export function ChatConversationSidebarPanel({
       <button
         type="button"
         onClick={() => {
-          startNewConversation();
-          onNavigate?.();
+          void startNewConversation().then(() => onNavigate?.());
         }}
         className="min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm font-medium text-slate-900 shadow-sm transition hover:bg-slate-50 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
       >
@@ -65,8 +64,7 @@ export function ChatConversationSidebarPanel({
                     type="button"
                     aria-current={active ? "true" : undefined}
                     onClick={() => {
-                      selectConversation(c.id);
-                      onNavigate?.();
+                      void selectConversation(c.id).then(() => onNavigate?.());
                     }}
                     className={cn(
                       "flex min-h-[44px] w-full items-center rounded-xl border px-3 py-2.5 pr-10 text-left text-sm transition",

@@ -1,8 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { useVideoInjection } from "@/hooks/use-video-injection";
 import { useUnifiedChatSend } from "@/hooks/use-unified-chat-send";
+import { useAuthStore } from "@/stores/auth-store";
+import { createInitialPublishingState } from "@/stores/publishing-types";
 import { usePublishingStore } from "@/stores/publishing-store";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { ChatWorkspace } from "@/components/chat/chat-workspace";
@@ -11,10 +13,30 @@ import { ChatShell } from "@/components/chat/shell/chat-shell";
 export function ChatPageClient() {
   useVideoInjection();
   const { send, busy, err, clearErr } = useUnifiedChatSend();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hydrateConversationListFromServer = useChatDirectoryStore(
+    (s) => s.hydrateConversationListFromServer,
+  );
   const messages = usePublishingStore((s) => s.chatMessages);
   const awaitingGate = usePublishingStore((s) => s.awaitingGate);
   const bookOutline = usePublishingStore((s) => s.bookOutline);
   const conversationCount = useChatDirectoryStore((s) => s.conversations.length);
+
+  const prevAuthenticated = useRef(isAuthenticated);
+  useEffect(() => {
+    if (isAuthenticated) {
+      void hydrateConversationListFromServer();
+    }
+    if (prevAuthenticated.current && !isAuthenticated) {
+      useChatDirectoryStore.setState({
+        conversations: [],
+        activeConversationId: null,
+        listLoaded: false,
+      });
+      usePublishingStore.setState(createInitialPublishingState());
+    }
+    prevAuthenticated.current = isAuthenticated;
+  }, [isAuthenticated, hydrateConversationListFromServer]);
   const {
     startCheckout,
     loading: payPalLoading,
@@ -24,7 +46,8 @@ export function ChatPageClient() {
   const [payPalGateErr, setPayPalGateErr] = useState<string | null>(null);
 
   const hasThread = messages.length > 0;
-  const showConversationChrome = hasThread || conversationCount > 0;
+  const showConversationChrome =
+    isAuthenticated || hasThread || conversationCount > 0;
   const [outlineMobileOpen, setOutlineMobileOpen] = useState(false);
 
   useEffect(() => {

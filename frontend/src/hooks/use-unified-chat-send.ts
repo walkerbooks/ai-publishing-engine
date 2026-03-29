@@ -1,12 +1,16 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { usePublishingStore } from "@/stores/publishing-store";
+import {
+  ensureServerConversationBeforeSend,
+  persistChatMessageIfAuthenticated,
+} from "@/lib/chat/conversation-sync";
 import { streamUnifiedChat } from "@/lib/api/stream-unified-chat";
 import {
   getUnifiedAssistantPlaceholder,
 } from "@/lib/chat/unified-chat/placeholders";
 import { handleUnifiedChatSseEvent } from "@/lib/chat/unified-chat/event-handler";
+import { usePublishingStore } from "@/stores/publishing-store";
 
 export function useUnifiedChatSend() {
   const [busy, setBusy] = useState(false);
@@ -14,6 +18,7 @@ export function useUnifiedChatSend() {
 
   const clearErr = () => setErr(null);
   const send = useCallback(async (typed: string | null) => {
+    await ensureServerConversationBeforeSend();
     const st = usePublishingStore.getState();
 
     let userText: string;
@@ -27,8 +32,17 @@ export function useUnifiedChatSend() {
       userText = t;
     }
 
+    const userMsg = usePublishingStore.getState().chatMessages.at(-1);
+    if (userMsg?.role === "user") {
+      void persistChatMessageIfAuthenticated(userMsg);
+    }
+
     setBusy(true);
     clearErr();
+
+    const messageIdsBeforeStream = new Set(
+      usePublishingStore.getState().chatMessages.map((m) => m.id),
+    );
 
     try {
       const msgs = usePublishingStore.getState().chatMessages;
@@ -70,6 +84,14 @@ export function useUnifiedChatSend() {
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "Unified chat failed");
     } finally {
+      // Persist every assistant message created this turn. The last bubble is often a
+      // gate after outline/preview; only persisting .at(-1) skipped outline_json / preview_markdown.
+      const after = usePublishingStore.getState().chatMessages;
+      for (const m of after) {
+        if (m.role === "assistant" && !messageIdsBeforeStream.has(m.id)) {
+          void persistChatMessageIfAuthenticated(m);
+        }
+      }
       setBusy(false);
     }
   }, []);
