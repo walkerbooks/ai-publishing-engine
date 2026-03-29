@@ -29,3 +29,5 @@ Thumbs.db
 *.log
 tmp/
 
+# Node.js
+frontend/node_modules/
