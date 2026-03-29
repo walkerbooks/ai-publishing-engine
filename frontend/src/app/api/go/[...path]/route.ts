@@ -7,6 +7,21 @@ function backendBase(): string {
   return process.env.BACKEND_API_URL?.replace(/\/$/, "") || "http://127.0.0.1:8080";
 }
 
+function responseHeadersFromUpstream(res: Response, contentType: string): Headers {
+  const out = new Headers();
+  out.set("Content-Type", contentType);
+  const h = res.headers as Headers & { getSetCookie?: () => string[] };
+  if (typeof h.getSetCookie === "function") {
+    for (const c of h.getSetCookie()) {
+      out.append("Set-Cookie", c);
+    }
+  } else {
+    const single = res.headers.get("set-cookie");
+    if (single) out.append("Set-Cookie", single);
+  }
+  return out;
+}
+
 async function forward(
   req: NextRequest,
   pathParts: string[],
@@ -56,14 +71,15 @@ async function forward(
     log.warning(`upstream ${method} /api/${sub} -> HTTP ${res.status}`);
   }
   const outCt = res.headers.get("content-type") || "application/json";
+  const outHeaders = responseHeadersFromUpstream(res, outCt);
   if (res.body) {
     return new NextResponse(res.body, {
       status: res.status,
-      headers: { "Content-Type": outCt },
+      headers: outHeaders,
     });
   }
   const text = await res.text();
-  return new NextResponse(text, { status: res.status, headers: { "Content-Type": outCt } });
+  return new NextResponse(text, { status: res.status, headers: outHeaders });
 }
 
 type RouteCtx = { params: Promise<{ path?: string[] }> };

@@ -11,7 +11,9 @@ import {
 } from "@/lib/chat/unified-chat/placeholders";
 import { handleUnifiedChatSseEvent } from "@/lib/chat/unified-chat/event-handler";
 import { authGreetingName } from "@/lib/auth/greeting-name";
+import { assertGuestMaySendNewThread } from "@/lib/guest/guest-send-guard";
 import { useAuthStore } from "@/stores/auth-store";
+import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { usePublishingStore } from "@/stores/publishing-store";
 
 export function useUnifiedChatSend() {
@@ -20,6 +22,13 @@ export function useUnifiedChatSend() {
 
   const clearErr = () => setErr(null);
   const send = useCallback(async (typed: string | null) => {
+    const guestGate = assertGuestMaySendNewThread();
+    if (!guestGate.ok) {
+      setErr(guestGate.message);
+      return;
+    }
+    useChatDirectoryStore.getState().clearGuestGateMessage();
+
     await ensureServerConversationBeforeSend();
     const st = usePublishingStore.getState();
 

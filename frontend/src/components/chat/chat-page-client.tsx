@@ -6,6 +6,8 @@ import { useUnifiedChatSend } from "@/hooks/use-unified-chat-send";
 import { useAuthStore } from "@/stores/auth-store";
 import { createInitialPublishingState } from "@/stores/publishing-types";
 import { usePublishingStore } from "@/stores/publishing-store";
+import { ensureGuestSessionWithServer } from "@/lib/api/guest-client";
+import { hydrateGuestStoresFromPersistence } from "@/lib/guest/guest-hydrate";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { ChatWorkspace } from "@/components/chat/chat-workspace";
 import { ChatShell } from "@/components/chat/shell/chat-shell";
@@ -36,6 +38,9 @@ export function ChatPageClient() {
         listLoaded: false,
       });
       usePublishingStore.setState(createInitialPublishingState());
+      void ensureGuestSessionWithServer().finally(() => {
+        hydrateGuestStoresFromPersistence();
+      });
     }
     prevAuthenticated.current = isAuthenticated;
   }, [isAuthenticated, hydrateConversationListFromServer, refreshProfile]);

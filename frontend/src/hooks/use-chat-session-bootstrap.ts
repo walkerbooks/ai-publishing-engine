@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import { ensureGuestSessionWithServer } from "@/lib/api/guest-client";
+import { hydrateGuestStoresFromPersistence } from "@/lib/guest/guest-hydrate";
 
 const LEGACY_DIRECTORY_KEY = "ai-pub-chat-directory";
 
 /**
  * Drops legacy persisted chat directory from localStorage (older builds used Zustand persist).
- * Chat and conversation list are memory-only now.
+ * Restores guest conversations from device storage when logged out.
  */
 export function useChatSessionBootstrap() {
   useEffect(() => {
@@ -15,5 +17,8 @@ export function useChatSessionBootstrap() {
     } catch {
       /* private mode / SSR */
     }
+    void ensureGuestSessionWithServer().finally(() => {
+      hydrateGuestStoresFromPersistence();
+    });
   }, []);
 }

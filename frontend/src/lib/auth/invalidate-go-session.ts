@@ -1,4 +1,6 @@
+import { ensureGuestSessionWithServer } from "@/lib/api/guest-client";
 import { clearAuthSession } from "@/lib/auth/access-token";
+import { setGuestServerMaxOverride } from "@/lib/guest/guest-session-runtime";
 import { useAuthStore } from "@/stores/auth-store";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { createInitialPublishingState } from "@/stores/publishing-types";
@@ -17,6 +19,7 @@ export function invalidateGoSession(serverMessage?: string) {
       ? serverMessage.trim()
       : DEFAULT_PROMPT;
   clearAuthSession();
+  setGuestServerMaxOverride(undefined);
   useAuthStore.setState({
     isAuthenticated: false,
     email: null,
@@ -29,4 +32,5 @@ export function invalidateGoSession(serverMessage?: string) {
     listLoaded: true,
   });
   usePublishingStore.setState(createInitialPublishingState());
+  void ensureGuestSessionWithServer();
 }

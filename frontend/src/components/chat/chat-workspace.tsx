@@ -12,6 +12,7 @@ import { ChatOutlineSidecard } from "@/components/chat/chat-outline-sidecard";
 import { ChatOutlineDrawer } from "@/components/chat/shell/chat-outline-drawer";
 import { useChatScroll } from "@/hooks/use-chat-scroll";
 import { cn } from "@/lib/utils/cn";
+import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 
 type GateHandlers = {
   proceedToOutline: () => void;
@@ -66,9 +67,26 @@ export function ChatWorkspace({
   const { resolvedTheme } = useTheme();
   const msgVariant = resolvedTheme === "light" ? "light" : "dark";
   useChatScroll(messages, threadScrollRef);
+  const guestGateMessage = useChatDirectoryStore((s) => s.guestGateMessage);
+  const clearGuestGateMessage = useChatDirectoryStore((s) => s.clearGuestGateMessage);
 
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
+      {guestGateMessage ? (
+        <div
+          className="flex shrink-0 items-start justify-center gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-center text-sm text-amber-950 dark:text-amber-50"
+          role="status"
+        >
+          <span className="min-w-0 flex-1 text-balance">{guestGateMessage}</span>
+          <button
+            type="button"
+            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-amber-900 underline-offset-2 hover:underline dark:text-amber-100"
+            onClick={() => clearGuestGateMessage()}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
       {err ? (
         <div
           className="shrink-0 border-b border-red-500/20 bg-red-950/40 px-4 py-2 text-center text-sm text-red-300"

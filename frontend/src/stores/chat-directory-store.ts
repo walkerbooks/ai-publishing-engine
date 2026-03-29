@@ -16,6 +16,8 @@ import {
   type ChatSessionSnapshot,
 } from "@/lib/chat/session-serialization";
 import { getAccessToken } from "@/lib/auth/access-token";
+import { guestConversationLimitCopy, getGuestMaxConversations } from "@/lib/guest/guest-config";
+import { persistGuestDirectory } from "@/lib/guest/guest-directory-persist";
 import { getLogger } from "@/lib/log";
 import { createInitialPublishingState, type PublishingState } from "@/stores/publishing-types";
 import { useAuthStore } from "@/stores/auth-store";
@@ -37,6 +39,8 @@ type ChatDirectoryState = {
   conversations: StoredConversation[];
   activeConversationId: string | null;
   listLoaded: boolean;
+  /** Shown when a guest hits NEXT_PUBLIC_GUEST_MAX_CONVERSATIONS. */
+  guestGateMessage: string | null;
 };
 
 type ChatDirectoryActions = {
@@ -46,7 +50,25 @@ type ChatDirectoryActions = {
   removeConversation: (id: string) => void;
   hydrateConversationListFromServer: () => Promise<void>;
   registerNewServerConversation: (c: ConversationDto) => void;
+  clearGuestGateMessage: () => void;
 };
+
+let guestPersistTimer: ReturnType<typeof setTimeout> | undefined;
+
+function scheduleGuestDirectoryPersist(): void {
+  if (typeof window === "undefined") return;
+  if (useAuthStore.getState().isAuthenticated) return;
+  if (guestPersistTimer) clearTimeout(guestPersistTimer);
+  guestPersistTimer = setTimeout(() => {
+    guestPersistTimer = undefined;
+    if (useAuthStore.getState().isAuthenticated) return;
+    const s = useChatDirectoryStore.getState();
+    persistGuestDirectory({
+      conversations: s.conversations,
+      activeConversationId: s.activeConversationId,
+    });
+  }, 500);
+}
 
 function sortConversations(list: StoredConversation[]): StoredConversation[] {
   return [...list].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -67,6 +89,9 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
     conversations: [],
     activeConversationId: null,
     listLoaded: false,
+    guestGateMessage: null,
+
+    clearGuestGateMessage: () => set({ guestGateMessage: null }),
 
     registerNewServerConversation: (c: ConversationDto) => {
       const row = dtoToStored(c);
@@ -109,6 +134,17 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       const now = Date.now();
 
       if (!activeConversationId && state.chatMessages.length > 0) {
+        if (!useAuthStore.getState().isAuthenticated) {
+          const maxGuest = getGuestMaxConversations();
+          if (maxGuest > 0) {
+            const localCount = get().conversations.filter((c) => c.serverBacked !== true)
+              .length;
+            if (localCount >= maxGuest) {
+              set({ guestGateMessage: guestConversationLimitCopy(maxGuest) });
+              return;
+            }
+          }
+        }
         activeConversationId = crypto.randomUUID();
         set({ activeConversationId });
       }
@@ -127,6 +163,7 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       set({
         conversations: sortConversations([row, ...existing]),
       });
+      scheduleGuestDirectoryPersist();
 
       const token = getAccessToken();
       if (
@@ -184,6 +221,7 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       if (!target.snapshot) return;
       applyPublishingSnapshot(usePublishingStore.setState, target.snapshot);
       set({ activeConversationId: id });
+      if (!authed) scheduleGuestDirectoryPersist();
     },
 
     startNewConversation: async () => {
@@ -205,10 +243,20 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
         }
       }
 
+      const maxGuest = getGuestMaxConversations();
+      if (maxGuest > 0) {
+        const localCount = get().conversations.filter((c) => c.serverBacked !== true).length;
+        if (localCount >= maxGuest) {
+          set({ guestGateMessage: guestConversationLimitCopy(maxGuest) });
+          return;
+        }
+      }
+
       const newId = crypto.randomUUID();
       const initial = createInitialPublishingState();
       applyPublishingSnapshot(usePublishingStore.setState, initial);
       set((s) => ({
+        guestGateMessage: null,
         activeConversationId: newId,
         conversations: sortConversations([
           {
@@ -221,6 +269,7 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
           ...s.conversations,
         ]),
       }));
+      scheduleGuestDirectoryPersist();
     },
 
     removeConversation: (id) => {
@@ -247,6 +296,7 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
         }
       }
       usePublishingStore.setState(createInitialPublishingState());
+      scheduleGuestDirectoryPersist();
     },
   }),
 );

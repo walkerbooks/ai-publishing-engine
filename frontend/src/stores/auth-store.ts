@@ -10,6 +10,8 @@ import {
   getUserFirstName,
   setAuthSession,
 } from "@/lib/auth/access-token";
+import { clearPersistedGuestDirectory } from "@/lib/guest/guest-directory-persist";
+import { setGuestServerMaxOverride } from "@/lib/guest/guest-session-runtime";
 
 type AuthState = {
   email: string | null;
@@ -44,6 +46,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setSession: (token, email, firstName) => {
+    clearPersistedGuestDirectory();
+    setGuestServerMaxOverride(undefined);
     setAuthSession(token, email, firstName ?? undefined);
     set({
       isAuthenticated: true,
@@ -76,6 +80,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     log.debug("logout");
     clearAuthSession();
+    setGuestServerMaxOverride(undefined);
     set({ isAuthenticated: false, email: null, firstName: null, reloginPrompt: null });
   },
 }));
