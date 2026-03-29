@@ -84,6 +84,24 @@ export function loadPersistedGuestDirectory(): {
   }
 }
 
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+const PERSIST_DEBOUNCE_MS = 300;
+
+/** Debounced persist after directory updates; avoids hammering localStorage. */
+export function scheduleGuestDirectoryPersist(
+  getState: () => {
+    conversations: StoredConversation[];
+    activeConversationId: string | null;
+  },
+): void {
+  if (typeof window === "undefined") return;
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    persistGuestDirectory(getState());
+  }, PERSIST_DEBOUNCE_MS);
+}
+
 export function persistGuestDirectory(state: {
   conversations: StoredConversation[];
   activeConversationId: string | null;

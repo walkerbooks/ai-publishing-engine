@@ -94,6 +94,7 @@ export function useUnifiedChatSend() {
               setAssistantOutline: st.setAssistantOutline,
               setBookOutline: st.setBookOutline,
               setAssistantPreview: st.setAssistantPreview,
+              setPreviewContent: st.setPreviewContent,
               setErr,
             },
             getUnifiedAssistantPlaceholder,

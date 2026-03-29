@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { ensureGuestSession } from "@/lib/api/guest-session";
 import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { useVideoInjection } from "@/hooks/use-video-injection";
 import { useUnifiedChatSend } from "@/hooks/use-unified-chat-send";
@@ -60,6 +61,10 @@ export function ChatPageClient() {
   useEffect(() => {
     if (!bookOutline) setOutlineMobileOpen(false);
   }, [bookOutline]);
+
+  useEffect(() => {
+    void ensureGuestSession();
+  }, []);
 
   const proceedToOutline = () =>
     (usePublishingStore.getState().setAwaitingGate(null),

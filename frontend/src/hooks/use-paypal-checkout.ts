@@ -2,12 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { requestFullGeneration } from "@/lib/api/books-client";
 import { createPayPalCheckout } from "@/lib/api/payments-client";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { getLogger } from "@/lib/log";
 import { PAYPAL_BOOK_STORAGE_KEY } from "@/lib/paypal/checkout-session";
+import { usePublishingStore } from "@/stores/publishing-store";
 
 const log = getLogger("use-paypal-checkout");
+const PAYPAL_BYPASS = process.env.NEXT_PUBLIC_PAYPAL_BYPASS === "true";
 
 export function usePayPalCheckout() {
   const router = useRouter();
@@ -17,6 +20,26 @@ export function usePayPalCheckout() {
   const startCheckout = useCallback(
     async (bookPublicId: string, loginRedirectPath?: string) => {
       setError(null);
+      if (PAYPAL_BYPASS) {
+        const token = getAccessToken();
+        if (token) {
+          try {
+            await requestFullGeneration(bookPublicId, token);
+          } catch (e) {
+            log.warning("PayPal bypass: requestFullGeneration failed", e);
+            setError(e instanceof Error ? e.message : "Could not start full book generation");
+            return;
+          }
+        }
+        usePublishingStore.getState().setMockPayment(true);
+        if (typeof window !== "undefined") {
+          const target = `/book/${bookPublicId}/full`;
+          if (window.location.pathname !== target) {
+            router.push(target);
+          }
+        }
+        return;
+      }
       const token = getAccessToken();
       if (!token) {
         log.debug("checkout: no access token; redirecting to login");

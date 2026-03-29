@@ -32,8 +32,11 @@ class Settings(BaseSettings):
     groq_api_key: str | None = None
     groq_model: str = "llama-3.3-70b-versatile"
 
-    # Optional: backend URL for future book persistence
-    backend_url: str | None = None
+    # Go API (for internal generation jobs calling back to persist chapters)
+    backend_url: str | None = Field(default=None, validation_alias="BACKEND_URL")
+
+    # Must match Go INTERNAL_API_KEY: verifies /internal/generate and authorizes callbacks to Go
+    internal_api_key: str | None = Field(default=None, validation_alias="INTERNAL_API_KEY")
 
     # YouTube Data API v3 (for onboarding video block) — set YOUTUBE_API_KEY in .env
     youtube_api_key: str | None = Field(

@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { fetchAuthMe } from "@/lib/api/auth-client";
+import { claimGuestBooks } from "@/lib/api/books-client";
 import { getLogger } from "@/lib/log";
 import {
   clearAuthSession,
@@ -12,6 +13,8 @@ import {
 } from "@/lib/auth/access-token";
 import { clearPersistedGuestDirectory } from "@/lib/guest/guest-directory-persist";
 import { setGuestServerMaxOverride } from "@/lib/guest/guest-session-runtime";
+import { useChatDirectoryStore } from "@/stores/chat-directory-store";
+import { usePublishingStore } from "@/stores/publishing-store";
 
 type AuthState = {
   email: string | null;
@@ -49,6 +52,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     clearPersistedGuestDirectory();
     setGuestServerMaxOverride(undefined);
     setAuthSession(token, email, firstName ?? undefined);
+    void claimGuestBooks(token).catch(() => {
+      /* guest cookie may be absent — nothing to claim */
+    });
     set({
       isAuthenticated: true,
       email,
@@ -80,7 +86,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     log.debug("logout");
     clearAuthSession();
-    setGuestServerMaxOverride(undefined);
-    set({ isAuthenticated: false, email: null, firstName: null, reloginPrompt: null });
+    useChatDirectoryStore.getState().clearAll();
+    usePublishingStore.getState().resetFlow();
+    set({ isAuthenticated: false, email: null, firstName: null });
   },
 }));
