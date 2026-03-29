@@ -204,18 +204,18 @@ We **do not** hold all chapter text in LLM context. We use **hierarchical memory
 | Repo | Contents | Runs as |
 |------|----------|--------|
 | **Repo 1 — Backend** | API (auth, users, books, payments, Stripe, webhooks), DB access, job triggering | One server: **Go** |
-| **Repo 2 — Python app** | **Streamlit (UI)** + **AI API** (FastAPI: agents, LLM, sync state) | Two processes: Streamlit + AI API server |
+| **Repo 2 — Python app** | **Next.js (UI)** + **AI API** (FastAPI: agents, LLM, sync state) | Two processes: Next.js + AI API server |
 
-### UI: Streamlit
+### UI: Next.js
 
-- **Streamlit** is the only front-end (no separate React/Next app).
-- Streamlit calls **Backend** for: auth, list/create books, BSO, payments (Stripe), download links.
-- Streamlit calls **AI API** for: chat, generate outline, generate preview, generate chapter(s).
+- **Next.js** (App Router) is the primary front-end in `frontend/`.
+- The UI calls **Backend** for: auth, list/create books, BSO, payments (Stripe), download links.
+- The UI calls **AI API** (via Next proxy or server actions) for: chat, outline, preview, chapters.
 
 ### Communication
 
 ```
-User → Streamlit (UI)
+User → Next.js (UI)
          │
          ├── HTTP ──► Backend (auth, books, payments, Stripe)
          │                  │
@@ -235,13 +235,8 @@ User → Streamlit (UI)
 
 ```
 python-app/
-├── streamlit_app/
-│   ├── app.py
-│   ├── pages/
-│   │   ├── 1_chat.py
-│   │   ├── 2_outline.py
-│   │   └── 3_download.py
-│   └── ...
+├── frontend/               # Next.js App Router UI (chat, outline, preview)
+│   └── src/app/...
 ├── api/                    # AI API (FastAPI)
 │   ├── main.py
 │   ├── agents/
@@ -251,14 +246,14 @@ python-app/
 └── README.md
 ```
 
-- Run UI: `streamlit run streamlit_app/app.py`
+- Run UI: `cd frontend && npm run dev` (see `frontend/README.md`)
 - Run AI API: `uvicorn api.main:app` (FastAPI)
 
-### Streamlit Notes
+### Frontend (Next.js) notes
 
-- **Auth:** Call Backend for login; store token in `st.session_state`.
-- **Long-running tasks:** For "generate full book," Streamlit polls Backend or AI API for `generation_status` (e.g. "Generating chapter 3 of 12").
-- **State:** Use `st.session_state` for current book_id, BSO, outline to avoid re-fetching on every rerun.
+- **Auth:** Call Backend for login; store token in secure cookie or session (replace Zustand-only flow when Go API is wired).
+- **Long-running tasks:** Poll Backend or AI API for `generation_status` (e.g. "Generating chapter 3 of 12").
+- **State:** Browser persistence via Zustand `persist` until books live in the Go backend.
 
 ---
 
@@ -268,7 +263,7 @@ python-app/
 
 | Step | Action |
 |------|--------|
-| 0.1 | Choose stack: **Go** for Backend; Python repo with Streamlit + FastAPI for AI. |
+| 0.1 | Choose stack: **Go** for Backend; Python repo with Next.js UI + FastAPI for AI. |
 | 0.2 | Create both repos; .env for OpenAI, Anthropic, Stripe. |
 | 0.3 | Postgres: tables users, books, chapters, payments, exports (and sync_state on books or separate table). |
 | 0.4 | One LLM call from Backend or AI API to prove keys and stack. |
@@ -281,7 +276,7 @@ python-app/
 
 | Step | Action |
 |------|--------|
-| 1.1 | Streamlit chat UI: input, send, show messages. |
+| 1.1 | Next.js chat UI: input, send, show messages. |
 | 1.2 | Chat API (in AI API or Backend): receive message, call LLM to extract BSO (JSON). |
 | 1.3 | Define BSO schema; parse and validate. |
 | 1.4 | On confirm: Backend saves books row with book_specification, status = 'spec_draft'. Return book_id. |
@@ -298,7 +293,7 @@ python-app/
 | 2.1 | Supervisor module: input BSO → output need_clarification | ready_for_outline. No chapter writing. |
 | 2.2 | Outline agent: input BSO → output outline (chapters + word counts). Strong model (e.g. GPT-4o). Save in DB. |
 | 2.3 | Orchestration: load BSO → Supervisor → if ready, call Outline agent → save outline, status = 'outline_ready'. |
-| 2.4 | Streamlit: show outline; "Continue to preview" button. |
+| 2.4 | Next.js UI: show outline; "Continue to preview" button. |
 
 **Done when:** Confirmed BSO produces stored outline; user sees it.
 
@@ -309,7 +304,7 @@ python-app/
 | Step | Action |
 |------|--------|
 | 3.1 | Preview agent: BSO + outline → 6–8 page markdown (sample chapter + partial + intro). Claude 3.5 Sonnet. Save to chapters or previews. |
-| 3.2 | API: given book_id, run Preview agent, return content. Streamlit shows preview. |
+| 3.2 | API: given book_id, run Preview agent, return content. Next.js UI shows preview. |
 | 3.3 | Stripe: product/price, Checkout Session with client_reference_id = book_id. Webhook: on success, set books.status = 'paid'. |
 | 3.4 | "Generate full book" only enabled when status = 'paid'; otherwise "Buy full book" → Stripe. |
 
@@ -326,7 +321,7 @@ python-app/
 | 4.3 | After each chapter: Summarizer → append to sync_state.chapter_summaries. |
 | 4.4 | Sync state updater: update narrative_arc, key_facts, open_threads, last_chapter_beat, tone_anchors; persist. |
 | 4.5 | Full-book job: loop over chapters; for each: generate → save → summarize → update sync_state. Use background job (Celery, Inngest, or job table + worker). |
-| 4.6 | Progress: store generation_status and current chapter; Streamlit polls and shows "Chapter 3 of 12…". |
+| 4.6 | Progress: store generation_status and current chapter; Next.js UI polls and shows "Chapter 3 of 12…". |
 
 **Done when:** Paid book generates N chapters with persistent sync state; user sees progress and "Full book ready."
 
@@ -339,7 +334,7 @@ python-app/
 | 5.1 | Concatenate chapters into one markdown. |
 | 5.2 | Pandoc + templates: Markdown → DOCX (6×9), → EPUB, → PDF. |
 | 5.3 | On completion: run pipeline; save files; insert exports rows (book_id, format, file_url). |
-| 5.4 | Streamlit: Download buttons for DOCX, EPUB, PDF. |
+| 5.4 | Next.js UI: Download buttons for DOCX, EPUB, PDF. |
 
 **Done when:** User can download KDP-ready DOCX, EPUB, PDF.
 

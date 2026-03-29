@@ -4,7 +4,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from api.agents.prompts import INTAKE_SYSTEM
+from api.agents.prompts.intake import build_intake_system
 from api.llm.factory import get_llm
 from api.services.bso_validator import validate_bso
 from api.state.schema import IntakeResponse
@@ -26,6 +26,7 @@ def run_intake(
     message: str,
     history: list[dict[str, Any]],
     provider: str | None = None,
+    known_display_name: str | None = None,
 ) -> dict[str, Any]:
     """
     Run one intake turn: user message + history → reply and optional BSO.
@@ -34,7 +35,9 @@ def run_intake(
     llm = get_llm(provider)
     structured_llm = llm.with_structured_output(IntakeResponse)
 
-    messages: list[BaseMessage] = [SystemMessage(content=INTAKE_SYSTEM)]
+    messages: list[BaseMessage] = [
+        SystemMessage(content=build_intake_system(known_display_name)),
+    ]
     messages.extend(_history_to_messages(history))
     messages.append(HumanMessage(content=message))
 

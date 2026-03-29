@@ -1,9 +1,12 @@
 """YouTube Data API v3 — search videos for onboarding block."""
 
+import logging
 import time
 from typing import Any
 
 from api.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 # In-memory cache: (q, max_results, order) -> (result_list, expiry_time). Short TTL so results stay fresh.
 _CACHE: dict[tuple[str, int, str], tuple[list[dict[str, Any]], float]] = {}
@@ -26,11 +29,17 @@ def search_videos(q: str, max_results: int = 10, order: str = "viewCount") -> li
 
     settings = get_settings()
     if not settings.youtube_api_key:
+        logger.warning(
+            "YouTube search skipped: YOUTUBE_API_KEY is empty (check repo-root .env and api.config Settings).",
+        )
         return []
 
     try:
         from googleapiclient.discovery import build
     except ImportError:
+        logger.warning(
+            "YouTube search skipped: google-api-python-client not installed.",
+        )
         return []
 
     try:
@@ -50,7 +59,8 @@ def search_videos(q: str, max_results: int = 10, order: str = "viewCount") -> li
             )
             .execute()
         )
-    except Exception:
+    except Exception as e:
+        logger.warning("YouTube Data API error: %s", e)
         return []
 
     out: list[dict[str, Any]] = []

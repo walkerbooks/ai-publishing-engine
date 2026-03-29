@@ -2,7 +2,40 @@
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _normalize_page_size_to_literal(value: object) -> str | None:
+    """Map ISO / casual trim names to allowed sizes; None = omit / use default later."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return None
+    s = value.strip().lower().replace("×", "x").replace(" ", "")
+    allowed = frozenset({"6x9", "8.5x11", "8.25x11"})
+    if s in allowed:
+        return s
+    synonyms: dict[str, str] = {
+        "a5": "6x9",
+        "iso_a5": "6x9",
+        "a5size": "6x9",
+        "a4": "8.25x11",
+        "iso_a4": "8.25x11",
+        "letter": "8.5x11",
+        "usletter": "8.5x11",
+        "us_letter": "8.5x11",
+        "8.5x11in": "8.5x11",
+        "6x9in": "6x9",
+        "trade": "6x9",
+    }
+    if s in synonyms:
+        return synonyms[s]
+    s2 = s.replace("_", "")
+    if s2 in synonyms:
+        return synonyms[s2]
+    if "trade" in s and "paperback" in s.replace("_", ""):
+        return "6x9"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +57,12 @@ class BookSpecification(BaseModel):
     title: Optional[str] = Field(None, description="Working title if provided")
     custom_instructions: Optional[str] = Field(None, description="Extra author instructions")
 
+    @field_validator("page_size", mode="before")
+    @classmethod
+    def normalize_book_spec_page_size(cls, value: object) -> str:
+        """Coerce A5, letter, etc. to allowed literals; default 6x9."""
+        return _normalize_page_size_to_literal(value) or "6x9"
+
 
 class IntakeBookSpecification(BaseModel):
     """
@@ -36,11 +75,50 @@ class IntakeBookSpecification(BaseModel):
     audience: Optional[str] = Field(None, description="Target audience")
     tone: Optional[str] = Field(None, description="Tone, e.g. motivational, academic")
     target_length_pages: Optional[int] = Field(None, ge=50, le=300, description="Target length in pages")
-    format_type: Optional[Literal["kindle", "paperback", "hardback", "all"]] = None
-    page_size: Optional[Literal["6x9", "8.5x11", "8.25x11"]] = None
+    # Kept as str (not strict Literal) so providers accept common synonyms; normalized below.
+    format_type: Optional[str] = Field(
+        None,
+        description='kindle (ebook/digital), paperback, hardback, or all',
+    )
+    # Kept as str (not enum in tool schema) so providers accept "A5", "letter", etc.; normalized below.
+    page_size: Optional[str] = Field(
+        None,
+        description='Trim: one of 6x9, 8.5x11, 8.25x11 (use 6x9 for A5/ebook typical)',
+    )
     language: Optional[str] = Field(default="English", description="Language")
     title: Optional[str] = Field(None, description="Working title if provided")
     custom_instructions: Optional[str] = Field(None, description="Extra author instructions")
+
+    @field_validator("format_type", mode="before")
+    @classmethod
+    def normalize_format_type(cls, value: object) -> str | None:
+        """Map ebook/digital synonyms to kindle; unknown values → all (safe default)."""
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            return None
+        s = value.strip().lower().replace("-", "_").replace(" ", "_")
+        synonyms: dict[str, str] = {
+            "ebook": "kindle",
+            "e_book": "kindle",
+            "digital": "kindle",
+            "epub": "kindle",
+            "kdp": "kindle",
+            "hardcover": "hardback",
+            "hard_cover": "hardback",
+            "paper_back": "paperback",
+        }
+        if s in synonyms:
+            return synonyms[s]
+        if s in ("kindle", "paperback", "hardback", "all"):
+            return s
+        return None
+
+    @field_validator("page_size", mode="before")
+    @classmethod
+    def normalize_page_size(cls, value: object) -> str | None:
+        """Map ISO / casual names to allowed trim sizes; unknown → None (defaults applied later)."""
+        return _normalize_page_size_to_literal(value)
 
 
 class ChatMessage(BaseModel):
