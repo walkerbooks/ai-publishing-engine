@@ -29,3 +29,20 @@ Thumbs.db
 *.log
 tmp/
 
+# Node.js
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/package-lock.json
+frontend/yarn.lock
+frontend/pnpm-lock.yaml
+frontend/bun.lockb
+frontend/package-lock.json
+frontend/yarn.lock
+frontend/pnpm-lock.yaml
+frontend/bun.lockb
+frontend/package-lock.json
+frontend/yarn.lock
+frontend/pnpm-lock.yaml
+frontend/bun.lockb
