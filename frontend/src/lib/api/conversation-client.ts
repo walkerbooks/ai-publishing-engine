@@ -1,4 +1,5 @@
 import { GO_API_PREFIX, goAuthHeaders } from "@/lib/api/go-api";
+import { throwIfGoResponseFailed } from "@/lib/api/go-response";
 import { getLogger } from "@/lib/log";
 
 const log = getLogger("conversation-client");
@@ -18,22 +19,13 @@ export type ConversationMessageDto = {
   kind?: string | null;
   /** String (JSON / base64), or JSON object/array if the server embeds structured data. */
   outline_json?: unknown;
+  /** Book specification (BSO) at outline time — required to resume preview after reload. */
+  book_spec_json?: unknown;
   videos_json?: unknown;
   preview_markdown?: unknown;
   client_message_id?: string | null;
   created_at: string;
 };
-
-async function readErrorMessage(res: Response): Promise<string> {
-  const t = await res.text();
-  try {
-    const j = JSON.parse(t) as { error?: string };
-    if (j.error) return j.error;
-  } catch {
-    /* */
-  }
-  return t || `Request failed: ${res.status}`;
-}
 
 function authHeaders(token: string): HeadersInit {
   return goAuthHeaders(token);
@@ -47,7 +39,7 @@ export async function listConversations(accessToken: string): Promise<Conversati
   });
   if (!res.ok) {
     log.warning(`listConversations: HTTP ${res.status}`);
-    throw new Error(await readErrorMessage(res));
+    await throwIfGoResponseFailed(res);
   }
   const data = (await res.json()) as { conversations?: ConversationDto[] };
   return data.conversations ?? [];
@@ -65,7 +57,7 @@ export async function createConversation(
   });
   if (!res.ok) {
     log.warning(`createConversation: HTTP ${res.status}`);
-    throw new Error(await readErrorMessage(res));
+    await throwIfGoResponseFailed(res);
   }
   const data = (await res.json()) as { conversation?: ConversationDto };
   if (!data.conversation) throw new Error("Invalid create conversation response");
@@ -86,7 +78,7 @@ export async function getConversationMessages(
   );
   if (!res.ok) {
     log.warning(`getConversationMessages: HTTP ${res.status}`);
-    throw new Error(await readErrorMessage(res));
+    await throwIfGoResponseFailed(res);
   }
   const data = (await res.json()) as { messages?: ConversationMessageDto[] };
   return data.messages ?? [];
@@ -108,7 +100,7 @@ export async function patchConversationTitle(
   );
   if (!res.ok) {
     log.warning(`patchConversationTitle: HTTP ${res.status}`);
-    throw new Error(await readErrorMessage(res));
+    await throwIfGoResponseFailed(res);
   }
   const data = (await res.json()) as { conversation?: ConversationDto };
   if (!data.conversation) throw new Error("Invalid patch conversation response");
@@ -120,6 +112,7 @@ export type AppendConversationMessageBody = {
   content: string;
   kind?: string | null;
   outline_json?: string | null;
+  book_spec_json?: string | null;
   videos_json?: string | null;
   preview_markdown?: string | null;
   client_message_id?: string | null;
@@ -141,7 +134,7 @@ export async function appendConversationMessage(
   );
   if (!res.ok) {
     log.warning(`appendConversationMessage: HTTP ${res.status}`);
-    throw new Error(await readErrorMessage(res));
+    await throwIfGoResponseFailed(res);
   }
   const data = (await res.json()) as { message?: ConversationMessageDto };
   if (!data.message) throw new Error("Invalid append message response");

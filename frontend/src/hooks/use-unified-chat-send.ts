@@ -10,6 +10,8 @@ import {
   getUnifiedAssistantPlaceholder,
 } from "@/lib/chat/unified-chat/placeholders";
 import { handleUnifiedChatSseEvent } from "@/lib/chat/unified-chat/event-handler";
+import { authGreetingName } from "@/lib/auth/greeting-name";
+import { useAuthStore } from "@/stores/auth-store";
 import { usePublishingStore } from "@/stores/publishing-store";
 
 export function useUnifiedChatSend() {
@@ -53,6 +55,13 @@ export function useUnifiedChatSend() {
               .map((m) => ({ role: m.role, content: m.content }))
           : [];
 
+      const auth = useAuthStore.getState();
+      const userDisplayName = authGreetingName(
+        auth.isAuthenticated,
+        auth.firstName,
+        auth.email,
+      );
+
       await streamUnifiedChat(
         {
           message: userText,
@@ -62,6 +71,7 @@ export function useUnifiedChatSend() {
           action: st.composerAction,
           bookSpec: st.bookSpec,
           bookOutline: st.bookOutline,
+          userDisplayName,
         },
         (event, data) => {
           handleUnifiedChatSseEvent(

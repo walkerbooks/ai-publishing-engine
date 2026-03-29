@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePublishingStore } from "@/stores/publishing-store";
+import { authGreetingName } from "@/lib/auth/greeting-name";
 import { shouldAttachWelcomeVideos } from "@/lib/chat/welcome-flow";
 import { fetchVideos } from "@/lib/api/videos-client";
+import { useAuthStore } from "@/stores/auth-store";
+import { usePublishingStore } from "@/stores/publishing-store";
 
 /**
  * After onboarding name reply completes, fetch YouTube results and merge into that assistant bubble.
@@ -14,15 +16,22 @@ export function useVideoInjection() {
     (s) => s.attachOnboardingVideosToMessage,
   );
   const sessionId = usePublishingStore((s) => s.sessionId);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const firstName = useAuthStore((s) => s.firstName);
+  const email = useAuthStore((s) => s.email);
   const lock = useRef(false);
+
+  const skipNameOnboarding =
+    authGreetingName(isAuthenticated, firstName, email) != null;
 
   useEffect(() => {
     lock.current = false;
   }, [sessionId]);
 
   useEffect(() => {
-    if (!shouldAttachWelcomeVideos(messages) || lock.current) return;
-    const targetId = messages[3]?.id;
+    const opts = skipNameOnboarding ? { skipNameOnboarding: true } : undefined;
+    if (!shouldAttachWelcomeVideos(messages, opts) || lock.current) return;
+    const targetId = skipNameOnboarding ? messages[1]?.id : messages[3]?.id;
     if (!targetId) return;
     lock.current = true;
     fetchVideos("make money selling ebooks on Amazon KDP", 3)
@@ -30,5 +39,9 @@ export function useVideoInjection() {
       .catch(() => {
         /* leave name reply unchanged if fetch fails */
       });
-  }, [messages, attachOnboardingVideosToMessage]);
+  }, [
+    messages,
+    attachOnboardingVideosToMessage,
+    skipNameOnboarding,
+  ]);
 }

@@ -1,4 +1,5 @@
 import { GO_API_PREFIX, goAuthHeaders } from "@/lib/api/go-api";
+import { throwIfGoResponseFailed } from "@/lib/api/go-response";
 import { getLogger } from "@/lib/log";
 
 const log = getLogger("books-client");
@@ -9,17 +10,6 @@ export type BackendBook = {
   Status: string;
   Title: string;
 };
-
-async function readErrorMessage(res: Response): Promise<string> {
-  const t = await res.text();
-  try {
-    const j = JSON.parse(t) as { error?: string };
-    if (j.error) return j.error;
-  } catch {
-    /* */
-  }
-  return t || `Request failed: ${res.status}`;
-}
 
 export async function getBook(
   bookPublicId: string,
@@ -34,7 +24,7 @@ export async function getBook(
   });
   if (!res.ok) {
     log.debug(`getBook: HTTP ${res.status}`, { bookPublicId });
-    throw new Error(await readErrorMessage(res));
+    await throwIfGoResponseFailed(res);
   }
   return res.json() as Promise<BackendBook>;
 }

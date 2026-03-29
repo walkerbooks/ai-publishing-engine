@@ -10,6 +10,8 @@ export type UnifiedChatInput = {
   action: "proceed" | "revise";
   bookSpec?: Record<string, unknown> | null;
   bookOutline?: Record<string, unknown> | null;
+  /** Logged-in user display name — backend skips name onboarding and greets by name. */
+  userDisplayName?: string | null;
 };
 
 export async function streamUnifiedChat(
@@ -30,6 +32,7 @@ export async function streamUnifiedChat(
       action: input.action,
       book_spec: input.bookSpec ?? null,
       book_outline: input.bookOutline ?? null,
+      user_display_name: input.userDisplayName ?? null,
     }),
   });
 

@@ -1,4 +1,5 @@
 import { GO_API_PREFIX, goAuthHeaders } from "@/lib/api/go-api";
+import { throwIfGoResponseFailed } from "@/lib/api/go-response";
 import { getLogger } from "@/lib/log";
 
 const log = getLogger("auth-client");
@@ -74,7 +75,7 @@ export async function fetchAuthMe(accessToken: string): Promise<MeResponse> {
   });
   if (!res.ok) {
     log.warning(`auth/me failed: HTTP ${res.status}`);
-    throw new Error(await readErrorMessage(res));
+    await throwIfGoResponseFailed(res);
   }
   log.debug("auth/me succeeded");
   return res.json() as Promise<MeResponse>;

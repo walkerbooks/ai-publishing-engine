@@ -34,6 +34,7 @@ export function LoginForm({
 }: LoginFormProps) {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
+  const reloginPrompt = useAuthStore((s) => s.reloginPrompt);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -61,6 +62,14 @@ export function LoginForm({
   return (
     <AuthFormShell title="Log in" variant={shellVariant}>
       <form onSubmit={(e) => void onSubmit(e)} className="min-w-0 space-y-4">
+        {reloginPrompt ? (
+          <p
+            className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-950 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-50"
+            role="status"
+          >
+            {reloginPrompt}
+          </p>
+        ) : null}
         <p className="text-sm text-muted-foreground sm:text-base">
           Sign in to sync your account, pay for full books, and pick up where you left off.
         </p>

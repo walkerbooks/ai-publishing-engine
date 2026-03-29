@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LoginForm } from "@/components/auth/login-form";
 import { SignupForm } from "@/components/auth/signup-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -17,8 +17,17 @@ export function AppHeader() {
   const email = useAuthStore((s) => s.email);
   const firstName = useAuthStore((s) => s.firstName);
   const logout = useAuthStore((s) => s.logout);
+  const reloginPrompt = useAuthStore((s) => s.reloginPrompt);
+  const clearReloginPrompt = useAuthStore((s) => s.clearReloginPrompt);
   const [loginOpen, setLoginOpen] = useState(false);
   const [signupOpen, setSignupOpen] = useState(false);
+
+  useEffect(() => {
+    if (reloginPrompt) {
+      setSignupOpen(false);
+      setLoginOpen(true);
+    }
+  }, [reloginPrompt]);
 
   const onLogout = () => {
     logout();
@@ -98,13 +107,22 @@ export function AppHeader() {
         </div>
       </div>
 
-      <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
+      <Dialog
+        open={loginOpen}
+        onOpenChange={(open) => {
+          setLoginOpen(open);
+          if (!open) clearReloginPrompt();
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogTitle className="sr-only">Log in</DialogTitle>
           <LoginForm
             variant="dialog"
             redirectAfterLogin="/chat"
-            onAuthenticated={() => setLoginOpen(false)}
+            onAuthenticated={() => {
+              setLoginOpen(false);
+              clearReloginPrompt();
+            }}
             onSwitchToSignup={() => {
               setLoginOpen(false);
               setSignupOpen(true);

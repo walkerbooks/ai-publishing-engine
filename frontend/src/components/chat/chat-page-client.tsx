@@ -14,6 +14,7 @@ export function ChatPageClient() {
   useVideoInjection();
   const { send, busy, err, clearErr } = useUnifiedChatSend();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const refreshProfile = useAuthStore((s) => s.refreshProfile);
   const hydrateConversationListFromServer = useChatDirectoryStore(
     (s) => s.hydrateConversationListFromServer,
   );
@@ -25,6 +26,7 @@ export function ChatPageClient() {
   const prevAuthenticated = useRef(isAuthenticated);
   useEffect(() => {
     if (isAuthenticated) {
+      void refreshProfile();
       void hydrateConversationListFromServer();
     }
     if (prevAuthenticated.current && !isAuthenticated) {
@@ -36,7 +38,7 @@ export function ChatPageClient() {
       usePublishingStore.setState(createInitialPublishingState());
     }
     prevAuthenticated.current = isAuthenticated;
-  }, [isAuthenticated, hydrateConversationListFromServer]);
+  }, [isAuthenticated, hydrateConversationListFromServer, refreshProfile]);
   const {
     startCheckout,
     loading: payPalLoading,

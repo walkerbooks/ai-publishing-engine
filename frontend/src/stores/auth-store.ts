@@ -15,18 +15,22 @@ type AuthState = {
   email: string | null;
   firstName: string | null;
   isAuthenticated: boolean;
+  /** Set when Go returns 401; UI opens login and shows this message. */
+  reloginPrompt: string | null;
   hydrate: () => void;
   setSession: (token: string, email: string, firstName?: string | null) => void;
+  clearReloginPrompt: () => void;
   refreshProfile: () => Promise<void>;
   logout: () => void;
 };
 
 const log = getLogger("auth-store");
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   email: null,
   firstName: null,
   isAuthenticated: false,
+  reloginPrompt: null,
 
   hydrate: () => {
     const token = getAccessToken();
@@ -45,8 +49,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       isAuthenticated: true,
       email,
       firstName: firstName && firstName.length > 0 ? firstName : null,
+      reloginPrompt: null,
     });
   },
+
+  clearReloginPrompt: () => set({ reloginPrompt: null }),
 
   refreshProfile: async () => {
     const token = getAccessToken();
@@ -60,13 +67,15 @@ export const useAuthStore = create<AuthState>((set) => ({
         firstName: user.first_name?.trim() || null,
       });
     } catch (e) {
-      log.warning("refreshProfile: auth/me failed; keeping cached session if any", e);
+      if (get().isAuthenticated) {
+        log.warning("refreshProfile: auth/me failed; keeping cached session if any", e);
+      }
     }
   },
 
   logout: () => {
     log.debug("logout");
     clearAuthSession();
-    set({ isAuthenticated: false, email: null, firstName: null });
+    set({ isAuthenticated: false, email: null, firstName: null, reloginPrompt: null });
   },
 }));

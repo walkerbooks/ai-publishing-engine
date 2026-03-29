@@ -1,10 +1,30 @@
 import type { ChatMessage } from "@/lib/types/chat";
 
+export type WelcomeVideosOptions = {
+  /** Logged-in user: first assistant reply already includes "Hi {name}, …" — attach videos there (2 messages). */
+  skipNameOnboarding?: boolean;
+};
+
 /**
  * After first user message → assistant → user (name) → assistant reply finishes:
  * auto-attach YouTube row to that assistant message (no extra bubble).
+ * When skipNameOnboarding: user → assistant only (same attachment on the assistant bubble).
  */
-export function shouldAttachWelcomeVideos(messages: ChatMessage[]): boolean {
+export function shouldAttachWelcomeVideos(
+  messages: ChatMessage[],
+  opts?: WelcomeVideosOptions,
+): boolean {
+  if (opts?.skipNameOnboarding) {
+    if (messages.length !== 2) return false;
+    const [m0, m1] = messages;
+    if (m1.videos?.length) return false;
+    if (m0?.role !== "user" || !m0.content.trim()) return false;
+    if (m1?.role !== "assistant") return false;
+    const last = m1.content.trim();
+    if (!last || last.startsWith("[")) return false;
+    return true;
+  }
+
   if (messages.length !== 4) return false;
   const [m0, m1, m2, m3] = messages;
   if (m3.videos?.length) return false;

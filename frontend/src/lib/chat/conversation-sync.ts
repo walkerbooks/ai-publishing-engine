@@ -36,7 +36,15 @@ export async function persistChatMessageIfAuthenticated(msg: ChatMessage): Promi
   const publicId = useChatDirectoryStore.getState().activeConversationId;
   if (!publicId) return;
   try {
-    await appendConversationMessage(token, publicId, chatMessageToAppendBody(msg));
+    const bookSpecForOutline =
+      msg.kind === "outline"
+        ? usePublishingStore.getState().bookSpec
+        : undefined;
+    await appendConversationMessage(
+      token,
+      publicId,
+      chatMessageToAppendBody(msg, bookSpecForOutline),
+    );
   } catch (e) {
     log.warning("persistChatMessageIfAuthenticated failed", e);
   }

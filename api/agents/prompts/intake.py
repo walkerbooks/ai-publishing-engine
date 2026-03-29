@@ -37,3 +37,33 @@ Follow the same onboarding + BSO-gathering behavior as the intake agent, but for
 - If they skip to create / give a topic: welcome them, then ask what the book will be about if needed, or continue naturally.
 - After onboarding: ask 1–2 questions per turn and continue collecting genre, audience, tone, target_length_pages, format_type, page_size, language, and any optional title/custom_instructions.
 """
+
+_AUTHENTICATED_SESSION_EXTRA = """
+
+AUTHENTICATED SESSION:
+The user is logged in. Their preferred greeting name is "{name}".
+- Do NOT ask what to call them, for their name, or "what should I call you."
+- On greeting or light small-talk turns when they have not yet given book details: start your reply with "Hi {name}," (comma after the name) and finish a warm, complete welcome in the same message—you are glad they are here and excited to help them create and sell ebooks with Smith Book; same energy as right after a new visitor has just told you their name. You may briefly nod to how many people are building income with ebooks (e.g. Amazon KDP). Do not set intake_complete.
+- Then continue collecting the Book Specification as usual, one or two questions per turn.
+"""
+
+
+def _strip_display_name(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    t = str(raw).strip()
+    return t or None
+
+
+def build_intake_system(known_display_name: str | None) -> str:
+    name = _strip_display_name(known_display_name)
+    if not name:
+        return INTAKE_SYSTEM
+    return INTAKE_SYSTEM + _AUTHENTICATED_SESSION_EXTRA.format(name=name)
+
+
+def build_intake_reply_system(known_display_name: str | None) -> str:
+    name = _strip_display_name(known_display_name)
+    if not name:
+        return INTAKE_REPLY_SYSTEM
+    return INTAKE_REPLY_SYSTEM + _AUTHENTICATED_SESSION_EXTRA.format(name=name)

@@ -17,7 +17,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AI
 from api.agents.intake_agent import run_intake
 from api.agents.outline_agent import run_outline
 from api.agents.preview_agent import run_preview
-from api.agents.prompts.intake import INTAKE_REPLY_SYSTEM
+from api.agents.prompts.intake import build_intake_reply_system
 from api.config import get_settings
 from api.llm.factory import get_llm
 
@@ -37,6 +37,10 @@ class UnifiedChatStepRequest(BaseModel):
     # Provided when step != intake
     book_spec: dict[str, Any] | None = None
     book_outline: dict[str, Any] | None = None
+    user_display_name: str | None = Field(
+        default=None,
+        description="Logged-in user's greeting name; skips name onboarding",
+    )
 
 
 def _history_to_messages(history: list[dict[str, Any]]) -> list[BaseMessage]:
@@ -77,6 +81,9 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                 if not message:
                     raise HTTPException(status_code=400, detail="message is required for intake")
 
+                known_name = (payload.user_display_name or "").strip() or None
+                intake_reply_system = build_intake_reply_system(known_name)
+
                 yield _sse(
                     "message_start",
                     {
@@ -90,7 +97,7 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                 if str(provider).lower() == "openai":
                     llm = get_llm(provider=None, streaming=True)
                     messages: list[BaseMessage] = [
-                        SystemMessage(content=INTAKE_REPLY_SYSTEM),
+                        SystemMessage(content=intake_reply_system),
                         *_history_to_messages(history),
                         HumanMessage(content=message),
                     ]
@@ -104,7 +111,7 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                 else:
                     llm = get_llm(provider=None, streaming=False)
                     messages = [
-                        SystemMessage(content=INTAKE_REPLY_SYSTEM),
+                        SystemMessage(content=intake_reply_system),
                         *_history_to_messages(history),
                         HumanMessage(content=message),
                     ]
@@ -117,7 +124,12 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
 
                 yield _sse("message_end", {"messageId": intake_message_id})
 
-                result = run_intake(message=message, history=history, provider=None)
+                result = run_intake(
+                    message=message,
+                    history=history,
+                    provider=None,
+                    known_display_name=known_name,
+                )
                 book_spec = result.get("book_spec")
                 intake_complete = bool(result.get("intake_complete"))
 
