@@ -31,3 +31,4 @@ tmp/
 
 # Node.js
 frontend/node_modules/
+frontend/.next/
