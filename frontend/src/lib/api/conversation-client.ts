@@ -38,7 +38,7 @@ export async function listConversations(accessToken: string): Promise<Conversati
     credentials: "include",
     cache: "no-store",
   };
-  let res = await fetch(`${GO_API_PREFIX}/v1/conversation`, init);
+  let res = await fetch(`${GO_API_PREFIX}/v1/conversations`, init);
   if (res.status === 404 || res.status === 500) {
     const alt = await fetch(`${GO_API_PREFIX}/v1/conversation/list`, init);
     if (alt.ok) res = alt;
