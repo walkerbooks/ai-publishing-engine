@@ -30,16 +30,18 @@ export function useUnifiedChatSend() {
     useChatDirectoryStore.getState().clearGuestGateMessage();
 
     await ensureServerConversationBeforeSend();
-    const st = usePublishingStore.getState();
+    const pub = usePublishingStore.getState();
 
     let userText: string;
-    if (st.pendingPrompt) {
-      userText = st.pendingPrompt;
-      st.setPendingPrompt(null);
+    if (pub.pendingPrompt) {
+      userText = pub.pendingPrompt.trim();
+      pub.setPendingPrompt(null);
+      if (!userText) return;
+      pub.pushUserMessage(userText);
     } else {
       const t = typed?.trim();
       if (!t) return;
-      st.pushUserMessage(t);
+      pub.pushUserMessage(t);
       userText = t;
     }
 
@@ -56,7 +58,8 @@ export function useUnifiedChatSend() {
     );
 
     try {
-      const msgs = usePublishingStore.getState().chatMessages;
+      const st = usePublishingStore.getState();
+      const msgs = st.chatMessages;
       const history =
         st.composerStep === "intake"
           ? msgs

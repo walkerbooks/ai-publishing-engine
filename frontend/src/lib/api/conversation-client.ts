@@ -19,7 +19,7 @@ export type ConversationMessageDto = {
   kind?: string | null;
   /** String (JSON / base64), or JSON object/array if the server embeds structured data. */
   outline_json?: unknown;
-  /** Book specification (BSO) at outline time — required to resume preview after reload. */
+  /** Not accepted on append by current Go API; optional on GET if the server ever adds it. */
   book_spec_json?: unknown;
   videos_json?: unknown;
   preview_markdown?: unknown;
@@ -118,13 +118,15 @@ export async function patchConversationTitle(
   return data.conversation;
 }
 
+/** Fields must match Go `AppendConversationMessageRequest` (DisallowUnknownFields). */
 export type AppendConversationMessageBody = {
   role: "user" | "assistant";
   content: string;
   kind?: string | null;
+  /** Base64-encoded UTF-8 JSON (Go []byte in JSON). */
   outline_json?: string | null;
-  book_spec_json?: string | null;
   videos_json?: string | null;
+  /** Plain markdown string (Go *string). */
   preview_markdown?: string | null;
   client_message_id?: string | null;
 };
@@ -145,8 +147,8 @@ export async function appendConversationMessage(
     },
   );
   if (!res.ok) {
-    log.warning(`appendConversationMessage: HTTP ${res.status}`);
     const msg = await readGoErrorMessage(res);
+    log.warning(`appendConversationMessage: HTTP ${res.status}`, msg);
     if (res.status === 401) {
       const { invalidateGoSession } = await import("@/lib/auth/invalidate-go-session");
       invalidateGoSession(msg);

@@ -3,6 +3,8 @@ import type { BookOutlineLite, ChatMessage, VideoMeta } from "@/lib/types/chat";
 export type PublishingState = {
   sessionId: string;
   activeBookId: string | null;
+  /** True after preview payload was successfully POSTed or PATCHed to Go for `activeBookId`. */
+  bookPreviewRowSynced: boolean;
   chatMessages: ChatMessage[];
   intakeComplete: boolean;
   awaitingGate: null | "outline" | "preview" | "full";
@@ -59,6 +61,7 @@ export function createInitialPublishingState(): PublishingState {
   return {
     sessionId: crypto.randomUUID(),
     activeBookId: null,
+    bookPreviewRowSynced: false,
     chatMessages: [],
     intakeComplete: false,
     awaitingGate: null,

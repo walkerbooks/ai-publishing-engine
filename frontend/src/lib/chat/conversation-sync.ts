@@ -35,16 +35,12 @@ export async function persistChatMessageIfAuthenticated(msg: ChatMessage): Promi
   if (!token || !useAuthStore.getState().isAuthenticated) return;
   const publicId = useChatDirectoryStore.getState().activeConversationId;
   if (!publicId) return;
+  if (!msg.content.trim()) {
+    log.warning("persistChatMessageIfAuthenticated: skip empty content");
+    return;
+  }
   try {
-    const bookSpecForOutline =
-      msg.kind === "outline"
-        ? usePublishingStore.getState().bookSpec
-        : undefined;
-    await appendConversationMessage(
-      token,
-      publicId,
-      chatMessageToAppendBody(msg, bookSpecForOutline),
-    );
+    await appendConversationMessage(token, publicId, chatMessageToAppendBody(msg));
   } catch (e) {
     log.warning("persistChatMessageIfAuthenticated failed", e);
   }

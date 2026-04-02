@@ -86,11 +86,16 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
         sessionId: crypto.randomUUID(),
       }),
     setIntakeResult: (intakeComplete, bookSpec, bookId) =>
-      set((s) => ({
-        intakeComplete,
-        bookSpec,
-        activeBookId: bookId ?? s.activeBookId ?? crypto.randomUUID(),
-      })),
+      set((s) => {
+        const nextActive = bookId ?? s.activeBookId ?? crypto.randomUUID();
+        const sameBook = nextActive === s.activeBookId;
+        return {
+          intakeComplete,
+          bookSpec,
+          activeBookId: nextActive,
+          bookPreviewRowSynced: sameBook ? s.bookPreviewRowSynced : false,
+        };
+      }),
     setBookOutline: (bookOutline) => set({ bookOutline }),
     setPreviewContent: (previewContent) => set({ previewContent }),
     appendStreamPreview: (chunk) =>

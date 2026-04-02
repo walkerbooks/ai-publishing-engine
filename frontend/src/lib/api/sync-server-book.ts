@@ -12,7 +12,8 @@ const log = getLogger("sync-server-book");
  * Creates a row on first success, or updates description + status on later runs.
  */
 export async function syncBookToServerAfterPreview(previewMarkdown: string): Promise<void> {
-  const { activeBookId, bookSpec, bookOutline } = usePublishingStore.getState();
+  const { activeBookId, bookSpec, bookOutline, bookPreviewRowSynced } =
+    usePublishingStore.getState();
   if (!activeBookId || !bookSpec) {
     log.debug("syncBookToServerAfterPreview: skip (no book id or spec)");
     return;
@@ -27,14 +28,11 @@ export async function syncBookToServerAfterPreview(previewMarkdown: string): Pro
     preview_content: previewMarkdown,
   });
 
+  const markSynced = () =>
+    usePublishingStore.setState({ bookPreviewRowSynced: true });
+
   try {
-    const headers: HeadersInit = { Accept: "application/json" };
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const head = await fetch(
-      `${GO_API_PREFIX}/v1/books/${encodeURIComponent(activeBookId)}`,
-      { method: "GET", headers, credentials: "include" },
-    );
-    if (head.ok) {
+    if (bookPreviewRowSynced) {
       await patchBook(activeBookId, token, {
         description,
         title: title.slice(0, 180),
@@ -43,20 +41,41 @@ export async function syncBookToServerAfterPreview(previewMarkdown: string): Pro
       log.debug("syncBookToServerAfterPreview: patched", { activeBookId });
       return;
     }
-    if (head.status !== 404) {
-      log.warning(`syncBookToServerAfterPreview: get book HTTP ${head.status}`);
+
+    try {
+      await createBook(
+        {
+          title,
+          description,
+          public_id: activeBookId,
+          status: "preview_ready",
+        },
+        token,
+      );
+      markSynced();
+      log.debug("syncBookToServerAfterPreview: created", { activeBookId });
       return;
+    } catch (createErr) {
+      const headers: HeadersInit = { Accept: "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const head = await fetch(
+        `${GO_API_PREFIX}/v1/books/${encodeURIComponent(activeBookId)}`,
+        { method: "GET", headers, credentials: "include" },
+      );
+      if (head.ok) {
+        await patchBook(activeBookId, token, {
+          description,
+          title: title.slice(0, 180),
+          status: "preview_ready",
+        });
+        markSynced();
+        log.debug("syncBookToServerAfterPreview: patched after create conflict", {
+          activeBookId,
+        });
+        return;
+      }
+      log.warning("syncBookToServerAfterPreview failed", createErr);
     }
-    await createBook(
-      {
-        title,
-        description,
-        public_id: activeBookId,
-        status: "preview_ready",
-      },
-      token,
-    );
-    log.debug("syncBookToServerAfterPreview: created", { activeBookId });
   } catch (e) {
     log.warning("syncBookToServerAfterPreview failed", e);
   }
@@ -87,7 +106,10 @@ export async function ensureServerBookForSession(bookPublicId: string): Promise<
       `${GO_API_PREFIX}/v1/books/${encodeURIComponent(bookPublicId)}`,
       { method: "GET", headers: { ...goAuthHeaders(token), Accept: "application/json" }, credentials: "include" },
     );
-    if (head.ok) return true;
+    if (head.ok) {
+      usePublishingStore.setState({ bookPreviewRowSynced: true });
+      return true;
+    }
     if (head.status !== 404) {
       log.warning(`ensureServerBookForSession: GET HTTP ${head.status}`);
       return false;
@@ -101,6 +123,7 @@ export async function ensureServerBookForSession(bookPublicId: string): Promise<
       },
       token,
     );
+    usePublishingStore.setState({ bookPreviewRowSynced: true });
     log.debug("ensureServerBookForSession: created", { bookPublicId });
     return true;
   } catch (e) {

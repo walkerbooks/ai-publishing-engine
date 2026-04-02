@@ -60,29 +60,39 @@ export function apiMessageToChatMessage(m: ConversationMessageDto): ChatMessage 
   };
 }
 
-export function chatMessageToAppendBody(
-  msg: ChatMessage,
-  bookSpecWhenOutline?: Record<string, unknown> | null,
-): AppendConversationMessageBody {
+/** Must match Go `validate:"omitempty,oneof=..."` on append message. */
+const APPEND_MESSAGE_KINDS = new Set<ChatBlockKind>([
+  "intake",
+  "outline",
+  "preview",
+  "gate",
+]);
+
+export function chatMessageToAppendBody(msg: ChatMessage): AppendConversationMessageBody {
+  if (msg.role === "user") {
+    return {
+      role: "user",
+      content: msg.content,
+      client_message_id: msg.id,
+    };
+  }
+
   const body: AppendConversationMessageBody = {
-    role: msg.role,
+    role: "assistant",
     content: msg.content,
     client_message_id: msg.id,
   };
-  if (msg.role === "assistant") {
-    if (msg.kind) body.kind = msg.kind;
-    if (msg.outline != null) {
-      body.outline_json = utf8ToBase64(JSON.stringify(msg.outline));
-    }
-    if (msg.kind === "outline" && bookSpecWhenOutline && Object.keys(bookSpecWhenOutline).length > 0) {
-      body.book_spec_json = utf8ToBase64(JSON.stringify(bookSpecWhenOutline));
-    }
-    if (msg.videos?.length) {
-      body.videos_json = utf8ToBase64(JSON.stringify(msg.videos));
-    }
-    if (msg.previewMarkdown) {
-      body.preview_markdown = utf8ToBase64(msg.previewMarkdown);
-    }
+  if (msg.kind && APPEND_MESSAGE_KINDS.has(msg.kind)) {
+    body.kind = msg.kind;
+  }
+  if (msg.outline != null) {
+    body.outline_json = utf8ToBase64(JSON.stringify(msg.outline));
+  }
+  if (msg.videos?.length) {
+    body.videos_json = utf8ToBase64(JSON.stringify(msg.videos));
+  }
+  if (msg.previewMarkdown) {
+    body.preview_markdown = msg.previewMarkdown;
   }
   return body;
 }
