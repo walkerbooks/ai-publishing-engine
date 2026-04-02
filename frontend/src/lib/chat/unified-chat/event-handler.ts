@@ -1,4 +1,5 @@
 import type { ChatBlockKind } from "@/lib/types/chat";
+import { syncBookToServerAfterPreview } from "@/lib/api/sync-server-book";
 
 type Handlers = {
   pushAssistantMessage: (msg: any) => void;
@@ -15,6 +16,7 @@ type Handlers = {
     messageId: string,
     previewMarkdown: string,
   ) => void;
+  setPreviewContent: (markdown: string) => void;
   setErr: (msg: string) => void;
 };
 
@@ -47,10 +49,11 @@ export function handleUnifiedChatSseEvent(
   }
 
   if (event === "book_spec_ready") {
+    const bookId = crypto.randomUUID();
     handlers.setIntakeResult(
       Boolean(data.intakeComplete),
       (data.bookSpec ?? null) as Record<string, unknown> | null,
-      null,
+      bookId,
     );
     return;
   }
@@ -63,10 +66,10 @@ export function handleUnifiedChatSseEvent(
   }
 
   if (event === "preview_ready") {
-    handlers.setAssistantPreview(
-      data.messageId as string,
-      data.previewMarkdown,
-    );
+    const md = String(data.previewMarkdown ?? "");
+    handlers.setAssistantPreview(data.messageId as string, md);
+    handlers.setPreviewContent(md);
+    void syncBookToServerAfterPreview(md);
     return;
   }
 

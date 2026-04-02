@@ -1,5 +1,5 @@
 import { GO_API_PREFIX, goAuthHeaders } from "@/lib/api/go-api";
-import { throwIfGoResponseFailed } from "@/lib/api/go-response";
+import { readGoErrorMessage, throwIfGoResponseFailed } from "@/lib/api/go-response";
 import { getLogger } from "@/lib/log";
 
 const log = getLogger("conversation-client");
@@ -31,18 +31,29 @@ function authHeaders(token: string): HeadersInit {
   return goAuthHeaders(token);
 }
 
+/** Best-effort: never throws — sidebar can load without server conversation support. */
 export async function listConversations(accessToken: string): Promise<ConversationDto[]> {
-  const res = await fetch(`${GO_API_PREFIX}/v1/conversation/list`, {
+  const init: RequestInit = {
     headers: authHeaders(accessToken),
     credentials: "include",
     cache: "no-store",
-  });
-  if (!res.ok) {
-    log.warning(`listConversations: HTTP ${res.status}`);
-    await throwIfGoResponseFailed(res);
+  };
+  let res = await fetch(`${GO_API_PREFIX}/v1/conversation`, init);
+  if (res.status === 404 || res.status === 500) {
+    const alt = await fetch(`${GO_API_PREFIX}/v1/conversation/list`, init);
+    if (alt.ok) res = alt;
   }
-  const data = (await res.json()) as { conversations?: ConversationDto[] };
-  return data.conversations ?? [];
+  if (res.ok) {
+    const data = (await res.json()) as { conversations?: ConversationDto[] };
+    return data.conversations ?? [];
+  }
+  const msg = await readGoErrorMessage(res);
+  log.warning(`listConversations: HTTP ${res.status}`, msg);
+  if (res.status === 401) {
+    const { invalidateGoSession } = await import("@/lib/auth/invalidate-go-session");
+    invalidateGoSession(msg);
+  }
+  return [];
 }
 
 export async function createConversation(
@@ -118,11 +129,12 @@ export type AppendConversationMessageBody = {
   client_message_id?: string | null;
 };
 
+/** Best-effort persistence: does not throw on HTTP errors (avoids noisy dev stacks); still invalidates session on 401. */
 export async function appendConversationMessage(
   accessToken: string,
   conversationPublicId: string,
   body: AppendConversationMessageBody,
-): Promise<ConversationMessageDto> {
+): Promise<ConversationMessageDto | null> {
   const res = await fetch(
     `${GO_API_PREFIX}/v1/conversation/${encodeURIComponent(conversationPublicId)}/messages`,
     {
@@ -134,9 +146,17 @@ export async function appendConversationMessage(
   );
   if (!res.ok) {
     log.warning(`appendConversationMessage: HTTP ${res.status}`);
-    await throwIfGoResponseFailed(res);
+    const msg = await readGoErrorMessage(res);
+    if (res.status === 401) {
+      const { invalidateGoSession } = await import("@/lib/auth/invalidate-go-session");
+      invalidateGoSession(msg);
+    }
+    return null;
   }
   const data = (await res.json()) as { message?: ConversationMessageDto };
-  if (!data.message) throw new Error("Invalid append message response");
+  if (!data.message) {
+    log.warning("appendConversationMessage: invalid response shape");
+    return null;
+  }
   return data.message;
 }

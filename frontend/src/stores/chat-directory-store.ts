@@ -17,7 +17,7 @@ import {
 } from "@/lib/chat/session-serialization";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { guestConversationLimitCopy, getGuestMaxConversations } from "@/lib/guest/guest-config";
-import { persistGuestDirectory } from "@/lib/guest/guest-directory-persist";
+import { scheduleGuestDirectoryPersist } from "@/lib/guest/guest-directory-persist";
 import { getLogger } from "@/lib/log";
 import { createInitialPublishingState, type PublishingState } from "@/stores/publishing-types";
 import { useAuthStore } from "@/stores/auth-store";
@@ -44,31 +44,16 @@ type ChatDirectoryState = {
 };
 
 type ChatDirectoryActions = {
+  registerNewServerConversation: (c: ConversationDto) => void;
+  hydrateConversationListFromServer: () => Promise<void>;
+  clearGuestGateMessage: () => void;
   upsertActiveFromPublishing: (state: PublishingState) => void;
   selectConversation: (id: string) => Promise<void>;
   startNewConversation: () => Promise<void>;
   removeConversation: (id: string) => void;
-  hydrateConversationListFromServer: () => Promise<void>;
-  registerNewServerConversation: (c: ConversationDto) => void;
-  clearGuestGateMessage: () => void;
+  /** Wipe sidebar + active thread (e.g. on logout so the next user does not see prior chats). */
+  clearAll: () => void;
 };
-
-let guestPersistTimer: ReturnType<typeof setTimeout> | undefined;
-
-function scheduleGuestDirectoryPersist(): void {
-  if (typeof window === "undefined") return;
-  if (useAuthStore.getState().isAuthenticated) return;
-  if (guestPersistTimer) clearTimeout(guestPersistTimer);
-  guestPersistTimer = setTimeout(() => {
-    guestPersistTimer = undefined;
-    if (useAuthStore.getState().isAuthenticated) return;
-    const s = useChatDirectoryStore.getState();
-    persistGuestDirectory({
-      conversations: s.conversations,
-      activeConversationId: s.activeConversationId,
-    });
-  }, 500);
-}
 
 function sortConversations(list: StoredConversation[]): StoredConversation[] {
   return [...list].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -113,10 +98,13 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       try {
         const list = await listConversations(token);
         const rows = list.map(dtoToStored);
-        set({ conversations: sortConversations(rows), listLoaded: true });
+        const sorted = sortConversations(rows);
+        set({ conversations: sorted, listLoaded: true });
         const { activeConversationId } = get();
-        if (activeConversationId && rows.some((r) => r.id === activeConversationId)) {
+        if (activeConversationId && sorted.some((r) => r.id === activeConversationId)) {
           await get().selectConversation(activeConversationId);
+        } else if (sorted.length > 0) {
+          await get().selectConversation(sorted[0].id);
         } else {
           set({ activeConversationId: null });
           usePublishingStore.setState(createInitialPublishingState());
@@ -163,7 +151,10 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       set({
         conversations: sortConversations([row, ...existing]),
       });
-      scheduleGuestDirectoryPersist();
+      scheduleGuestDirectoryPersist(() => ({
+        conversations: get().conversations,
+        activeConversationId: get().activeConversationId,
+      }));
 
       const token = getAccessToken();
       if (
@@ -221,7 +212,11 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       if (!target.snapshot) return;
       applyPublishingSnapshot(usePublishingStore.setState, target.snapshot);
       set({ activeConversationId: id });
-      if (!authed) scheduleGuestDirectoryPersist();
+      if (!authed)
+        scheduleGuestDirectoryPersist(() => ({
+          conversations: get().conversations,
+          activeConversationId: get().activeConversationId,
+        }));
     },
 
     startNewConversation: async () => {
@@ -269,7 +264,10 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
           ...s.conversations,
         ]),
       }));
-      scheduleGuestDirectoryPersist();
+      scheduleGuestDirectoryPersist(() => ({
+        conversations: get().conversations,
+        activeConversationId: get().activeConversationId,
+      }));
     },
 
     removeConversation: (id) => {
@@ -296,7 +294,12 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
         }
       }
       usePublishingStore.setState(createInitialPublishingState());
-      scheduleGuestDirectoryPersist();
+      scheduleGuestDirectoryPersist(() => ({
+        conversations: get().conversations,
+        activeConversationId: get().activeConversationId,
+      }));
     },
+
+  clearAll: () => set({ conversations: [], activeConversationId: null }),
   }),
 );

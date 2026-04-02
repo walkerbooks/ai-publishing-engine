@@ -17,7 +17,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn(inter.className, "min-h-dvh bg-background text-foreground")}>
+      <body
+        className={cn(inter.className, "min-h-dvh bg-background text-foreground")}
+        suppressHydrationWarning
+      >
         <Providers>
           <div className="flex min-h-dvh flex-col">
             <AppHeader />
