@@ -33,6 +33,16 @@ body {
   @apply bg-background text-foreground antialiased;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 .dark body {
   background-color: #0d1b2a;
 }
