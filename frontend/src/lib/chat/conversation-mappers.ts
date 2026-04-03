@@ -97,6 +97,22 @@ export function chatMessageToAppendBody(msg: ChatMessage): AppendConversationMes
   return body;
 }
 
+/** Classify gate copy — check full/payment before "preview" (post-preview gate text also says "preview"). */
+function gateStageFromGateContent(content: string): "outline" | "preview" | "full" {
+  const c = content.toLowerCase();
+  if (
+    c.includes("unlock the full") ||
+    c.includes("full book") ||
+    c.includes("payment") ||
+    c.includes("paypal") ||
+    (c.includes("unlock") && c.includes("full"))
+  ) {
+    return "full";
+  }
+  if (c.includes("preview")) return "preview";
+  return "outline";
+}
+
 /** Rebuild publishing state from persisted messages; book_spec_json on outline rows restores BSO. */
 export function restorePublishingFromApiMessages(
   conversationPublicId: string,
@@ -132,18 +148,40 @@ export function restorePublishingFromApiMessages(
     bookSpec = minimalBookSpecFromOutline(bookOutline);
   }
 
+  const hasPreviewMessage = chatMessages.some(
+    (m) => m.role === "assistant" && m.kind === "preview",
+  );
+
+  let previewContent = "";
+  for (let i = chatMessages.length - 1; i >= 0; i--) {
+    const m = chatMessages[i];
+    if (m.role === "assistant" && m.kind === "preview" && m.previewMarkdown?.trim()) {
+      previewContent = m.previewMarkdown.trim();
+      break;
+    }
+  }
+
   let composerStep: PublishingState["composerStep"] = "intake";
+  if (hasPreviewMessage) {
+    composerStep = "preview";
+  } else if (bookOutline) {
+    composerStep = "outline";
+  }
+
   const lastAsst = [...chatMessages].reverse().find((m) => m.role === "assistant");
-  if (lastAsst?.kind === "preview") composerStep = "preview";
-  else if (lastAsst?.kind === "outline" || bookOutline) composerStep = "outline";
 
   let awaitingGate: PublishingState["awaitingGate"] = null;
   if (lastAsst?.kind === "gate") {
-    const c = (lastAsst.content || "").toLowerCase();
-    if (c.includes("preview")) awaitingGate = "preview";
-    else if (c.includes("full") || c.includes("payment") || c.includes("access"))
+    const stage = gateStageFromGateContent(lastAsst.content || "");
+    if (stage === "preview" && hasPreviewMessage) {
+      awaitingGate = null;
+    } else if (stage === "full") {
       awaitingGate = "full";
-    else awaitingGate = "outline";
+    } else if (stage === "preview") {
+      awaitingGate = "preview";
+    } else {
+      awaitingGate = "outline";
+    }
   }
 
   return {
@@ -151,8 +189,9 @@ export function restorePublishingFromApiMessages(
     sessionId: conversationPublicId,
     chatMessages,
     bookOutline,
-    intakeComplete: Boolean(bookOutline),
+    intakeComplete: Boolean(bookOutline || bookSpec),
     bookSpec,
+    previewContent,
     composerStep,
     composerAction: "proceed",
     awaitingGate,

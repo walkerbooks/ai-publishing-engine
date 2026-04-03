@@ -60,7 +60,7 @@ export function PayPalReturnClient() {
             bookId,
             status: book.Status,
           });
-          router.replace(`/book/${bookId}/full`);
+          router.replace(`/chat?book=${encodeURIComponent(bookId!)}`);
           return;
         }
       } catch {

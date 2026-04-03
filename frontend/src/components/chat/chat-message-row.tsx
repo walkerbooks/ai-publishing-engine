@@ -2,6 +2,7 @@ import type { ChatMessage } from "@/lib/types/chat";
 import { VideoCardRow } from "@/components/chat/video-card-row";
 import { AssistantOutlineBlock } from "@/components/chat/assistant-outline-block";
 import { AssistantPreviewBlock } from "@/components/chat/assistant-preview-block";
+import { AssistantFullBookBlock } from "@/components/chat/assistant-full-book-block";
 import { cn } from "@/lib/utils/cn";
 
 type Props = {
@@ -16,7 +17,7 @@ export function ChatMessageRow({ message, variant = "light" }: Props) {
 
   const assistantBubble =
     dark
-      ? "rounded-2xl border border-white/10 bg-zinc-800/95 px-4 py-3 text-zinc-200 shadow-sm"
+      ? "rounded-2xl border border-walker-navy/35 bg-walker-nightPanel px-4 py-3 text-zinc-200 shadow-sm"
       : "rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-slate-800 shadow-sm";
 
   return (
@@ -33,7 +34,7 @@ export function ChatMessageRow({ message, variant = "light" }: Props) {
       >
         {message.role === "assistant" && kind === "outline" ? (
           message.outline ? (
-            <AssistantOutlineBlock outline={message.outline} />
+            <AssistantOutlineBlock outline={message.outline} chrome="embedded" />
           ) : (
             <div className="whitespace-pre-wrap break-words">
               {message.content}
@@ -43,12 +44,24 @@ export function ChatMessageRow({ message, variant = "light" }: Props) {
 
         {message.role === "assistant" && kind === "preview" ? (
           message.previewMarkdown ? (
-            <AssistantPreviewBlock markdown={message.previewMarkdown} />
+            <AssistantPreviewBlock markdown={message.previewMarkdown} chrome="embedded" />
           ) : (
             <div className="whitespace-pre-wrap break-words">
               {message.content}
             </div>
           )
+        ) : null}
+
+        {message.role === "assistant" && kind === "full" ? (
+          <AssistantFullBookBlock
+            phase={message.fullGenPhase ?? "generating"}
+            statusLine={message.fullGenStatusText ?? "…"}
+            firstChapterMarkdown={message.fullChapterMarkdown}
+            bookTitle={message.fullBookTitle}
+            pdfUrl={message.fullPdfUrl}
+            error={message.fullGenError}
+            chrome="embedded"
+          />
         ) : null}
 
         {message.role === "assistant" &&

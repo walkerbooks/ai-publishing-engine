@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ensureGuestSession } from "@/lib/api/guest-session";
 import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { useVideoInjection } from "@/hooks/use-video-injection";
@@ -12,9 +13,18 @@ import { hydrateGuestStoresFromPersistence } from "@/lib/guest/guest-hydrate";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { ChatWorkspace } from "@/components/chat/chat-workspace";
 import { ChatShell } from "@/components/chat/shell/chat-shell";
+import { useFullBookChatFlow } from "@/hooks/use-full-book-chat-flow";
 
 export function ChatPageClient() {
   useVideoInjection();
+  useFullBookChatFlow();
+  const searchParams = useSearchParams();
+  const setActiveBookId = usePublishingStore((s) => s.setActiveBookId);
+
+  useEffect(() => {
+    const b = searchParams.get("book")?.trim();
+    if (b) setActiveBookId(b);
+  }, [searchParams, setActiveBookId]);
   const { send, busy, err, clearErr } = useUnifiedChatSend();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const refreshProfile = useAuthStore((s) => s.refreshProfile);

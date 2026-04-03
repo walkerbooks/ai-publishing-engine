@@ -48,6 +48,8 @@ export type PublishingActions = {
     spec: Record<string, unknown> | null,
     bookId: string | null,
   ) => void;
+  /** e.g. deep link after PayPal return: /chat?book=… */
+  setActiveBookId: (bookId: string | null) => void;
   setBookOutline: (o: Record<string, unknown> | null) => void;
   setPreviewContent: (s: string) => void;
   appendStreamPreview: (chunk: string) => void;
@@ -55,6 +57,10 @@ export type PublishingActions = {
   setFullBookContent: (s: string) => void;
   setMockPayment: (v: boolean) => void;
   setUserName: (n: string | null) => void;
+  patchChatMessage: (
+    messageId: string,
+    patch: Partial<import("@/lib/types/chat").ChatMessage>,
+  ) => void;
 };
 
 export function createInitialPublishingState(): PublishingState {

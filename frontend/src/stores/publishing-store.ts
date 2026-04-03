@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { VIDEO_BLOCK_HEADING } from "@/lib/constants/welcome";
+import type { ChatMessage } from "@/lib/types/chat";
 import {
   createInitialPublishingState,
   type PublishingActions,
@@ -96,6 +97,12 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           bookPreviewRowSynced: sameBook ? s.bookPreviewRowSynced : false,
         };
       }),
+    setActiveBookId: (activeBookId) =>
+      set((s) => ({
+        activeBookId,
+        bookPreviewRowSynced:
+          activeBookId === s.activeBookId ? s.bookPreviewRowSynced : false,
+      })),
     setBookOutline: (bookOutline) => set({ bookOutline }),
     setPreviewContent: (previewContent) => set({ previewContent }),
     appendStreamPreview: (chunk) =>
@@ -106,5 +113,11 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
     setFullBookContent: (fullBookContent) => set({ fullBookContent }),
     setMockPayment: (mockPaymentConfirmed) => set({ mockPaymentConfirmed }),
     setUserName: (userName) => set({ userName }),
+    patchChatMessage: (messageId, patch) =>
+      set((s) => ({
+        chatMessages: s.chatMessages.map((m) =>
+          m.id === messageId ? ({ ...m, ...patch } as ChatMessage) : m,
+        ),
+      })),
   }),
 );

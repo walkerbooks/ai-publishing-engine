@@ -30,7 +30,7 @@ export function OutlineChapters({ chapters }: Props) {
           value={`ch-${ch.chapter_number}-${i}`}
           className={cn(
             "border-0 rounded-lg border border-border/80 bg-slate-50/95 px-0 shadow-sm",
-            "dark:bg-foreground/[0.04] dark:shadow-none",
+            "dark:border-walker-navy/25 dark:bg-walker-night dark:shadow-none",
           )}
         >
           <AccordionTrigger className="px-3 py-2.5 text-sm font-medium hover:no-underline">

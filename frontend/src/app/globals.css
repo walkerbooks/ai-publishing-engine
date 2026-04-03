@@ -3,25 +3,38 @@
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 210 40% 96%;
-  --border: 214 32% 91%;
+  /* Walkerbook — pale horizon / mist for light surfaces */
+  --background: 213 35% 97%;
+  --foreground: 220 32% 16%;
+  --muted: 213 28% 93%;
+  --muted-foreground: 208 22% 38%;
+  --accent: 165 45% 92%;
+  --border: 213 22% 88%;
 }
 
 .dark {
-  --background: 240 6% 6%;
-  --foreground: 0 0% 98%;
-  --muted: 240 4% 16%;
-  --muted-foreground: 240 5% 65%;
-  --accent: 240 5% 12%;
-  --border: 240 4% 18%;
+  /* Solid base #0D1B2A — gradients only on selected surfaces (e.g. outline panel) */
+  --background: 210 53% 11%;
+  --foreground: 213 35% 96%;
+  --muted: 210 35% 16%;
+  --muted-foreground: 208 18% 68%;
+  --accent: 210 32% 15%;
+  --border: 210 30% 20%;
+}
+
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 0.25s;
+  animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 body {
   @apply bg-background text-foreground antialiased;
+}
+
+.dark body {
+  background-color: #0d1b2a;
 }
 
 @keyframes outline-in {

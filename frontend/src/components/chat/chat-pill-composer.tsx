@@ -52,7 +52,7 @@ export function ChatPillComposer({
     <form
       onSubmit={submit}
       className={cn(
-        "flex w-full max-w-2xl items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-2 pl-3 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-zinc-800/90 dark:shadow-xl sm:gap-2 sm:px-3 sm:pl-4",
+        "flex w-full max-w-2xl items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-2 pl-3 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-walker-night dark:shadow-xl sm:gap-2 sm:px-3 sm:pl-4",
         className,
       )}
     >

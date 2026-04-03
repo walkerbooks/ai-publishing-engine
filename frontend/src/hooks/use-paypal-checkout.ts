@@ -32,11 +32,8 @@ export function usePayPalCheckout() {
           }
         }
         usePublishingStore.getState().setMockPayment(true);
-        if (typeof window !== "undefined") {
-          const target = `/book/${bookPublicId}/full`;
-          if (window.location.pathname !== target) {
-            router.push(target);
-          }
+        if (typeof window !== "undefined" && window.location.pathname !== "/chat") {
+          router.push("/chat");
         }
         return;
       }

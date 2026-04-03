@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -8,6 +9,7 @@ import { SignupForm } from "@/components/auth/signup-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { authGreetingName } from "@/lib/auth/greeting-name";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils/cn";
 
@@ -35,37 +37,59 @@ export function AppHeader() {
     router.refresh();
   };
 
+  const greetingName = authGreetingName(isAuthenticated, firstName, email);
+
   return (
-    <header className="flex min-h-14 shrink-0 flex-wrap items-center border-b border-border bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:h-14 sm:flex-nowrap sm:py-0">
-      <div className="mx-auto flex min-h-0 min-w-0 w-full max-w-5xl items-center gap-3 px-4 sm:gap-6">
-        <Link
-          href="/"
-          className="shrink-0 font-semibold text-foreground touch-manipulation"
-        >
-          AI Publishing
-        </Link>
-        <nav className="flex flex-1 items-center gap-4 text-sm sm:gap-6">
+    <header className="flex min-h-14 shrink-0 flex-wrap items-center border-b border-walker-navy/15 bg-walker-mist/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-walker-mist/85 dark:border-walker-navy/40 dark:bg-walker-night supports-[backdrop-filter]:dark:bg-walker-night sm:min-h-16 sm:flex-nowrap sm:py-2">
+      <div className="mx-auto flex min-h-0 min-w-0 w-full max-w-5xl items-center justify-between gap-3 px-4 sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center justify-start gap-2 sm:gap-3">
           <Link
-            href="/chat"
-            className="-mx-1 rounded-md px-1 py-2 text-muted-foreground touch-manipulation transition-colors hover:text-foreground sm:py-0"
+            href="/"
+            className={cn(
+              "inline-flex shrink-0 items-center touch-manipulation rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2 focus-visible:ring-offset-walker-mist dark:focus-visible:ring-offset-walker-charcoal",
+            )}
+            aria-label="Walkerbook home"
           >
-            Chat
+            <Image
+              src="/walkerbook/Walkerbook logo with hiker silhouette.png"
+              alt=""
+              width={280}
+              height={72}
+              className="h-12 w-auto sm:h-14"
+              priority
+            />
           </Link>
-        </nav>
-        <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+          <nav
+            className="flex shrink-0 items-center justify-start gap-x-2 text-left text-sm sm:gap-x-4"
+            aria-label="Primary"
+          >
+            <Link
+              href="/"
+              className="whitespace-nowrap rounded-md px-1 py-2 text-left text-walker-navy/90 touch-manipulation transition-colors hover:text-walker-charcoal dark:text-walker-mist/85 dark:hover:text-white sm:py-0"
+            >
+              Home
+            </Link>
+            <Link
+              href="/chat"
+              className="whitespace-nowrap rounded-md px-1 py-2 text-left text-walker-navy/90 touch-manipulation transition-colors hover:text-walker-charcoal dark:text-walker-mist/85 dark:hover:text-white sm:py-0"
+            >
+              Chat
+            </Link>
+            
+          </nav>
+        </div>
+        <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-3">
           <ThemeToggle />
           {isAuthenticated ? (
             <>
               <span
                 className={cn(
                   "inline max-w-[min(12rem,42vw)] truncate text-xs text-muted-foreground sm:max-w-[220px] sm:text-sm",
-                  firstName || email ? "" : "italic",
+                  greetingName ? "" : "italic",
                 )}
                 title={email ?? undefined}
               >
-                {firstName
-                  ? `Hi, ${firstName}`
-                  : (email ?? "Signed in")}
+                {greetingName ? `Hi, ${greetingName}` : "Signed in"}
               </span>
               <Button
                 variant="outline"

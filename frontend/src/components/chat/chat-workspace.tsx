@@ -122,7 +122,7 @@ export function ChatWorkspace({
               )}
             >
               <p className="mb-2 shrink-0 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Smith Book · Intake → outline → preview
+                Walkerbook · Intake → outline → preview
               </p>
               {/* relative + absolute inset-0: guarantees a fixed-height clip so overflow-y scrolls inside nested flex/grid */}
               <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -144,7 +144,7 @@ export function ChatWorkspace({
 
             {showOutlineColumn ? (
               <div
-                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-border bg-slate-100 dark:border-white/10 dark:bg-[#0d0d0d] lg:flex xl:w-[320px]"
+                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-border bg-slate-100 dark:border-white/10 dark:bg-walker-hero-night lg:flex xl:w-[320px]"
                 role="region"
                 aria-label="Generated outline"
               >
@@ -167,7 +167,7 @@ export function ChatWorkspace({
           </div>
 
           {/* Row 2: composer — grid auto row, always under thread */}
-          <div className="chat-dock-enter shrink-0 border-t border-slate-200/90 bg-background/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md dark:border-white/10 dark:bg-[#0d0d0d]/95 sm:px-4 sm:py-4">
+          <div className="chat-dock-enter shrink-0 border-t border-slate-200/90 bg-background/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md dark:border-white/10 dark:bg-walker-night sm:px-4 sm:py-4">
             <div
               className={cn(
                 "mx-auto w-full max-w-3xl",

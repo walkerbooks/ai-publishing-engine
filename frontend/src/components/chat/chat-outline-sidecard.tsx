@@ -66,7 +66,7 @@ export function ChatOutlineSidecard({
   return (
     <aside
       className={cn(
-        "w-full min-w-0 rounded-2xl border border-border/80 bg-slate-100 p-4 dark:bg-background",
+        "w-full min-w-0 rounded-2xl border border-border/80 bg-slate-100 p-4 dark:border-walker-navy/30 dark:bg-walker-nightPanel",
         isSidebar
           ? "chat-outline-in flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           : "chat-outline-in h-fit",

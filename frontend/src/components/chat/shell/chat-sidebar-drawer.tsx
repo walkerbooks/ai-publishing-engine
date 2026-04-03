@@ -44,7 +44,7 @@ export function ChatSidebarDrawer({ open, onClose, className }: Props) {
       />
       <aside
         className={cn(
-          "absolute left-0 top-0 flex h-full w-[min(100vw-3rem,300px)] max-w-[85vw] flex-col border-r border-border bg-background shadow-2xl transition-transform duration-300 ease-out dark:border-white/10 dark:bg-zinc-950 sm:w-[min(100vw-4rem,320px)]",
+          "absolute left-0 top-0 flex h-full w-[min(100vw-3rem,300px)] max-w-[85vw] flex-col border-r border-border bg-background shadow-2xl transition-transform duration-300 ease-out dark:border-white/10 dark:bg-walker-night sm:w-[min(100vw-4rem,320px)]",
           open ? "translate-x-0" : "-translate-x-full",
         )}
         role="dialog"

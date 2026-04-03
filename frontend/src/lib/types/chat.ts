@@ -4,7 +4,13 @@ export type VideoMeta = {
   thumbnail_url?: string;
 };
 
-export type ChatBlockKind = "intake" | "outline" | "preview" | "gate";
+export type ChatBlockKind =
+  | "intake"
+  | "outline"
+  | "preview"
+  | "gate"
+  /** Full manuscript: progress, first chapter, then PDF when export is ready */
+  | "full";
 
 export type BookOutlineLite = {
   book_title?: string;
@@ -19,6 +25,13 @@ export type BookOutlineLite = {
   }>;
 };
 
+export type FullBookGenPhase =
+  | "queued"
+  | "generating"
+  | "first_chapter"
+  | "finishing"
+  | "complete";
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -27,6 +40,13 @@ export type ChatMessage = {
   videos?: VideoMeta[];
   outline?: BookOutlineLite;
   previewMarkdown?: string;
+  /** kind === "full" — in-chat manuscript + export */
+  fullGenPhase?: FullBookGenPhase;
+  fullGenStatusText?: string;
+  fullChapterMarkdown?: string;
+  fullPdfUrl?: string | null;
+  fullBookTitle?: string | null;
+  fullGenError?: string | null;
 };
 
 export type ChatApiResponse = {

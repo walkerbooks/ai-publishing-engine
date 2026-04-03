@@ -23,7 +23,7 @@ export function ChatShellTopBar({
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center gap-2 border-b border-slate-200/90 bg-background/95 px-3 py-2 backdrop-blur-sm dark:border-white/10 dark:bg-[#0d0d0d]/95 lg:hidden",
+        "flex shrink-0 items-center gap-2 border-b border-walker-navy/15 bg-background/95 px-3 py-2 backdrop-blur-sm dark:border-walker-navy/35 dark:bg-walker-night lg:hidden",
         className,
       )}
     >
@@ -36,7 +36,9 @@ export function ChatShellTopBar({
         <Menu className="h-5 w-5" strokeWidth={1.75} />
       </button>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-foreground">Smith Book</p>
+        <p className="truncate text-sm font-medium text-walker-navy dark:text-walker-mist">
+          Walker<span className="text-walker-teal">book</span>
+        </p>
         <p className="truncate text-xs text-muted-foreground">Unified chat</p>
       </div>
       {showGeneratedOutlineButton && onOpenGeneratedOutline ? (

@@ -39,7 +39,7 @@ export function ChatVisualViewportFrame({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden overscroll-none bg-slate-100 text-slate-900 dark:bg-[#0d0d0d] dark:text-zinc-100"
+      className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden overscroll-none bg-slate-100 text-slate-900 dark:bg-walker-night dark:text-zinc-100"
       style={
         heightPx != null
           ? { height: heightPx, maxHeight: heightPx, flex: "1 1 auto" }
