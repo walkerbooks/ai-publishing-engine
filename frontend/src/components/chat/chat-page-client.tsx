@@ -20,13 +20,19 @@ export function ChatPageClient() {
   useFullBookChatFlow();
   const searchParams = useSearchParams();
   const setActiveBookId = usePublishingStore((s) => s.setActiveBookId);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   useEffect(() => {
     const b = searchParams.get("book")?.trim();
     if (b) setActiveBookId(b);
   }, [searchParams, setActiveBookId]);
+  useEffect(() => {
+    const wantsNew = searchParams.get("new") === "1";
+    if (!wantsNew || !isAuthenticated) return;
+    useChatDirectoryStore.setState({ activeConversationId: null });
+    usePublishingStore.setState(createInitialPublishingState());
+  }, [searchParams, isAuthenticated]);
   const { send, busy, err, clearErr } = useUnifiedChatSend();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const refreshProfile = useAuthStore((s) => s.refreshProfile);
   const hydrateConversationListFromServer = useChatDirectoryStore(
     (s) => s.hydrateConversationListFromServer,

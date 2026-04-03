@@ -83,7 +83,7 @@ export function HomeLanding() {
                   "sm:w-auto sm:min-w-0",
                 )}
               >
-                <Link href="/chat" className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+                <Link href="/chat?new=1" className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
                   Start your book in chat
                   <ChevronRight
                     className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5"
@@ -102,7 +102,19 @@ export function HomeLanding() {
                   "sm:w-auto sm:min-w-[180px]",
                 )}
               >
-                <Link href="/#how-it-works" className="inline-flex items-center justify-center">
+                <Link
+                  href="/#how-it-works"
+                  className="inline-flex items-center justify-center"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const id = "how-it-works";
+                    const el = document.getElementById(id);
+                    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    if (typeof window !== "undefined") {
+                      window.history.pushState(null, "", `${window.location.pathname}#${id}`);
+                    }
+                  }}
+                >
                   How it works
                 </Link>
               </Button>

@@ -103,8 +103,6 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
         const { activeConversationId } = get();
         if (activeConversationId && sorted.some((r) => r.id === activeConversationId)) {
           await get().selectConversation(activeConversationId);
-        } else if (sorted.length > 0) {
-          await get().selectConversation(sorted[0].id);
         } else {
           set({ activeConversationId: null });
           usePublishingStore.setState(createInitialPublishingState());

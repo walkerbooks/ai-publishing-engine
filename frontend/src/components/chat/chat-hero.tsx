@@ -12,6 +12,11 @@ import { useAuthStore } from "@/stores/auth-store";
 
 /** Same on server and first client paint — avoids hydration mismatch (no Math.random during render). */
 const CHAT_HERO_HEADLINE_SSR_DEFAULT = GENERIC_CHAT_GREETINGS[0];
+const AUTH_NEW_CONVERSATION_HEADLINES = [
+  "Good to see you. What would you like to create?",
+  "Welcome back. What are we creating today?",
+  "Ready for your next book idea?",
+] as const;
 
 function pickRandomHeadline(label: string | null): string {
   const pool = label
@@ -36,8 +41,16 @@ export function ChatHero({ disabled, onSend, className }: Props) {
   const [headline, setHeadline] = useState<string>(CHAT_HERO_HEADLINE_SSR_DEFAULT);
 
   useEffect(() => {
+    if (isAuthenticated) {
+      const pool = label
+        ? PERSONALIZED_CHAT_GREETINGS.map((t) => t.replaceAll("{name}", label))
+        : [...AUTH_NEW_CONVERSATION_HEADLINES];
+      const i = Math.floor(Math.random() * pool.length);
+      setHeadline(pool[i] ?? pool[0] ?? AUTH_NEW_CONVERSATION_HEADLINES[0]);
+      return;
+    }
     setHeadline(pickRandomHeadline(label));
-  }, [label]);
+  }, [isAuthenticated, label]);
 
   return (
     <div
