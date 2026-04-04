@@ -97,7 +97,13 @@ export function ChatWorkspace({
       ) : null}
 
       {!hasThread ? (
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
+        <div
+          className={cn(
+            "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden",
+            "bg-transparent",
+            "dark:bg-[linear-gradient(135deg,#0D1B2A_0%,#112236_55%,#0D4A3A_100%)]",
+          )}
+        >
           <div className="flex min-h-full min-w-0 flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
             <ChatHero
               disabled={busy}
@@ -121,9 +127,6 @@ export function ChatWorkspace({
                 showOutlineColumn && "lg:mr-[300px] xl:mr-[320px]",
               )}
             >
-              <p className="mb-2 shrink-0 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Walkerbook · Intake → outline → preview
-              </p>
               {/* relative + absolute inset-0: guarantees a fixed-height clip so overflow-y scrolls inside nested flex/grid */}
               <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
                 <div
@@ -144,7 +147,7 @@ export function ChatWorkspace({
 
             {showOutlineColumn ? (
               <div
-                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-border bg-slate-100 dark:border-white/10 dark:bg-walker-hero-night lg:flex xl:w-[320px]"
+                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-border bg-white/45 backdrop-blur-xl dark:border-white/10 dark:bg-walker-hero-night dark:backdrop-blur-none lg:flex xl:w-[320px]"
                 role="region"
                 aria-label="Generated outline"
               >

@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ensureGuestSession } from "@/lib/api/guest-session";
 import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { useVideoInjection } from "@/hooks/use-video-injection";
 import { useUnifiedChatSend } from "@/hooks/use-unified-chat-send";
+import { getAccessToken } from "@/lib/auth/access-token";
 import { useAuthStore } from "@/stores/auth-store";
+import { useAuthDialogRequestStore } from "@/stores/auth-dialog-request-store";
 import { createInitialPublishingState } from "@/stores/publishing-types";
 import { usePublishingStore } from "@/stores/publishing-store";
 import { ensureGuestSessionWithServer } from "@/lib/api/guest-client";
@@ -29,6 +30,14 @@ export function ChatPageClient() {
   useEffect(() => {
     const wantsNew = searchParams.get("new") === "1";
     if (!wantsNew || !isAuthenticated) return;
+    const pub = usePublishingStore.getState();
+    const hasInProgressSession =
+      pub.chatMessages.length > 0 ||
+      pub.awaitingGate != null ||
+      pub.bookOutline != null ||
+      pub.intakeComplete ||
+      pub.bookSpec != null;
+    if (hasInProgressSession) return;
     useChatDirectoryStore.setState({ activeConversationId: null });
     usePublishingStore.setState(createInitialPublishingState());
   }, [searchParams, isAuthenticated]);
@@ -46,7 +55,13 @@ export function ChatPageClient() {
   useEffect(() => {
     if (isAuthenticated) {
       void refreshProfile();
-      void hydrateConversationListFromServer();
+      void (async () => {
+        await hydrateConversationListFromServer();
+        const { promoteActiveGuestConversationToServer } = await import(
+          "@/lib/chat/conversation-sync"
+        );
+        await promoteActiveGuestConversationToServer();
+      })();
     }
     if (prevAuthenticated.current && !isAuthenticated) {
       useChatDirectoryStore.setState({
@@ -78,10 +93,6 @@ export function ChatPageClient() {
     if (!bookOutline) setOutlineMobileOpen(false);
   }, [bookOutline]);
 
-  useEffect(() => {
-    void ensureGuestSession();
-  }, []);
-
   const proceedToOutline = () =>
     (usePublishingStore.getState().setAwaitingGate(null),
     usePublishingStore.getState().setComposerStep("outline"),
@@ -106,6 +117,13 @@ export function ChatPageClient() {
     const id = usePublishingStore.getState().activeBookId;
     if (!id) {
       setPayPalGateErr("No book ID yet — continue until a book is created, then try again.");
+      return;
+    }
+    if (!getAccessToken()) {
+      useAuthDialogRequestStore.getState().requestLogin();
+      setPayPalGateErr(
+        "Sign in or create an account to pay with PayPal — then tap the button again.",
+      );
       return;
     }
     void startCheckout(id, "/chat");

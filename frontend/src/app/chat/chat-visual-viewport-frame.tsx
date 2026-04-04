@@ -2,16 +2,23 @@
 
 import { useLayoutEffect, useState, type ReactNode } from "react";
 
-/** Matches `AppHeader` (`h-14`). */
-const HEADER_PX = 56;
+/** Fallback when `main` is not found (SSR / edge). ~AppHeader + gradient strip. */
+const TOP_INSET_FALLBACK_PX = 58;
+
+function topInsetBelowLayoutChromePx(): number {
+  const main = document.querySelector("main");
+  if (!main) return TOP_INSET_FALLBACK_PX;
+  return Math.max(0, Math.round(main.getBoundingClientRect().top));
+}
 
 function computeChatColumnHeight(): number {
+  const topInset = topInsetBelowLayoutChromePx();
   const vv = window.visualViewport;
   if (!vv) {
-    return Math.max(240, window.innerHeight - HEADER_PX);
+    return Math.max(240, window.innerHeight - topInset);
   }
-  const raw = vv.height + vv.offsetTop - HEADER_PX;
-  return Math.max(240, Math.min(window.innerHeight - HEADER_PX, raw));
+  const raw = vv.height + vv.offsetTop - topInset;
+  return Math.max(240, Math.min(window.innerHeight - topInset, raw));
 }
 
 /**
@@ -39,7 +46,7 @@ export function ChatVisualViewportFrame({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden overscroll-none bg-slate-100 text-slate-900 dark:bg-walker-night dark:text-zinc-100"
+      className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden overscroll-none bg-[linear-gradient(135deg,#ffffff_0%,#f6faf8_32%,#d0ebe0_72%,#a8dcc8_100%)] text-slate-900 dark:bg-walker-night dark:[background-image:none] dark:text-zinc-100"
       style={
         heightPx != null
           ? { height: heightPx, maxHeight: heightPx, flex: "1 1 auto" }

@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { signup } from "@/lib/api/auth-client";
 import { authErrorFromUnknown } from "@/lib/auth/auth-messages";
+import { completeAuthNavigation } from "@/lib/auth/post-auth-navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthFormShell } from "@/components/auth/auth-form-shell";
 import { Button } from "@/components/ui/button";
@@ -50,9 +51,11 @@ export function SignupForm({
     try {
       const { access_token, user } = await signup(email, password, firstName.trim(), lastName.trim());
       setSession(access_token, user.email, user.first_name);
-      router.replace(redirectAfterSignup);
-      router.refresh();
-      onAuthenticated?.();
+      completeAuthNavigation(router, {
+        variant,
+        redirectPath: redirectAfterSignup,
+        onAuthenticated,
+      });
     } catch (e) {
       setErr(authErrorFromUnknown(e, "signup"));
     } finally {

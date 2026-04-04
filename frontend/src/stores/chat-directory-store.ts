@@ -95,18 +95,38 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
         set({ listLoaded: true });
         return;
       }
+
+      const prevActive = get().activeConversationId;
+      const prevConversations = get().conversations;
+      const localRows = prevConversations.filter((c) => c.serverBacked !== true);
+
       try {
         const list = await listConversations(token);
-        const rows = list.map(dtoToStored);
-        const sorted = sortConversations(rows);
-        set({ conversations: sorted, listLoaded: true });
-        const { activeConversationId } = get();
-        if (activeConversationId && sorted.some((r) => r.id === activeConversationId)) {
-          await get().selectConversation(activeConversationId);
-        } else {
-          set({ activeConversationId: null });
-          usePublishingStore.setState(createInitialPublishingState());
+        const serverRows = list.map(dtoToStored);
+        const byId = new Map<string, StoredConversation>();
+        for (const r of serverRows) {
+          byId.set(r.id, r);
         }
+        for (const r of localRows) {
+          if (!byId.has(r.id)) {
+            byId.set(r.id, r);
+          }
+        }
+        const merged = sortConversations([...byId.values()]);
+        set({ conversations: merged, listLoaded: true });
+
+        if (prevActive && merged.some((r) => r.id === prevActive)) {
+          const activeRow = merged.find((r) => r.id === prevActive)!;
+          if (activeRow.serverBacked === true) {
+            await get().selectConversation(prevActive);
+          } else {
+            set({ activeConversationId: prevActive });
+          }
+          return;
+        }
+
+        set({ activeConversationId: null });
+        usePublishingStore.setState(createInitialPublishingState());
       } catch (e) {
         log.warning("hydrateConversationListFromServer failed", e);
         set({ listLoaded: true });

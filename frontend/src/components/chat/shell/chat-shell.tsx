@@ -43,7 +43,7 @@ export function ChatShell({
       <aside
         aria-hidden={!showConversationChrome}
         className={cn(
-          "hidden min-h-0 shrink-0 flex-col overflow-hidden border-r border-border bg-walker-mist/90 transition-[width,opacity,transform] duration-300 ease-out dark:border-walker-navy/30 dark:bg-walker-night lg:flex",
+          "hidden min-h-0 shrink-0 flex-col overflow-hidden border-r border-border bg-white/40 backdrop-blur-xl transition-[width,opacity,transform] duration-300 ease-out dark:border-walker-navy/30 dark:bg-walker-night dark:backdrop-blur-none lg:flex",
           showConversationChrome
             ? "w-[280px] translate-x-0 border-border opacity-100 dark:border-white/10 xl:w-[300px]"
             : "pointer-events-none w-0 -translate-x-2 border-transparent opacity-0",

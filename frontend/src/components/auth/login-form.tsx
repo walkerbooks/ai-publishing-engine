@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { login } from "@/lib/api/auth-client";
 import { authErrorFromUnknown } from "@/lib/auth/auth-messages";
+import { completeAuthNavigation } from "@/lib/auth/post-auth-navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthFormShell } from "@/components/auth/auth-form-shell";
 import { Button } from "@/components/ui/button";
@@ -47,9 +48,11 @@ export function LoginForm({
     try {
       const { access_token, user } = await login(email, password);
       setSession(access_token, user.email, user.first_name);
-      router.replace(redirectAfterLogin);
-      router.refresh();
-      onAuthenticated?.();
+      completeAuthNavigation(router, {
+        variant,
+        redirectPath: redirectAfterLogin,
+        onAuthenticated,
+      });
     } catch (e) {
       setErr(authErrorFromUnknown(e, "login"));
     } finally {
