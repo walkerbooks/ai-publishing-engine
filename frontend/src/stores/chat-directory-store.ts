@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import {
   createConversation,
+  deleteConversation,
   getConversationMessages,
   listConversations,
   patchConversationTitle,
@@ -50,7 +51,7 @@ type ChatDirectoryActions = {
   upsertActiveFromPublishing: (state: PublishingState) => void;
   selectConversation: (id: string) => Promise<void>;
   startNewConversation: () => Promise<void>;
-  removeConversation: (id: string) => void;
+  removeConversation: (id: string) => Promise<void>;
   /** Wipe sidebar + active thread (e.g. on logout so the next user does not see prior chats). */
   clearAll: () => void;
 };
@@ -337,7 +338,21 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       }));
     },
 
-    removeConversation: (id) => {
+    removeConversation: async (id) => {
+      const row = get().conversations.find((c) => c.id === id);
+      const token = getAccessToken();
+      const authed = Boolean(
+        useAuthStore.getState().isAuthenticated && token,
+      );
+      if (row?.serverBacked === true && authed && token) {
+        try {
+          await deleteConversation(token, id);
+        } catch (e) {
+          log.warning("removeConversation: server delete failed", e);
+          return;
+        }
+      }
+
       const { activeConversationId, conversations } = get();
       const nextList = conversations.filter((c) => c.id !== id);
       let nextActive = activeConversationId;
@@ -350,12 +365,12 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       });
       const after = get();
       if (after.activeConversationId) {
-        const row = after.conversations.find((c) => c.id === after.activeConversationId);
-        if (row?.snapshot) {
-          applyPublishingSnapshot(usePublishingStore.setState, row.snapshot);
+        const nextRow = after.conversations.find((c) => c.id === after.activeConversationId);
+        if (nextRow?.snapshot) {
+          applyPublishingSnapshot(usePublishingStore.setState, nextRow.snapshot);
           return;
         }
-        if (row?.serverBacked === true && useAuthStore.getState().isAuthenticated) {
+        if (nextRow?.serverBacked === true && useAuthStore.getState().isAuthenticated) {
           void after.selectConversation(after.activeConversationId);
           return;
         }

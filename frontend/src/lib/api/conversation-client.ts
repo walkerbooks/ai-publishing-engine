@@ -95,6 +95,24 @@ export async function getConversationMessages(
   return data.messages ?? [];
 }
 
+/** DELETE /v1/conversation/{id} — 204; 404 treated as success (already gone). */
+export async function deleteConversation(
+  accessToken: string,
+  conversationPublicId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${GO_API_PREFIX}/v1/conversation/${encodeURIComponent(conversationPublicId)}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(accessToken),
+      credentials: "include",
+    },
+  );
+  if (res.ok || res.status === 404) return;
+  log.warning(`deleteConversation: HTTP ${res.status}`);
+  await throwIfGoResponseFailed(res);
+}
+
 export async function patchConversationTitle(
   accessToken: string,
   conversationPublicId: string,

@@ -25,6 +25,19 @@ export function getBookConversationLinkForApi(): {
 
 const log = getLogger("sync-server-book");
 
+/** Go book row title: BSO `title` is often empty; outline `book_title` is usually set. */
+function resolveBookTitleForApi(
+  bookSpec: Record<string, unknown>,
+  bookOutline: Record<string, unknown> | null | undefined,
+): string {
+  const fromSpec = String(bookSpec.title ?? "").trim();
+  if (fromSpec.length >= 2) return fromSpec.slice(0, 180);
+  const ot = bookOutline?.book_title;
+  const fromOutline = typeof ot === "string" ? ot.trim() : "";
+  if (fromOutline.length >= 2) return fromOutline.slice(0, 180);
+  return "Untitled book";
+}
+
 /**
  * Persists the current book to the Go API after the in-chat preview is ready.
  * Creates a row on first success, or updates description + status on later runs.
@@ -38,8 +51,7 @@ export async function syncBookToServerAfterPreview(previewMarkdown: string): Pro
   }
   const token = getAccessToken();
   await ensureGuestSession();
-  const rawTitle = String(bookSpec.title ?? "").trim();
-  const title = (rawTitle.length >= 2 ? rawTitle : "Untitled book").slice(0, 180);
+  const title = resolveBookTitleForApi(bookSpec, bookOutline);
   const description = JSON.stringify({
     book_spec: bookSpec,
     book_outline: bookOutline ?? {},
@@ -116,8 +128,7 @@ export async function ensureServerBookForSession(bookPublicId: string): Promise<
     log.debug("ensureServerBookForSession: skip (token, spec, or id mismatch)");
     return false;
   }
-  const rawTitle = String(bookSpec.title ?? "").trim();
-  const title = (rawTitle.length >= 2 ? rawTitle : "Untitled book").slice(0, 180);
+  const title = resolveBookTitleForApi(bookSpec, bookOutline);
   const description = JSON.stringify({
     book_spec: bookSpec,
     book_outline: bookOutline ?? {},

@@ -9,7 +9,9 @@ function backendBase(): string {
 
 function responseHeadersFromUpstream(res: Response, contentType: string): Headers {
   const out = new Headers();
-  out.set("Content-Type", contentType);
+  if (contentType) {
+    out.set("Content-Type", contentType);
+  }
   const h = res.headers as Headers & { getSetCookie?: () => string[] };
   if (typeof h.getSetCookie === "function") {
     for (const c of h.getSetCookie()) {
@@ -70,8 +72,18 @@ async function forward(
   if (res.status >= 400) {
     log.warning(`upstream ${method} /api/${sub} -> HTTP ${res.status}`);
   }
-  const outCt = res.headers.get("content-type") || "application/json";
+  const isBodyless =
+    res.status === 204 || res.status === 205 || res.status === 304;
+  const upstreamCt = res.headers.get("content-type");
+  const outCt =
+    upstreamCt ?? (isBodyless ? "" : "application/json");
   const outHeaders = responseHeadersFromUpstream(res, outCt);
+  if (isBodyless) {
+    return new NextResponse(null, {
+      status: res.status,
+      headers: outHeaders,
+    });
+  }
   if (res.body) {
     return new NextResponse(res.body, {
       status: res.status,
