@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { ChatMessage } from "@/lib/types/chat";
 import { ChatHero } from "@/components/chat/chat-hero";
 import { ChatThread } from "@/components/chat/chat-thread";
@@ -13,6 +13,7 @@ import { ChatOutlineDrawer } from "@/components/chat/shell/chat-outline-drawer";
 import { useChatScroll } from "@/hooks/use-chat-scroll";
 import { cn } from "@/lib/utils/cn";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
+import { shouldDisableDockComposerForGuestInlineCapture } from "@/lib/chat/welcome-flow";
 
 type GateHandlers = {
   proceedToOutline: () => void;
@@ -32,6 +33,7 @@ type Props = {
   messages: ChatMessage[];
   bookOutline: Record<string, unknown> | null;
   awaitingGate: null | "outline" | "preview" | "full";
+  isAuthenticated: boolean;
   onSend: (text: string) => void;
   clearErr: () => void;
   /** Mobile: controlled slide-over outline panel */
@@ -49,6 +51,7 @@ export function ChatWorkspace({
   messages,
   bookOutline,
   awaitingGate,
+  isAuthenticated,
   onSend,
   clearErr,
   proceedToOutline,
@@ -69,6 +72,11 @@ export function ChatWorkspace({
   useChatScroll(messages, threadScrollRef);
   const guestGateMessage = useChatDirectoryStore((s) => s.guestGateMessage);
   const clearGuestGateMessage = useChatDirectoryStore((s) => s.clearGuestGateMessage);
+
+  const guestInlineCaptureBlocksDock = useMemo(
+    () => shouldDisableDockComposerForGuestInlineCapture(messages, isAuthenticated),
+    [messages, isAuthenticated],
+  );
 
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
@@ -134,7 +142,14 @@ export function ChatWorkspace({
                   className="chat-pane-scroll absolute inset-0 min-h-0 min-w-0 overflow-y-auto"
                   aria-label="Chat messages"
                 >
-                  <ChatThread messages={messages} variant={msgVariant} />
+                  <ChatThread
+                    messages={messages}
+                    variant={msgVariant}
+                    isAuthenticated={isAuthenticated}
+                    busy={busy}
+                    onGuestNameSend={(t) => (clearErr(), onSend(t))}
+                    onGuestEmailSend={(t) => (clearErr(), onSend(t))}
+                  />
                   {busy ? (
                     <div className="mt-3 space-y-2 pb-4">
                       <Skeleton className="h-4 w-2/3" />
@@ -191,7 +206,7 @@ export function ChatWorkspace({
                 />
               ) : (
                 <ChatComposer
-                  disabled={busy}
+                  disabled={busy || guestInlineCaptureBlocksDock}
                   onSend={(t) => (clearErr(), onSend(t))}
                   variant="dock"
                 />

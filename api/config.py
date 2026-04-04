@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     # Groq (when llm_provider=groq)
     groq_api_key: str | None = None
     groq_model: str = "llama-3.3-70b-versatile"
+    # Cap intake history length to reduce tokens (Groq free tier has a low daily token limit).
+    groq_max_history_messages: int = Field(default=24, validation_alias="GROQ_MAX_HISTORY_MESSAGES")
 
     # Go API (for internal generation jobs calling back to persist chapters)
     backend_url: str | None = Field(default=None, validation_alias="BACKEND_URL")

@@ -37,7 +37,7 @@ export function useVideoInjection() {
     fetchVideos("make money selling ebooks on Amazon KDP", 3)
       .then((v) => attachOnboardingVideosToMessage(targetId, v))
       .catch(() => {
-        /* leave name reply unchanged if fetch fails */
+        attachOnboardingVideosToMessage(targetId, []);
       });
   }, [
     messages,

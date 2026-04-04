@@ -38,6 +38,8 @@ export type ChatMessage = {
   kind?: ChatBlockKind;
   content: string;
   videos?: VideoMeta[];
+  /** Client-only: welcome video fetch finished (success or empty) for this bubble. */
+  welcomeVideosSettled?: boolean;
   outline?: BookOutlineLite;
   previewMarkdown?: string;
   /** kind === "full" — in-chat manuscript + export */

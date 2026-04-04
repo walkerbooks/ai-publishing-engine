@@ -30,13 +30,20 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           if (m.id !== messageId) return m;
           if (m.videos?.length) return m;
           const list = videos.slice(0, 3);
-          if (!list.length) return m;
+          if (!list.length) {
+            return { ...m, videos: [], welcomeVideosSettled: true };
+          }
           const base = m.content.trim();
           const marker = "Look at this TON of videos";
           const content = base.includes(marker)
             ? m.content
             : `${base}\n\n${VIDEO_BLOCK_HEADING}`;
-          return { ...m, content, videos: list };
+          return {
+            ...m,
+            content,
+            videos: list,
+            welcomeVideosSettled: true,
+          };
         }),
       })),
     popLastUserMessage: () =>

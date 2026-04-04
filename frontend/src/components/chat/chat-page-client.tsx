@@ -172,6 +172,7 @@ export function ChatPageClient() {
           messages={messages}
           bookOutline={bookOutline}
           awaitingGate={awaitingGate}
+          isAuthenticated={isAuthenticated}
           outlineMobileOpen={outlineMobileOpen}
           onCloseOutlineMobile={() => setOutlineMobileOpen(false)}
           onSend={(t) => void send(t)}

@@ -8,7 +8,12 @@ import { LoginForm } from "@/components/auth/login-form";
 import { SignupForm } from "@/components/auth/signup-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { authGreetingName } from "@/lib/auth/greeting-name";
 import { useAuthStore } from "@/stores/auth-store";
 import { useAuthDialogRequestStore } from "@/stores/auth-dialog-request-store";
@@ -189,6 +194,9 @@ export function AppHeader() {
         >
           <DialogContent className="sm:max-w-md">
             <DialogTitle className="sr-only">Log in</DialogTitle>
+            <DialogDescription className="sr-only">
+              Sign in with your email and password to continue.
+            </DialogDescription>
             <LoginForm
               variant="dialog"
               redirectAfterLogin="/chat"
@@ -207,6 +215,9 @@ export function AppHeader() {
         <Dialog open={signupOpen} onOpenChange={setSignupOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogTitle className="sr-only">Sign up</DialogTitle>
+            <DialogDescription className="sr-only">
+              Create an account with your email and password.
+            </DialogDescription>
             <SignupForm
               variant="dialog"
               redirectAfterSignup="/chat"

@@ -8,9 +8,17 @@ import { cn } from "@/lib/utils/cn";
 type Props = {
   message: ChatMessage;
   variant?: "light" | "dark";
+  className?: string;
+  /** Shown after the YouTube row (guest email step) — keeps copy inside the same bubble. */
+  afterVideosBridgeText?: string;
 };
 
-export function ChatMessageRow({ message, variant = "light" }: Props) {
+export function ChatMessageRow({
+  message,
+  variant = "light",
+  className,
+  afterVideosBridgeText,
+}: Props) {
   const isUser = message.role === "user";
   const kind = message.kind ?? "intake";
   const dark = variant === "dark";
@@ -21,7 +29,13 @@ export function ChatMessageRow({ message, variant = "light" }: Props) {
       : "rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-slate-800 shadow-sm";
 
   return (
-    <div className={`mb-4 flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div
+      className={cn(
+        "mb-4 flex",
+        isUser ? "justify-end" : "justify-start",
+        className,
+      )}
+    >
       <div
         className={cn(
           "max-w-[min(100%,36rem)] text-sm leading-relaxed",
@@ -72,6 +86,16 @@ export function ChatMessageRow({ message, variant = "light" }: Props) {
             </div>
             {message.videos?.length ? (
               <VideoCardRow videos={message.videos} dark={dark} />
+            ) : null}
+            {afterVideosBridgeText ? (
+              <p
+                className={cn(
+                  "mt-4 text-sm leading-relaxed",
+                  dark ? "text-zinc-300" : "text-slate-600",
+                )}
+              >
+                {afterVideosBridgeText}
+              </p>
             ) : null}
           </>
         ) : null}

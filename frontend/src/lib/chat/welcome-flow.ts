@@ -1,15 +1,78 @@
 import type { ChatMessage } from "@/lib/types/chat";
 
+/**
+ * Guest name inline field: first assistant turn in intake is always the “what’s your name” step
+ * for signed-out users (see api/agents/prompts/intake.py). We key off conversation shape
+ * `[user, assistant]` + intake kind — no English phrase list.
+ *
+ * If the model ever skips straight to book topics on turn 1, prefer a future
+ * `kind` / metadata from the API instead of restoring string matching here.
+ */
+export function isGuestNameCaptureTurn(
+  messages: ChatMessage[],
+  assistantMessageIndex: number,
+): boolean {
+  if (messages.length !== 2 || assistantMessageIndex !== 1) return false;
+  const m0 = messages[0];
+  const m1 = messages[1];
+  if (m0?.role !== "user" || !m0.content.trim()) return false;
+  if (m1?.role !== "assistant") return false;
+  const k = m1.kind ?? "intake";
+  if (k !== "intake" && m1.kind) return false;
+  return true;
+}
+
+/**
+ * Guest onboarding: user → assistant (name) → user (name) → assistant (thanks + videos + asks for email).
+ * After this assistant message we show inline email capture below the bubble.
+ */
+export function shouldShowGuestEmailCapture(messages: ChatMessage[]): boolean {
+  if (messages.length !== 4) return false;
+  const [m0, m1, m2, m3] = messages;
+  if (m0.role !== "user" || !m0.content.trim()) return false;
+  if (m1.role !== "assistant") return false;
+  if (m2.role !== "user" || !m2.content.trim()) return false;
+  if (m3.role !== "assistant") return false;
+  const k = m3.kind ?? "intake";
+  if (k !== "intake") return false;
+  return true;
+}
+
+/** True once welcome video fetch completed, or the message already has videos (e.g. hydrated). */
+export function isWelcomeVideosSettledForMessage(m: ChatMessage | undefined): boolean {
+  if (!m) return false;
+  if (m.welcomeVideosSettled === true) return true;
+  return Boolean(m.videos?.length);
+}
+
+/**
+ * When guest name or guest email inline fields would apply, the main dock composer is disabled
+ * so the user must use the inline fields once they appear (after `busy` is false).
+ */
+export function shouldDisableDockComposerForGuestInlineCapture(
+  messages: ChatMessage[],
+  isAuthenticated: boolean,
+): boolean {
+  if (isAuthenticated || messages.length === 0) return false;
+  const last = messages.at(-1);
+  if (!last || last.role !== "assistant") return false;
+  const kind = last.kind ?? "intake";
+  if (kind !== "intake" && last.kind) return false;
+  if (isGuestNameCaptureTurn(messages, messages.length - 1)) return true;
+  if (shouldShowGuestEmailCapture(messages)) return true;
+  return false;
+}
+
 export type WelcomeVideosOptions = {
   /** Logged-in user: first assistant reply already includes "Hi {name}, …" — attach videos there (2 messages). */
   skipNameOnboarding?: boolean;
 };
 
 /**
- * After first user message → assistant → user (name) → assistant → user (email) → assistant reply finishes:
- * auto-attach YouTube row to that assistant message (no extra bubble).
- * Legacy (no email step): 4 messages, last assistant gets videos.
- * When skipNameOnboarding: user → assistant only (same attachment on the assistant bubble).
+ * Attach the YouTube welcome row once:
+ * - Logged-in (skipNameOnboarding): user → assistant (2 messages), videos on that assistant bubble.
+ * - Guest: user → assistant → user (name) → assistant (4 messages), videos on that assistant only.
+ * Do not attach again on later turns (e.g. after the guest sends email) — that duplicated the block.
  */
 export function shouldAttachWelcomeVideos(
   messages: ChatMessage[],
@@ -31,7 +94,7 @@ export function shouldAttachWelcomeVideos(
   const content = last.content.trim();
   if (!content || content.startsWith("[")) return false;
 
-  // Legacy guest path: name only, then assistant (4 messages)
+  // Guest path: videos only on the assistant message right after the user gives their name (4 messages)
   if (messages.length === 4) {
     const [m0, m1, m2, m3] = messages;
     return (
@@ -42,23 +105,6 @@ export function shouldAttachWelcomeVideos(
       Boolean(m2.content.trim()) &&
       m3?.role === "assistant" &&
       m3.id === last.id
-    );
-  }
-
-  // Guest path with name then email: 6 messages, videos on final assistant
-  if (messages.length === 6) {
-    const [m0, m1, m2, m3, m4, m5] = messages;
-    return (
-      m0?.role === "user" &&
-      Boolean(m0.content.trim()) &&
-      m1?.role === "assistant" &&
-      m2?.role === "user" &&
-      Boolean(m2.content.trim()) &&
-      m3?.role === "assistant" &&
-      m4?.role === "user" &&
-      Boolean(m4.content.trim()) &&
-      m5?.role === "assistant" &&
-      m5.id === last.id
     );
   }
 

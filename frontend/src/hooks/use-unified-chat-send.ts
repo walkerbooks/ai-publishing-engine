@@ -16,6 +16,7 @@ import { assertGuestMaySendNewThread } from "@/lib/guest/guest-send-guard";
 import { useAuthStore } from "@/stores/auth-store";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { usePublishingStore } from "@/stores/publishing-store";
+import { syncGuestPromotionLead } from "@/lib/api/promotion-client";
 
 export function useUnifiedChatSend() {
   const [busy, setBusy] = useState(false);
@@ -120,7 +121,13 @@ export function useUnifiedChatSend() {
       const pub = usePublishingStore.getState();
       if (userName) pub.setUserName(userName);
       if (guestEmail) pub.setGuestEmail(guestEmail);
+      // End "streaming" state as soon as the assistant message is complete — not after promotion API.
       setBusy(false);
+      void syncGuestPromotionLead(
+        userName,
+        guestEmail,
+        useAuthStore.getState().isAuthenticated,
+      );
     }
   }, []);
 
