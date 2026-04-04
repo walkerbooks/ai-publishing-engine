@@ -69,6 +69,22 @@ export async function signup(
   return res.json() as Promise<AuthResponse>;
 }
 
+/** Google ID token from GIS; backend verifies with GOOGLE_CLIENT_ID (must match this app’s NEXT_PUBLIC_GOOGLE_CLIENT_ID). */
+export async function authWithGoogle(idToken: string): Promise<AuthResponse> {
+  const res = await fetch(`${GO_API_PREFIX}/v1/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ id_token: idToken }),
+  });
+  if (!res.ok) {
+    log.warning(`auth/google failed: HTTP ${res.status}`);
+    throw new Error(await readErrorMessage(res));
+  }
+  log.debug("auth/google succeeded");
+  return res.json() as Promise<AuthResponse>;
+}
+
 export async function fetchAuthMe(accessToken: string): Promise<MeResponse> {
   const res = await fetch(`${GO_API_PREFIX}/v1/auth/me`, {
     headers: goAuthHeaders(accessToken),
