@@ -8,6 +8,7 @@ import {
   requestFullGeneration,
   type BackendChapter,
 } from "@/lib/api/books-client";
+import { getBookConversationLinkForApi } from "@/lib/api/sync-server-book";
 import {
   exportFileUrl,
   getExportStatus,
@@ -22,6 +23,12 @@ import { usePublishingStore } from "@/stores/publishing-store";
 const log = getLogger("full-book-chat-flow");
 
 const PAID_LIKE = new Set(["paid", "generating", "complete"]);
+
+/** Go only enqueues full generation from these statuses via POST /full-book/request. */
+const FULL_BOOK_POST_STATUSES = new Set(["preview_ready", "awaiting_payment"]);
+
+/** After payment / webhook, the job exists — POST again returns 400. */
+const FULL_BOOK_JOB_UNDERWAY = new Set(["paid", "generating", "complete"]);
 
 function chapterToMd(c: BackendChapter): string {
   const body = c.content.trim();
@@ -124,7 +131,8 @@ export function useFullBookChatFlow() {
         return;
       }
 
-      const paid = PAID_LIKE.has(book.Status) || mockPaymentConfirmed;
+      const statusNorm = (book.Status || "").trim().toLowerCase();
+      const paid = PAID_LIKE.has(statusNorm) || mockPaymentConfirmed;
       if (!paid) return;
 
       setAwaitingGate(null);
@@ -145,16 +153,26 @@ export function useFullBookChatFlow() {
             book_outline: bookOutline,
             preview_markdown: previewContent,
           }),
+          ...getBookConversationLinkForApi(),
         }).catch(() => {
           payloadSyncedRef.current = false;
         });
       }
 
       if (!genRequestedRef.current) {
-        genRequestedRef.current = true;
-        void requestFullGeneration(activeBookId, token).catch(() => {
-          genRequestedRef.current = false;
-        });
+        const canPostFullBook = FULL_BOOK_POST_STATUSES.has(statusNorm);
+        const jobAlreadyTracked = FULL_BOOK_JOB_UNDERWAY.has(statusNorm);
+
+        if (jobAlreadyTracked) {
+          genRequestedRef.current = true;
+        } else if (canPostFullBook || mockPaymentConfirmed) {
+          genRequestedRef.current = true;
+          void requestFullGeneration(activeBookId, token).catch(() => {
+            genRequestedRef.current = false;
+          });
+        } else {
+          genRequestedRef.current = true;
+        }
       }
 
       let chapters: BackendChapter[] = [];
@@ -171,7 +189,7 @@ export function useFullBookChatFlow() {
       const expected = expectedChapterCount(bookOutline);
       const firstMd = firstChapterMarkdown(chapters);
       const allWritten =
-        book.Status === "complete" ||
+        statusNorm === "complete" ||
         (expected != null && chapters.length >= expected);
 
       let phase: FullBookGenPhase;
@@ -205,8 +223,19 @@ export function useFullBookChatFlow() {
             return;
           }
           const st = (ex.status || "").toLowerCase();
-          if (st === "ready") {
-            const url = exportFileUrl(ex);
+          const url = exportFileUrl(ex);
+          const looksReady =
+            st === "ready" ||
+            st === "complete" ||
+            st === "completed" ||
+            st === "success" ||
+            (Boolean(url) &&
+              st !== "failed" &&
+              st !== "queued" &&
+              st !== "processing" &&
+              st !== "pending" &&
+              st !== "running");
+          if (looksReady) {
             if (url) {
               patchChatMessage(msgId, {
                 fullGenPhase: "complete",

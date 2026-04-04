@@ -4,9 +4,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { requestFullGeneration } from "@/lib/api/books-client";
 import { createPayPalCheckout } from "@/lib/api/payments-client";
+import { promoteActiveGuestConversationToServer } from "@/lib/chat/conversation-sync";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { getLogger } from "@/lib/log";
-import { PAYPAL_BOOK_STORAGE_KEY } from "@/lib/paypal/checkout-session";
+import {
+  PAYPAL_BOOK_STORAGE_KEY,
+  writePayPalCheckoutContext,
+} from "@/lib/paypal/checkout-session";
+import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { usePublishingStore } from "@/stores/publishing-store";
 
 const log = getLogger("use-paypal-checkout");
@@ -50,6 +55,13 @@ export function usePayPalCheckout() {
       }
       setLoading(true);
       try {
+        await promoteActiveGuestConversationToServer();
+        const convId = useChatDirectoryStore.getState().activeConversationId;
+        writePayPalCheckoutContext({
+          v: 1,
+          book_public_id: bookPublicId,
+          conversation_public_id: convId,
+        });
         const { checkout_url } = await createPayPalCheckout(bookPublicId, token);
         try {
           sessionStorage.setItem(PAYPAL_BOOK_STORAGE_KEY, bookPublicId);

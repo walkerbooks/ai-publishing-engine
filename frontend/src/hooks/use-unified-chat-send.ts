@@ -11,6 +11,7 @@ import {
 } from "@/lib/chat/unified-chat/placeholders";
 import { handleUnifiedChatSseEvent } from "@/lib/chat/unified-chat/event-handler";
 import { authGreetingName } from "@/lib/auth/greeting-name";
+import { syncGuestOnboardingFromMessages } from "@/lib/chat/welcome-flow";
 import { assertGuestMaySendNewThread } from "@/lib/guest/guest-send-guard";
 import { useAuthStore } from "@/stores/auth-store";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
@@ -115,6 +116,10 @@ export function useUnifiedChatSend() {
           void persistChatMessageIfAuthenticated(m);
         }
       }
+      const { userName, guestEmail } = syncGuestOnboardingFromMessages(after);
+      const pub = usePublishingStore.getState();
+      if (userName) pub.setUserName(userName);
+      if (guestEmail) pub.setGuestEmail(guestEmail);
       setBusy(false);
     }
   }, []);

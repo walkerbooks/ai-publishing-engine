@@ -113,6 +113,7 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
     setFullBookContent: (fullBookContent) => set({ fullBookContent }),
     setMockPayment: (mockPaymentConfirmed) => set({ mockPaymentConfirmed }),
     setUserName: (userName) => set({ userName }),
+    setGuestEmail: (guestEmail) => set({ guestEmail }),
     patchChatMessage: (messageId, patch) =>
       set((s) => ({
         chatMessages: s.chatMessages.map((m) =>

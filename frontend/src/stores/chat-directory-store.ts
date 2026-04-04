@@ -96,6 +96,10 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
         return;
       }
 
+      // Ensure the open thread is registered before merging lists (avoids wiping the store when
+      // activeConversationId was still null due to debounced session sync).
+      get().upsertActiveFromPublishing(usePublishingStore.getState());
+
       const prevActive = get().activeConversationId;
       const prevConversations = get().conversations;
       const localRows = prevConversations.filter((c) => c.serverBacked !== true);
@@ -125,6 +129,42 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
           return;
         }
 
+        const pub = usePublishingStore.getState();
+        const hasLocalSession =
+          pub.chatMessages.length > 0 ||
+          pub.bookSpec != null ||
+          pub.intakeComplete;
+
+        if (hasLocalSession) {
+          get().upsertActiveFromPublishing(pub);
+          const again = get().activeConversationId;
+          if (again && merged.some((r) => r.id === again)) {
+            const activeRow = merged.find((r) => r.id === again)!;
+            if (activeRow.serverBacked === true) {
+              await get().selectConversation(again);
+            } else {
+              set({ activeConversationId: again });
+            }
+            return;
+          }
+          const orphan = again
+            ? prevConversations.find((c) => c.id === again) ??
+              get().conversations.find((c) => c.id === again)
+            : null;
+          if (again && orphan && merged.every((r) => r.id !== again)) {
+            const remerged = sortConversations([orphan, ...merged]);
+            set({
+              conversations: remerged,
+              listLoaded: true,
+              activeConversationId: again,
+            });
+            if (orphan.serverBacked === true) {
+              await get().selectConversation(again);
+            }
+            return;
+          }
+        }
+
         set({ activeConversationId: null });
         usePublishingStore.setState(createInitialPublishingState());
       } catch (e) {
@@ -139,8 +179,17 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       const title = deriveConversationTitle(snap);
       const now = Date.now();
 
-      if (!activeConversationId && state.chatMessages.length > 0) {
-        if (!useAuthStore.getState().isAuthenticated) {
+      if (!activeConversationId) {
+        if (useAuthStore.getState().isAuthenticated) {
+          const needsId =
+            state.chatMessages.length > 0 ||
+            state.bookSpec != null ||
+            state.intakeComplete;
+          if (needsId) {
+            activeConversationId = crypto.randomUUID();
+            set({ activeConversationId });
+          }
+        } else if (state.chatMessages.length > 0) {
           const maxGuest = getGuestMaxConversations();
           if (maxGuest > 0) {
             const localCount = get().conversations.filter((c) => c.serverBacked !== true)
@@ -150,9 +199,9 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
               return;
             }
           }
+          activeConversationId = crypto.randomUUID();
+          set({ activeConversationId });
         }
-        activeConversationId = crypto.randomUUID();
-        set({ activeConversationId });
       }
       if (!activeConversationId) return;
 

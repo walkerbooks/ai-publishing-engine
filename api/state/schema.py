@@ -50,7 +50,7 @@ class BookSpecification(BaseModel):
     sub_genre: Optional[str] = Field(None, description="Optional sub-genre")
     audience: str = Field(..., min_length=1, description="Target audience")
     tone: str = Field(..., min_length=1, description="Tone, e.g. motivational, academic")
-    target_length_pages: int = Field(..., ge=50, le=300, description="Target length in pages")
+    target_length_pages: int = Field(..., ge=2, le=100, description="Target length in pages")
     format_type: Literal["kindle", "paperback", "hardback", "all"] = "all"
     page_size: Literal["6x9", "8.5x11", "8.25x11"] = "6x9"
     language: str = Field(default="English", min_length=1)
@@ -74,7 +74,7 @@ class IntakeBookSpecification(BaseModel):
     sub_genre: Optional[str] = Field(None, description="Optional sub-genre")
     audience: Optional[str] = Field(None, description="Target audience")
     tone: Optional[str] = Field(None, description="Tone, e.g. motivational, academic")
-    target_length_pages: Optional[int] = Field(None, ge=50, le=300, description="Target length in pages")
+    target_length_pages: Optional[int] = Field(None, ge=2, le=100, description="Target length in pages")
     # Kept as str (not strict Literal) so providers accept common synonyms; normalized below.
     format_type: Optional[str] = Field(
         None,
@@ -157,5 +157,5 @@ class BookOutline(BaseModel):
     subtitle: Optional[str] = None
     dedication: Optional[str] = None
     chapters: list[ChapterOutline] = Field(..., min_length=1)
-    total_word_target: int = Field(..., ge=10000)
-    estimated_pages: int = Field(..., ge=50, le=400)
+    total_word_target: int = Field(..., ge=500)
+    estimated_pages: int = Field(..., ge=2, le=100)

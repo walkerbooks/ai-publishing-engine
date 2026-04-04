@@ -18,6 +18,8 @@ export type PublishingState = {
   mockPaymentConfirmed: boolean;
   pendingPrompt: string | null;
   userName: string | null;
+  /** Guest onboarding: collected after name (email for updates). */
+  guestEmail: string | null;
 };
 
 export type PublishingActions = {
@@ -57,6 +59,7 @@ export type PublishingActions = {
   setFullBookContent: (s: string) => void;
   setMockPayment: (v: boolean) => void;
   setUserName: (n: string | null) => void;
+  setGuestEmail: (email: string | null) => void;
   patchChatMessage: (
     messageId: string,
     patch: Partial<import("@/lib/types/chat").ChatMessage>,
@@ -81,5 +84,6 @@ export function createInitialPublishingState(): PublishingState {
     mockPaymentConfirmed: false,
     pendingPrompt: null,
     userName: null,
+    guestEmail: null,
   };
 }

@@ -5,12 +5,32 @@ const log = getLogger("exports-client");
 
 export type ExportFormat = "pdf";
 
-/** Matches Go export row JSON (snake_case). */
+/** Normalized export row (Go may emit snake_case or PascalCase). */
 export type ExportStatusPayload = {
   status: "queued" | "processing" | "ready" | "failed" | string;
   file_url?: string;
   error?: string;
 };
+
+function coerceExportPayload(raw: unknown): ExportStatusPayload {
+  if (!raw || typeof raw !== "object") {
+    return { status: "" };
+  }
+  const r = raw as Record<string, unknown>;
+  const str = (v: unknown): string =>
+    typeof v === "string" ? v.trim() : "";
+  const pick = (...keys: string[]): string => {
+    for (const k of keys) {
+      const v = str(r[k]);
+      if (v) return v;
+    }
+    return "";
+  };
+  const status = pick("status", "Status");
+  const file_url = pick("file_url", "FileURL", "fileUrl", "FileUrl") || undefined;
+  const error = pick("error", "Error") || undefined;
+  return { status, ...(file_url ? { file_url } : {}), ...(error ? { error } : {}) };
+}
 
 async function readErrorMessage(res: Response): Promise<string> {
   const t = await res.text();
@@ -74,7 +94,8 @@ export async function getExportStatus(
     log.debug(`getExportStatus: HTTP ${res.status}`, { bookPublicId, format });
     throw new Error(await readErrorMessage(res));
   }
-  return res.json() as Promise<ExportStatusPayload>;
+  const raw: unknown = await res.json();
+  return coerceExportPayload(raw);
 }
 
 /** Resolved download link once `status === "ready"` (Go uses `file_url`). */

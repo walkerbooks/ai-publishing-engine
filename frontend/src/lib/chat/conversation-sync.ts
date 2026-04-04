@@ -1,3 +1,4 @@
+import { getBook } from "@/lib/api/books-client";
 import { appendConversationMessage, createConversation } from "@/lib/api/conversation-client";
 import { chatMessageToAppendBody } from "@/lib/chat/conversation-mappers";
 import {
@@ -7,6 +8,10 @@ import {
 } from "@/lib/chat/session-serialization";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { getLogger } from "@/lib/log";
+import {
+  clearPayPalCheckoutContext,
+  readPayPalCheckoutContext,
+} from "@/lib/paypal/checkout-session";
 import { useAuthStore } from "@/stores/auth-store";
 import type { StoredConversation } from "@/stores/chat-directory-store";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
@@ -20,6 +25,25 @@ function sortStoredConversations(list: StoredConversation[]): StoredConversation
   return [...list].sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+/** `selectConversation` requires a directory row; list APIs may omit a convo until next refresh. */
+function ensureServerConversationListed(conversationPublicId: string): void {
+  useChatDirectoryStore.setState((s) => {
+    if (s.conversations.some((c) => c.id === conversationPublicId)) {
+      return {};
+    }
+    const nextRow: StoredConversation = {
+      id: conversationPublicId,
+      title: "Conversation",
+      updatedAt: Date.now(),
+      snapshot: null,
+      serverBacked: true,
+    };
+    return {
+      conversations: sortStoredConversations([nextRow, ...s.conversations]),
+    };
+  });
+}
+
 /**
  * After guest → login, the active thread may still use a local-only id. Create a server
  * conversation, point the UI at it, sync sessionId, and backfill messages so PayPal / append work.
@@ -27,6 +51,8 @@ function sortStoredConversations(list: StoredConversation[]): StoredConversation
 export async function promoteActiveGuestConversationToServer(): Promise<void> {
   const token = getAccessToken();
   if (!token || !useAuthStore.getState().isAuthenticated) return;
+
+  useChatDirectoryStore.getState().upsertActiveFromPublishing(usePublishingStore.getState());
 
   const dir = useChatDirectoryStore.getState();
   const activeId = dir.activeConversationId;
@@ -74,6 +100,51 @@ export async function promoteActiveGuestConversationToServer(): Promise<void> {
   } catch (e) {
     log.warning("promoteActiveGuestConversationToServer failed", e);
   }
+}
+
+/**
+ * After PayPal, the app reloads at /chat?book=… with an empty client. Prefer the book’s
+ * `conversation_public_id` from Go; fall back to sessionStorage from checkout if missing.
+ */
+export async function restorePayPalThreadAfterReturn(
+  bookFromUrl: string | null,
+): Promise<void> {
+  const token = getAccessToken();
+  const book = bookFromUrl?.trim() ?? "";
+  if (!token || !useAuthStore.getState().isAuthenticated || !book) return;
+
+  let convId: string | null = null;
+  try {
+    const b = await getBook(book, token);
+    const fromApi = b.conversation_public_id?.trim();
+    if (fromApi) convId = fromApi;
+  } catch (e) {
+    log.debug("restorePayPalThreadAfterReturn: getBook failed", {
+      err: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  if (!convId) {
+    const ctx = readPayPalCheckoutContext();
+    if (!ctx || ctx.book_public_id !== book) return;
+    convId = ctx.conversation_public_id?.trim() ?? null;
+    if (!convId) {
+      clearPayPalCheckoutContext();
+      return;
+    }
+  }
+
+  ensureServerConversationListed(convId);
+
+  const dir = useChatDirectoryStore.getState();
+  await dir.selectConversation(convId);
+  if (useChatDirectoryStore.getState().activeConversationId !== convId) {
+    return;
+  }
+
+  usePublishingStore.getState().setActiveBookId(book);
+  usePublishingStore.setState({ bookPreviewRowSynced: true });
+  clearPayPalCheckoutContext();
 }
 
 /** Ensure a server conversation exists before the first message when authenticated. */

@@ -3,7 +3,25 @@ import { createBook, patchBook } from "@/lib/api/books-client";
 import { ensureGuestSession } from "@/lib/api/guest-session";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { getLogger } from "@/lib/log";
+import { useAuthStore } from "@/stores/auth-store";
+import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { usePublishingStore } from "@/stores/publishing-store";
+
+/** Link book ↔ server conversation; omitted for guests / local-only threads (Go returns 400). */
+export function getBookConversationLinkForApi(): {
+  conversation_public_id?: string;
+} {
+  if (!getAccessToken() || !useAuthStore.getState().isAuthenticated) {
+    return {};
+  }
+  const convId = useChatDirectoryStore.getState().activeConversationId;
+  if (!convId?.trim()) return {};
+  const row = useChatDirectoryStore
+    .getState()
+    .conversations.find((c) => c.id === convId);
+  if (row?.serverBacked !== true) return {};
+  return { conversation_public_id: convId.trim() };
+}
 
 const log = getLogger("sync-server-book");
 
@@ -31,12 +49,15 @@ export async function syncBookToServerAfterPreview(previewMarkdown: string): Pro
   const markSynced = () =>
     usePublishingStore.setState({ bookPreviewRowSynced: true });
 
+  const convoLink = getBookConversationLinkForApi();
+
   try {
     if (bookPreviewRowSynced) {
       await patchBook(activeBookId, token, {
         description,
         title: title.slice(0, 180),
         status: "preview_ready",
+        ...convoLink,
       });
       log.debug("syncBookToServerAfterPreview: patched", { activeBookId });
       return;
@@ -49,6 +70,7 @@ export async function syncBookToServerAfterPreview(previewMarkdown: string): Pro
           description,
           public_id: activeBookId,
           status: "preview_ready",
+          ...convoLink,
         },
         token,
       );
@@ -67,6 +89,7 @@ export async function syncBookToServerAfterPreview(previewMarkdown: string): Pro
           description,
           title: title.slice(0, 180),
           status: "preview_ready",
+          ...convoLink,
         });
         markSynced();
         log.debug("syncBookToServerAfterPreview: patched after create conflict", {
@@ -120,6 +143,7 @@ export async function ensureServerBookForSession(bookPublicId: string): Promise<
         description,
         public_id: bookPublicId,
         status: "preview_ready",
+        ...getBookConversationLinkForApi(),
       },
       token,
     );

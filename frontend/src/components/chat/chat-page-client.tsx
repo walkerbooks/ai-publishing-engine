@@ -14,6 +14,7 @@ import { hydrateGuestStoresFromPersistence } from "@/lib/guest/guest-hydrate";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { ChatWorkspace } from "@/components/chat/chat-workspace";
 import { ChatShell } from "@/components/chat/shell/chat-shell";
+import { FullBookPricingDialog } from "@/components/paypal/full-book-pricing-dialog";
 import { useFullBookChatFlow } from "@/hooks/use-full-book-chat-flow";
 
 export function ChatPageClient() {
@@ -51,16 +52,21 @@ export function ChatPageClient() {
   const bookOutline = usePublishingStore((s) => s.bookOutline);
   const conversationCount = useChatDirectoryStore((s) => s.conversations.length);
 
+  const bookParam = searchParams.get("book")?.trim() ?? null;
+
   const prevAuthenticated = useRef(isAuthenticated);
   useEffect(() => {
     if (isAuthenticated) {
       void refreshProfile();
       void (async () => {
         await hydrateConversationListFromServer();
-        const { promoteActiveGuestConversationToServer } = await import(
-          "@/lib/chat/conversation-sync"
-        );
+        const { promoteActiveGuestConversationToServer, restorePayPalThreadAfterReturn } =
+          await import("@/lib/chat/conversation-sync");
         await promoteActiveGuestConversationToServer();
+        if (bookParam) {
+          await restorePayPalThreadAfterReturn(bookParam);
+          usePublishingStore.getState().setActiveBookId(bookParam);
+        }
       })();
     }
     if (prevAuthenticated.current && !isAuthenticated) {
@@ -75,7 +81,7 @@ export function ChatPageClient() {
       });
     }
     prevAuthenticated.current = isAuthenticated;
-  }, [isAuthenticated, hydrateConversationListFromServer, refreshProfile]);
+  }, [isAuthenticated, bookParam, hydrateConversationListFromServer, refreshProfile]);
   const {
     startCheckout,
     loading: payPalLoading,
@@ -83,6 +89,7 @@ export function ChatPageClient() {
     clearError: clearPayPalErr,
   } = usePayPalCheckout();
   const [payPalGateErr, setPayPalGateErr] = useState<string | null>(null);
+  const [fullBookPricingOpen, setFullBookPricingOpen] = useState(false);
 
   const hasThread = messages.length > 0;
   const showConversationChrome =
@@ -126,6 +133,13 @@ export function ChatPageClient() {
       );
       return;
     }
+    setFullBookPricingOpen(true);
+  };
+
+  const continueFullBookPayPal = () => {
+    clearPayPalErr();
+    const id = usePublishingStore.getState().activeBookId;
+    if (!id) return;
     void startCheckout(id, "/chat");
   };
   const changePreview = () =>
@@ -134,32 +148,44 @@ export function ChatPageClient() {
     usePublishingStore.getState().setComposerAction("revise"));
 
   return (
-    <ChatShell
-      showConversationChrome={showConversationChrome}
-      showGeneratedOutlineButton={Boolean(bookOutline)}
-      onOpenGeneratedOutline={() => setOutlineMobileOpen(true)}
-      onSidebarWillOpen={() => setOutlineMobileOpen(false)}
-    >
-      <ChatWorkspace
-        hasThread={hasThread}
-        err={err}
-        busy={busy}
-        messages={messages}
-        bookOutline={bookOutline}
-        awaitingGate={awaitingGate}
-        outlineMobileOpen={outlineMobileOpen}
-        onCloseOutlineMobile={() => setOutlineMobileOpen(false)}
-        onSend={(t) => void send(t)}
-        clearErr={clearErr}
-        proceedToOutline={proceedToOutline}
-        changeRequirements={changeRequirements}
-        proceedToPreview={proceedToPreview}
-        changeOutline={changeOutline}
-        unlockFull={unlockFull}
-        changePreview={changePreview}
-        payPalLoading={payPalLoading}
-        payPalError={payPalGateErr ?? payPalErr}
+    <>
+      <FullBookPricingDialog
+        open={fullBookPricingOpen}
+        onOpenChange={(open) => {
+          setFullBookPricingOpen(open);
+          if (!open) clearPayPalErr();
+        }}
+        loading={payPalLoading}
+        error={payPalErr}
+        onBuy={continueFullBookPayPal}
       />
-    </ChatShell>
+      <ChatShell
+        showConversationChrome={showConversationChrome}
+        showGeneratedOutlineButton={Boolean(bookOutline)}
+        onOpenGeneratedOutline={() => setOutlineMobileOpen(true)}
+        onSidebarWillOpen={() => setOutlineMobileOpen(false)}
+      >
+        <ChatWorkspace
+          hasThread={hasThread}
+          err={err}
+          busy={busy}
+          messages={messages}
+          bookOutline={bookOutline}
+          awaitingGate={awaitingGate}
+          outlineMobileOpen={outlineMobileOpen}
+          onCloseOutlineMobile={() => setOutlineMobileOpen(false)}
+          onSend={(t) => void send(t)}
+          clearErr={clearErr}
+          proceedToOutline={proceedToOutline}
+          changeRequirements={changeRequirements}
+          proceedToPreview={proceedToPreview}
+          changeOutline={changeOutline}
+          unlockFull={unlockFull}
+          changePreview={changePreview}
+          payPalLoading={payPalLoading}
+          payPalError={payPalGateErr ?? payPalErr}
+        />
+      </ChatShell>
+    </>
   );
 }

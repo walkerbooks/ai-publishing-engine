@@ -1,16 +1,25 @@
-"""Internal generation jobs triggered by the Go worker (preview / full book)."""
+"""Internal generation jobs triggered by the Go worker (preview / full book).
+
+After full generation, we build a combined-chapter PDF (``api.services.chapters_pdf``),
+write it under ``PDF_EXPORT_STORAGE_DIR``, and POST ``export`` to Go's internal AI callback
+with ``file_url`` pointing at ``GET /api/exports/pdf/{book_public_id}`` (prefix from
+``PDF_EXPORT_PUBLIC_URL_PREFIX``). Set ``STUB_PDF_EXPORT_FAILED_AFTER_FULL_BOOK=true`` to
+skip PDF generation and mark the export failed.
+"""
 
 from __future__ import annotations
 
 import json
 import logging
 import traceback
+from pathlib import Path
 from typing import Any
 
 from api.agents.chapter_agent import run_chapter, summarize_chapter
 from api.agents.preview_agent import run_preview
 from api.agents.sync_state_agent import run_sync_state_update
 from api.config import get_settings
+from api.services.chapters_pdf import build_manuscript_pdf_bytes, write_pdf_to_path
 from api.services.go_backend import (
     fetch_book_by_internal_id,
     fetch_internal_chapters,
@@ -148,6 +157,48 @@ def _fail(book_public_id: str, message: str) -> None:
     )
 
 
+def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> None:
+    """Tell Go the manuscript is done and attach a generated PDF URL (or export failed)."""
+    settings = get_settings()
+    body: dict[str, Any] = {
+        "book_public_id": public_id,
+        "status": "complete",
+        "chapters": [],
+    }
+
+    if settings.stub_pdf_export_failed_after_full_book:
+        body["export"] = {
+            "format": "pdf",
+            "status": "failed",
+            "file_url": "",
+        }
+        post_ai_callback(body)
+        return
+
+    try:
+        chapters = fetch_internal_chapters(book_id)
+        pdf_bytes = build_manuscript_pdf_bytes(chapters, book_title)
+        out = Path(settings.pdf_export_storage_dir) / f"{public_id}.pdf"
+        write_pdf_to_path(out, pdf_bytes)
+        prefix = settings.pdf_export_public_url_prefix.rstrip("/")
+        file_url = f"{prefix}/exports/pdf/{public_id}"
+        body["export"] = {
+            "format": "pdf",
+            "status": "ready",
+            "file_url": file_url,
+        }
+        log.info("Wrote PDF for book %s (%d bytes) -> %s", public_id, len(pdf_bytes), out)
+    except Exception:
+        log.exception("PDF generation failed for book %s", public_id)
+        body["export"] = {
+            "format": "pdf",
+            "status": "failed",
+            "file_url": "",
+        }
+
+    post_ai_callback(body)
+
+
 def _reconcile_summaries_from_db(
     sorted_chapters: list[dict[str, Any]],
     sync: dict[str, Any],
@@ -196,6 +247,7 @@ def run_full_generation(book_id: int) -> None:
     provider = settings.llm_provider
     book = fetch_book_by_internal_id(book_id)
     public_id = str(book["public_id"])
+    book_title = str(book.get("Title") or book.get("title") or "Manuscript").strip() or "Manuscript"
     try:
         spec, outline = _parse_generation_context(str(book.get("description") or ""))
     except Exception as e:
@@ -253,7 +305,7 @@ def run_full_generation(book_id: int) -> None:
                 loop_start = 2
 
         if loop_start > total:
-            post_ai_callback({"book_public_id": public_id, "status": "complete", "chapters": []})
+            _complete_book_callback(book_id, public_id, book_title)
             return
 
         for idx in range(loop_start, total + 1):
@@ -282,7 +334,7 @@ def run_full_generation(book_id: int) -> None:
                 provider,
             )
 
-        post_ai_callback({"book_public_id": public_id, "status": "complete", "chapters": []})
+        _complete_book_callback(book_id, public_id, book_title)
     except Exception as e:
         log.exception("full generation failed for book %s", book_id)
         try:

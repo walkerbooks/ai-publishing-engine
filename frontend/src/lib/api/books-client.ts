@@ -9,6 +9,8 @@ export type BackendBook = {
   PublicID: string;
   Status: string;
   Title: string;
+  /** Optional thread that produced this book (snake_case JSON tag on Go side). */
+  conversation_public_id?: string | null;
 };
 
 export type BackendChapter = {
@@ -65,6 +67,7 @@ export type CreateBookBody = {
   description: string;
   public_id?: string;
   status?: "draft" | "spec_complete" | "outline_ready" | "preview_ready";
+  conversation_public_id?: string;
 };
 
 /**
@@ -116,6 +119,7 @@ export async function patchBook(
     title?: string;
     description?: string;
     status?: "draft" | "spec_complete" | "outline_ready" | "preview_ready" | "awaiting_payment";
+    conversation_public_id?: string;
   },
 ): Promise<void> {
   const headers: HeadersInit = {
@@ -153,7 +157,11 @@ export async function listChapters(
   return data.chapters ?? [];
 }
 
-/** Queue full book generation (paid + job). Used when PayPal bypass skips the webhook. */
+/**
+ * Queue full book generation. Go accepts exactly `{ "book_public_id": "<uuid>" }` (snake_case
+ * only; extra keys → 400). Call only when book status is preview_ready or awaiting_payment, or
+ * expect 400 if the book is already paid/generating without an idempotent job reuse.
+ */
 export async function requestFullGeneration(
   bookPublicId: string,
   accessToken: string | null,
