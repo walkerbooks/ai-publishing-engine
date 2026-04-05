@@ -12,4 +12,5 @@ Output a BookOutline with:
 - total_word_target: total words for the book (derive from BSO target_length_pages: assume ~250–300 words per page; must align with estimated_pages)
 - estimated_pages: must match BSO target_length_pages when given, otherwise round(total_word_target / 280); must be between 2 and 100
 
-Distribute word_target evenly across chapters unless the genre demands otherwise. Use 1-4 chapters for very short works (under ~20 pages), 5-10 for medium length, 8-15 for longer non-fiction. Match tone and audience from the BSO."""
+Distribute word_target evenly across chapters unless the genre demands otherwise. Use 1-4 chapters for very short works (under ~20 pages), 5-10 for medium length, 8-15 for longer non-fiction. Match tone and audience from the BSO.
+Chapter titles must be clear, distinct, and suitable for a table of contents (readers will see them listed up front)."""

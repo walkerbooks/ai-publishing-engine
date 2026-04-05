@@ -2,14 +2,43 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from api.config import get_settings
+from api.services.chapters_pdf import read_pdf_export_metadata
 
 router = APIRouter(prefix="/api", tags=["exports"])
+
+_FORBIDDEN_FILENAME = '<>:"/\\|?*' + "".join(chr(i) for i in range(32))
+
+
+def _sanitize_filename_component(s: str, max_len: int) -> str:
+    cleaned = "".join(c for c in s if c not in _FORBIDDEN_FILENAME)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if len(cleaned) > max_len:
+        cleaned = cleaned[: max_len - 1].rstrip() + "..."
+    return cleaned
+
+
+def _download_pdf_filename(book_public_id: str, pdf_path: Path) -> str:
+    meta = read_pdf_export_metadata(pdf_path)
+    author = _sanitize_filename_component((meta or {}).get("author") or "", 80)
+    title = _sanitize_filename_component((meta or {}).get("title") or "", 120)
+    if author and title:
+        base = f"{author} - {title}"
+    elif title:
+        base = title
+    elif author:
+        base = author
+    else:
+        base = f"book-{book_public_id.strip()}"
+    if len(base) > 200:
+        base = base[:197].rstrip() + "..."
+    return f"{base}.pdf"
 
 
 def _pdf_path(book_public_id: str) -> Path:
@@ -32,6 +61,6 @@ def download_full_book_pdf(book_public_id: str) -> FileResponse:
     return FileResponse(
         path,
         media_type="application/pdf",
-        filename=f"book-{book_public_id}.pdf",
+        filename=_download_pdf_filename(book_public_id, path),
         content_disposition_type="attachment",
     )

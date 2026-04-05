@@ -11,6 +11,23 @@ from api.llm.factory import get_llm
 from api.llm.rate_limit_retry import invoke_with_rate_limit_retry
 
 
+def _planned_chapters_lines(book_outline: dict) -> str:
+    """Readable list for Table of Contents in chapter 1 / prompts."""
+    chs = book_outline.get("chapters")
+    if not isinstance(chs, list):
+        return "(no chapters in outline)"
+    lines: list[str] = []
+    for c in chs:
+        if not isinstance(c, dict):
+            continue
+        n = int(c.get("chapter_number") or 0)
+        t = str(c.get("title") or "").strip()
+        if not t:
+            continue
+        lines.append(f"{n}. {t}" if n else t)
+    return "\n".join(lines) if lines else "(no chapters in outline)"
+
+
 def _book_synopsis_paragraph(book_outline: dict) -> str:
     """One paragraph from outline metadata only (saves TPM vs dumping full outline JSON)."""
     title = str(book_outline.get("book_title") or "Untitled").strip()
@@ -84,11 +101,20 @@ def run_chapter(
             f"(including any reader-facing preview material — intro, sample, or partial — stored with it). "
             f"Continue exactly after the excerpt above — same voice, facts, and story — no recap or contradiction.\n\n"
         )
+
+    planned_toc = ""
+    if chapter_index == 1 and not previous_chapter_excerpt:
+        planned_toc = (
+            "Planned chapters (full book — use this exact list for ## Table of Contents):\n"
+            f"{_planned_chapters_lines(book_outline)}\n\n"
+        )
+
     messages = [
         SystemMessage(content=CHAPTER_SYSTEM),
         HumanMessage(
             content=(
                 f"{continuity_note}"
+                f"{planned_toc}"
                 f"Book specification:\n{spec}\n\n"
                 f"Book synopsis (from outline metadata; whole-book positioning):\n{synopsis}\n\n"
                 f"This chapter’s outline entry (structure for chapter {chapter_index} only):\n{plan}\n\n"

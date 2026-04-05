@@ -19,7 +19,11 @@ from api.agents.chapter_agent import run_chapter, summarize_chapter
 from api.agents.preview_agent import run_preview
 from api.agents.sync_state_agent import run_sync_state_update
 from api.config import get_settings
-from api.services.chapters_pdf import build_manuscript_pdf_bytes, write_pdf_to_path
+from api.services.chapters_pdf import (
+    build_manuscript_pdf_bytes,
+    write_pdf_export_metadata,
+    write_pdf_to_path,
+)
 from api.services.go_backend import (
     fetch_book_by_internal_id,
     fetch_internal_chapters,
@@ -157,6 +161,35 @@ def _fail(book_public_id: str, message: str) -> None:
     )
 
 
+def _pdf_title_metadata_from_book(book: dict[str, Any], fallback_title: str) -> tuple[str, str | None, str | None]:
+    """
+    Prefer book_outline.book_title and subtitle from description JSON; optional author from book fields.
+    """
+    main = (fallback_title or "Manuscript").strip() or "Manuscript"
+    subtitle: str | None = None
+    author_name: str | None = None
+    desc = str(book.get("description") or "").strip()
+    if desc:
+        try:
+            data = json.loads(desc)
+            outline = data.get("book_outline")
+            if isinstance(outline, dict):
+                bt = str(outline.get("book_title") or "").strip()
+                if bt:
+                    main = bt
+                st = outline.get("subtitle")
+                if st is not None and str(st).strip():
+                    subtitle = str(st).strip()
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+    for key in ("Author", "author", "AuthorName", "author_name"):
+        v = book.get(key)
+        if v is not None and str(v).strip():
+            author_name = str(v).strip()
+            break
+    return (main, subtitle, author_name)
+
+
 def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> None:
     """Tell Go the manuscript is done and attach a generated PDF URL (or export failed)."""
     settings = get_settings()
@@ -176,10 +209,18 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
         return
 
     try:
+        book = fetch_book_by_internal_id(book_id)
         chapters = fetch_internal_chapters(book_id)
-        pdf_bytes = build_manuscript_pdf_bytes(chapters, book_title)
+        main_title, subtitle, author_name = _pdf_title_metadata_from_book(book, book_title)
+        pdf_bytes = build_manuscript_pdf_bytes(
+            chapters,
+            main_title,
+            subtitle=subtitle,
+            author_name=author_name,
+        )
         out = Path(settings.pdf_export_storage_dir) / f"{public_id}.pdf"
         write_pdf_to_path(out, pdf_bytes)
+        write_pdf_export_metadata(out, author=author_name, title=main_title)
         prefix = settings.pdf_export_public_url_prefix.rstrip("/")
         file_url = f"{prefix}/exports/pdf/{public_id}"
         body["export"] = {
