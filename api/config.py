@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # (trade paperbacks often use ~250–350; tune without code changes). Outline + chapter budgets use this.
     book_words_per_page: int = Field(
         default=280,
-        ge=200,
+        ge=2,
         le=400,
         validation_alias="BOOK_WORDS_PER_PAGE",
     )

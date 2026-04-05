@@ -14,6 +14,7 @@ def default_sync_state() -> dict[str, Any]:
         "open_threads": [],
         "last_chapter_beat": "",
         "tone_anchors": "",
+        "character_arc": "",
         "previous_excerpt_tail": "",
     }
 
@@ -29,8 +30,12 @@ def merge_with_defaults(raw: Any) -> dict[str, Any]:
             base[k] = [str(x) for x in raw[k] if isinstance(x, str)]
         elif k in ("key_facts", "open_threads") and isinstance(raw[k], list):
             base[k] = [str(x) for x in raw[k]]
-        elif k in ("narrative_arc", "last_chapter_beat", "tone_anchors", "previous_excerpt_tail") and isinstance(
-            raw[k], str
-        ):
+        elif k in (
+            "narrative_arc",
+            "last_chapter_beat",
+            "tone_anchors",
+            "character_arc",
+            "previous_excerpt_tail",
+        ) and isinstance(raw[k], str):
             base[k] = raw[k]
     return base

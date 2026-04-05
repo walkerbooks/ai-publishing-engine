@@ -148,6 +148,7 @@ def _finalize_chapter_after_body(
     sync["open_threads"] = updated["open_threads"]
     sync["last_chapter_beat"] = updated["last_chapter_beat"]
     sync["tone_anchors"] = updated["tone_anchors"]
+    sync["character_arc"] = updated["character_arc"]
     sync["previous_excerpt_tail"] = excerpt_tail
     patch_book_sync_state(book_id, sync)
 

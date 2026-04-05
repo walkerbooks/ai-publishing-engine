@@ -1,4 +1,4 @@
-"""LLM step to refresh narrative_arc, key_facts, open_threads, etc. after each chapter."""
+"""LLM step to refresh narrative_arc, character_arc, key_facts, open_threads, etc. after each chapter."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ class SyncStateFields(BaseModel):
     open_threads: list[str] = Field(default_factory=list)
     last_chapter_beat: str = ""
     tone_anchors: str = ""
+    character_arc: str = ""
 
 
 def run_sync_state_update(
@@ -31,8 +32,8 @@ def run_sync_state_update(
     provider: str | None = None,
 ) -> dict[str, Any]:
     """
-    Returns dict with keys narrative_arc, key_facts, open_threads, last_chapter_beat, tone_anchors
-    to merge into persisted sync_state (caller appends chapter_summaries and excerpt separately).
+    Returns dict with keys narrative_arc, key_facts, open_threads, last_chapter_beat, tone_anchors,
+    character_arc — to merge into persisted sync_state (caller appends chapter_summaries and excerpt separately).
     """
     llm = get_llm(provider)
     structured = llm.with_structured_output(SyncStateFields)
@@ -42,6 +43,7 @@ def run_sync_state_update(
             "key_facts": sync_state.get("key_facts", []),
             "open_threads": sync_state.get("open_threads", []),
             "tone_anchors": sync_state.get("tone_anchors", ""),
+            "character_arc": sync_state.get("character_arc", ""),
         },
         "chapter_index": chapter_index,
         "chapter_title": chapter_title,
@@ -60,4 +62,5 @@ def run_sync_state_update(
         "open_threads": out.open_threads[:12],
         "last_chapter_beat": out.last_chapter_beat,
         "tone_anchors": out.tone_anchors,
+        "character_arc": out.character_arc,
     }

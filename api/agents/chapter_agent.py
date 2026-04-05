@@ -97,6 +97,7 @@ def run_chapter(
             "open_threads": sync_state.get("open_threads", []),
             "tone_anchors": sync_state.get("tone_anchors", ""),
             "last_chapter_beat": sync_state.get("last_chapter_beat", ""),
+            "character_arc": sync_state.get("character_arc", ""),
         },
         indent=2,
     )
