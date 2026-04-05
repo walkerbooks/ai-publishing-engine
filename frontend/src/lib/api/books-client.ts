@@ -11,7 +11,30 @@ export type BackendBook = {
   Title: string;
   /** Optional thread that produced this book (snake_case JSON tag on Go side). */
   conversation_public_id?: string | null;
+  /** RFC3339 from Go `time.Time` when listing books (newest first client-side when set). */
+  UpdatedAt?: string;
 };
+
+/**
+ * Books linked to the same conversation (should be rare); prefer the most recently updated row.
+ */
+export function pickLinkedBookForConversation(
+  books: BackendBook[],
+  conversationPublicId: string,
+): BackendBook | null {
+  const needle = conversationPublicId.trim().toLowerCase();
+  if (!needle) return null;
+  const matches = books.filter(
+    (b) => (b.conversation_public_id?.trim().toLowerCase() ?? "") === needle,
+  );
+  if (matches.length === 0) return null;
+  matches.sort((a, b) => {
+    const ta = a.UpdatedAt ? Date.parse(a.UpdatedAt) : 0;
+    const tb = b.UpdatedAt ? Date.parse(b.UpdatedAt) : 0;
+    return tb - ta;
+  });
+  return matches[0] ?? null;
+}
 
 export type BackendChapter = {
   chapter_number: number;
@@ -42,6 +65,21 @@ async function readErrorMessage(res: Response): Promise<string> {
     /* */
   }
   return plain || `Request failed: ${res.status}`;
+}
+
+export async function listBooks(accessToken: string | null): Promise<BackendBook[]> {
+  const headers: HeadersInit = { Accept: "application/json" };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  const res = await fetch(`${GO_API_PREFIX}/v1/books`, {
+    headers,
+    credentials: "include",
+  });
+  if (!res.ok) {
+    log.warning(`listBooks: HTTP ${res.status}`);
+    throw new Error(await readErrorMessage(res));
+  }
+  const data = (await res.json()) as { books?: BackendBook[] };
+  return data.books ?? [];
 }
 
 export async function getBook(

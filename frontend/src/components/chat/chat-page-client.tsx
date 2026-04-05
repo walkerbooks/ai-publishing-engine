@@ -140,6 +140,7 @@ export function ChatPageClient() {
     clearPayPalErr();
     const id = usePublishingStore.getState().activeBookId;
     if (!id) return;
+    setFullBookPricingOpen(false);
     void startCheckout(id, "/chat");
   };
   const changePreview = () =>

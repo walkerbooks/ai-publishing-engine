@@ -2,6 +2,10 @@
 
 import { create } from "zustand";
 import {
+  listBooks,
+  pickLinkedBookForConversation,
+} from "@/lib/api/books-client";
+import {
   createConversation,
   deleteConversation,
   getConversationMessages,
@@ -268,7 +272,21 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
         try {
           const msgs = await getConversationMessages(token, id);
           const restored = restorePublishingFromApiMessages(id, msgs);
-          usePublishingStore.setState(restored);
+          let next: PublishingState = restored;
+          try {
+            const books = await listBooks(token);
+            const linked = pickLinkedBookForConversation(books, id);
+            if (linked?.PublicID) {
+              next = {
+                ...restored,
+                activeBookId: linked.PublicID,
+                bookPreviewRowSynced: true,
+              };
+            }
+          } catch (e) {
+            log.warning("selectConversation: listBooks failed", e);
+          }
+          usePublishingStore.setState(next);
           set({ activeConversationId: id });
           return;
         } catch (e) {
