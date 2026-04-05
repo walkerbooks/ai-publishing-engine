@@ -49,6 +49,8 @@ export function apiMessageToChatMessage(m: ConversationMessageDto): ChatMessage 
   const outline = parseJson<ChatMessage["outline"]>(outlineRaw ?? undefined);
   const videos = parseJson<VideoMeta[]>(videosRaw ?? undefined);
   const previewRaw = decodeApiBlob(m.preview_markdown ?? undefined);
+  const specRaw = decodeApiBlob(m.book_spec_json ?? undefined);
+  const bookSpec = parseJson<Record<string, unknown>>(specRaw ?? undefined);
   return {
     id: m.client_message_id || m.id,
     role: m.role,
@@ -56,6 +58,7 @@ export function apiMessageToChatMessage(m: ConversationMessageDto): ChatMessage 
     kind,
     outline,
     videos: videos?.length ? videos : undefined,
+    bookSpec: bookSpec && Object.keys(bookSpec).length > 0 ? bookSpec : undefined,
     previewMarkdown: previewRaw ?? undefined,
   };
 }
@@ -93,6 +96,9 @@ export function chatMessageToAppendBody(msg: ChatMessage): AppendConversationMes
   }
   if (msg.previewMarkdown) {
     body.preview_markdown = msg.previewMarkdown;
+  }
+  if (msg.bookSpec != null && Object.keys(msg.bookSpec).length > 0) {
+    body.book_spec_json = utf8ToBase64(JSON.stringify(msg.bookSpec));
   }
   return body;
 }
@@ -168,11 +174,14 @@ export function restorePublishingFromApiMessages(
     composerStep = "outline";
   }
 
-  const lastAsst = [...chatMessages].reverse().find((m) => m.role === "assistant");
+  /** Newest gate bubble (not necessarily the newest assistant — preview may sort after gate if inserts raced). */
+  const lastGate = [...chatMessages].reverse().find(
+    (m) => m.role === "assistant" && m.kind === "gate",
+  );
 
   let awaitingGate: PublishingState["awaitingGate"] = null;
-  if (lastAsst?.kind === "gate") {
-    const stage = gateStageFromGateContent(lastAsst.content || "");
+  if (lastGate) {
+    const stage = gateStageFromGateContent(lastGate.content || "");
     if (stage === "preview" && hasPreviewMessage) {
       awaitingGate = null;
     } else if (stage === "full") {

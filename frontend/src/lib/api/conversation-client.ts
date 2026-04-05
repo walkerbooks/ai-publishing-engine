@@ -146,6 +146,8 @@ export type AppendConversationMessageBody = {
   videos_json?: string | null;
   /** Plain markdown string (Go *string). */
   preview_markdown?: string | null;
+  /** Base64 UTF-8 JSON of BSO (Go []byte in JSON). */
+  book_spec_json?: string | null;
   client_message_id?: string | null;
 };
 

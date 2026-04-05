@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import {
+  getBook,
   listBooks,
   pickLinkedBookForConversation,
 } from "@/lib/api/books-client";
@@ -282,6 +283,30 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
                 activeBookId: linked.PublicID,
                 bookPreviewRowSynced: true,
               };
+            }
+            if (
+              !next.bookSpec &&
+              next.activeBookId &&
+              token
+            ) {
+              try {
+                const book = await getBook(next.activeBookId, token);
+                const desc = book.Description?.trim();
+                if (desc) {
+                  const j = JSON.parse(desc) as {
+                    book_spec?: Record<string, unknown>;
+                  };
+                  if (
+                    j.book_spec &&
+                    typeof j.book_spec === "object" &&
+                    Object.keys(j.book_spec).length > 0
+                  ) {
+                    next = { ...next, bookSpec: j.book_spec };
+                  }
+                }
+              } catch {
+                /* best-effort — old rows may lack description */
+              }
             }
           } catch (e) {
             log.warning("selectConversation: listBooks failed", e);

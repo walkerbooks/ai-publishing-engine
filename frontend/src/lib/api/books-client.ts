@@ -9,6 +9,8 @@ export type BackendBook = {
   PublicID: string;
   Status: string;
   Title: string;
+  /** JSON blob from preview/full sync (contains book_spec when present). */
+  Description?: string;
   /** Optional thread that produced this book (snake_case JSON tag on Go side). */
   conversation_public_id?: string | null;
   /** RFC3339 from Go `time.Time` when listing books (newest first client-side when set). */

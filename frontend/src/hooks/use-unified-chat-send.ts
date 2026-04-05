@@ -94,6 +94,7 @@ export function useUnifiedChatSend() {
             {
               pushAssistantMessage: st.pushAssistantMessage,
               appendAssistantDelta: st.appendAssistantDelta,
+              patchChatMessage: st.patchChatMessage,
               setIntakeResult: st.setIntakeResult,
               setAwaitingGate: st.setAwaitingGate,
               setAssistantOutline: st.setAssistantOutline,
@@ -109,12 +110,13 @@ export function useUnifiedChatSend() {
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "Unified chat failed");
     } finally {
-      // Persist every assistant message created this turn. The last bubble is often a
-      // gate after outline/preview; only persisting .at(-1) skipped outline_json / preview_markdown.
+      // Persist new assistant rows in chat order (await each append). Parallel appends race on
+      // sequence assignment so the PayPal gate can end up *before* the preview row in DB; restore
+      // then treats the preview bubble as "last assistant" and drops awaitingGate === "full".
       const after = usePublishingStore.getState().chatMessages;
       for (const m of after) {
         if (m.role === "assistant" && !messageIdsBeforeStream.has(m.id)) {
-          void persistChatMessageIfAuthenticated(m);
+          await persistChatMessageIfAuthenticated(m);
         }
       }
       const { userName, guestEmail } = syncGuestOnboardingFromMessages(after);

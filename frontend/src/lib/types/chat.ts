@@ -41,6 +41,8 @@ export type ChatMessage = {
   /** Client-only: welcome video fetch finished (success or empty) for this bubble. */
   welcomeVideosSettled?: boolean;
   outline?: BookOutlineLite;
+  /** Persisted on intake row as book_spec_json — restores BSO when reopening a thread. */
+  bookSpec?: Record<string, unknown> | null;
   previewMarkdown?: string;
   /** kind === "full" — in-chat manuscript + export */
   fullGenPhase?: FullBookGenPhase;
