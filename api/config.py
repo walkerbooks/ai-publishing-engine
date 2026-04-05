@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     # Cap intake history length to reduce tokens (Groq free tier has a low daily token limit).
     groq_max_history_messages: int = Field(default=24, validation_alias="GROQ_MAX_HISTORY_MESSAGES")
 
+    # Planning: words per printed page when converting BSO target_length_pages → total_word_target
+    # (trade paperbacks often use ~250–350; tune without code changes). Outline + chapter budgets use this.
+    book_words_per_page: int = Field(
+        default=280,
+        ge=200,
+        le=400,
+        validation_alias="BOOK_WORDS_PER_PAGE",
+    )
+
     # Go API (for internal generation jobs calling back to persist chapters)
     backend_url: str | None = Field(default=None, validation_alias="BACKEND_URL")
 

@@ -1,10 +1,13 @@
 """Internal generation jobs triggered by the Go worker (preview / full book).
 
-After full generation, we build a combined-chapter PDF (``api.services.chapters_pdf``),
-write it under ``PDF_EXPORT_STORAGE_DIR``, and POST ``export`` to Go's internal AI callback
-with ``file_url`` pointing at ``GET /api/exports/pdf/{book_public_id}`` (prefix from
-``PDF_EXPORT_PUBLIC_URL_PREFIX``). Set ``STUB_PDF_EXPORT_FAILED_AFTER_FULL_BOOK=true`` to
-skip PDF generation and mark the export failed.
+After full generation, we build a combined-chapter PDF (``api.services.chapters_pdf``)
+and a Word file (``api.services.chapters_docx``), write them under
+``PDF_EXPORT_STORAGE_DIR``, and POST ``export`` to Go's internal AI callback with
+``file_url`` pointing at ``GET /api/exports/pdf/{book_public_id}`` (prefix from
+``PDF_EXPORT_PUBLIC_URL_PREFIX``). The DOCX is served at
+``GET /api/exports/docx/{book_public_id}`` (same prefix). Set
+``STUB_PDF_EXPORT_FAILED_AFTER_FULL_BOOK=true`` to skip PDF generation and mark the export
+failed.
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from api.agents.chapter_agent import run_chapter, summarize_chapter
 from api.agents.preview_agent import run_preview
 from api.agents.sync_state_agent import run_sync_state_update
 from api.config import get_settings
+from api.services.chapters_docx import build_manuscript_docx_bytes, write_docx_to_path
 from api.services.chapters_pdf import (
     build_manuscript_pdf_bytes,
     write_pdf_export_metadata,
@@ -221,6 +225,23 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
         out = Path(settings.pdf_export_storage_dir) / f"{public_id}.pdf"
         write_pdf_to_path(out, pdf_bytes)
         write_pdf_export_metadata(out, author=author_name, title=main_title)
+        try:
+            docx_bytes = build_manuscript_docx_bytes(
+                chapters,
+                main_title,
+                subtitle=subtitle,
+                author_name=author_name,
+            )
+            docx_out = Path(settings.pdf_export_storage_dir) / f"{public_id}.docx"
+            write_docx_to_path(docx_out, docx_bytes)
+            log.info(
+                "Wrote DOCX for book %s (%d bytes) -> %s",
+                public_id,
+                len(docx_bytes),
+                docx_out,
+            )
+        except Exception:
+            log.exception("DOCX generation failed for book %s", public_id)
         prefix = settings.pdf_export_public_url_prefix.rstrip("/")
         file_url = f"{prefix}/exports/pdf/{public_id}"
         body["export"] = {

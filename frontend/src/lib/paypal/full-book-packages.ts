@@ -17,7 +17,7 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
     frequencyLabel: "One Time",
     features: [
       "1 fully personalized book",
-      "100+ professionally written pages",
+      "1–200 professionally written pages",
       "Delivered in under 1 hour",
       "You define the topic, tone, and style",
       "Ready to publish, sell, or share (Amazon, Google Play, Apple Books)",
@@ -32,7 +32,7 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
     frequencyLabel: "One Time",
     features: [
       "2 fully personalized books",
-      "100+ professionally written pages each",
+      "1–200 professionally written pages each",
       "Delivered in under 1 hour each",
       "You define topic, tone, and style per book",
       "Ready to publish, sell, or share (Amazon, Google Play, Apple Books)",
@@ -47,7 +47,7 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
     frequencyLabel: "One Time",
     features: [
       "3 fully personalized books",
-      "100+ professionally written pages each",
+      "1–200 professionally written pages each",
       "Delivered in under 1 hour each",
       "You define topic, tone, and style per book",
       "Ready to publish, sell, or share (Amazon, Google Play, Apple Books)",

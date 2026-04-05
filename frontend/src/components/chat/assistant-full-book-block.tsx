@@ -25,6 +25,10 @@ export function AssistantFullBookBlock({
 }: Props) {
   const embedded = chrome === "embedded";
   const doneWithPdf = phase === "complete" && Boolean(pdfUrl);
+  const docxUrl =
+    pdfUrl && /\/exports\/pdf\//i.test(pdfUrl)
+      ? pdfUrl.replace(/\/exports\/pdf\//i, "/exports/docx/")
+      : undefined;
   const manuscriptDoneNoPdf = phase === "complete" && !pdfUrl && !error;
   const showStatusRow = !error && !doneWithPdf && !manuscriptDoneNoPdf;
   const showPulse = phase !== "complete";
@@ -57,16 +61,29 @@ export function AssistantFullBookBlock({
             )}
           </p>
           <p className="text-sm text-muted-foreground">
-            Download the PDF, read it through, and tell us if you want any changes.
+            Download the PDF or Word document, read it through, and tell us if you want any
+            changes.
           </p>
-          <a
-            href={pdfUrl}
-            download
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-xl bg-walker-teal px-4 py-2.5 text-sm font-semibold text-walker-charcoal shadow transition hover:brightness-110"
-          >
-            Download PDF
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={pdfUrl}
+              download
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center rounded-xl bg-walker-teal px-4 py-2.5 text-sm font-semibold text-walker-charcoal shadow transition hover:brightness-110"
+            >
+              Download PDF
+            </a>
+            {docxUrl ? (
+              <a
+                href={docxUrl}
+                download
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-xl border border-walker-teal/50 bg-transparent px-4 py-2.5 text-sm font-semibold text-walker-teal shadow-sm transition hover:bg-walker-teal/10"
+              >
+                Download Word
+              </a>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

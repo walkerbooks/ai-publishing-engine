@@ -17,7 +17,7 @@ You must collect:
 - genre (and optional sub_genre)
 - audience (e.g. teenagers, professionals, children)
 - tone (e.g. motivational, academic, narrative)
-- target_length_pages (between 2 and 100 pages; typical is 24–100 for full-length works)
+- target_length_pages (between 1 and 200 pages inclusive; ask the author for their target within that range)
 - format_type: exactly one of "kindle", "paperback", "hardback", "all" (for ebook/digital-only use "kindle"—never the string "ebook")
 - page_size: one of "6x9", "8.5x11", "8.25x11" (if the user says A5 or similar compact size, use "6x9")
 - language (default "English")

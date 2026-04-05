@@ -402,7 +402,7 @@ def build_manuscript_pdf_bytes(
         pdf.set_font(body_fam, size=_BODY_PT)
         if body:
             for para in _split_paragraphs(body):
-                pdf.multi_cell(0, body_line_h, para, align="L")
+                pdf.multi_cell(0, body_line_h, para, align="J")
                 pdf.ln(para_gap)
         pdf.ln(_pt_to_mm(8))
 

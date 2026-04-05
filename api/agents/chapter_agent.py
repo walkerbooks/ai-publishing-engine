@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import json
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from api.agents.prompts.chapter import CHAPTER_SYSTEM, SUMMARY_SYSTEM
 from api.llm.factory import get_llm
 from api.llm.rate_limit_retry import invoke_with_rate_limit_retry
+
+
+def _approx_word_count(text: str) -> int:
+    t = text.strip()
+    return len(t.split()) if t else 0
 
 
 def _planned_chapters_lines(book_outline: dict) -> str:
@@ -72,8 +77,14 @@ def run_chapter(
 ) -> str:
     """Returns markdown for one chapter. Uses persisted `sync_state` for continuity."""
     wt = int(chapter_plan.get("word_target", 2000))
-    max_tokens = min(16000, max(1024, int(wt * 1.5)))
+    # Allow long chapters without output truncation (provider caps may still apply).
+    max_tokens = min(65536, max(2048, int(wt * 2.5)))
     llm = get_llm(provider).bind(max_tokens=max_tokens)
+    target_pages = book_spec.get("target_length_pages")
+    if not isinstance(target_pages, int):
+        target_pages = book_outline.get("estimated_pages")
+    if not isinstance(target_pages, int):
+        target_pages = 150
     spec = json.dumps(book_spec, indent=2)
     synopsis = _book_synopsis_paragraph(book_outline)
     plan = json.dumps(chapter_plan, indent=2)
@@ -109,10 +120,26 @@ def run_chapter(
             f"{_planned_chapters_lines(book_outline)}\n\n"
         )
 
+    toc_guard = ""
+    if not (chapter_index == 1 and not previous_chapter_excerpt):
+        toc_guard = (
+            "IMPORTANT — Table of contents: The book has exactly one manuscript-wide Table of Contents at the very beginning (chapter 1). "
+            f"For this task (chapter {chapter_index}), do NOT output `## Table of Contents`, a numbered list of all book chapters, or any repeat of the full outline. "
+            "Begin with only this chapter’s level-1 `#` heading and its body.\n\n"
+        )
+
+    length_contract = (
+        f"WORD COUNT CONTRACT: This chapter’s outline word_target is **{wt}** words. "
+        f"The book is planned for **{target_pages}** pages total (author specification) — each chapter must carry its share of that length. "
+        f"Aim for roughly **{wt}** words (±10%).\n\n"
+    )
+
     messages = [
         SystemMessage(content=CHAPTER_SYSTEM),
         HumanMessage(
             content=(
+                f"{length_contract}"
+                f"{toc_guard}"
                 f"{continuity_note}"
                 f"{planned_toc}"
                 f"Book specification:\n{spec}\n\n"
@@ -128,6 +155,29 @@ def run_chapter(
     ]
     response = invoke_with_rate_limit_retry(lambda: llm.invoke(messages))
     text = response.content if hasattr(response, "content") else str(response)
+    text = text.strip()
+    wc = _approx_word_count(text)
+    floor = int(wt * 0.88)
+    if wc < floor and wt >= 800 and text:
+        llm_expand = get_llm(provider).bind(
+            max_tokens=min(65536, max(4096, int(wt * 3)))
+        )
+        messages2 = messages + [
+            AIMessage(content=text),
+            HumanMessage(
+                content=(
+                    f"The draft is only about {wc} words; this chapter must reach roughly {wt} words "
+                    f"for the {target_pages}-page book contract. Expand with substantive material "
+                    "(examples, scenes, argument, subsections) that fits the outline — no repetition padding. "
+                    "Keep the same `#` chapter heading. Output the full revised chapter only."
+                )
+            ),
+        ]
+        response2 = invoke_with_rate_limit_retry(lambda: llm_expand.invoke(messages2))
+        text2 = response2.content if hasattr(response2, "content") else str(response2)
+        text2 = text2.strip()
+        if _approx_word_count(text2) > wc:
+            text = text2
     return text.strip()
 
 

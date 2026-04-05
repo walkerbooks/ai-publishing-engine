@@ -1,4 +1,4 @@
-"""Public PDF download for full-book exports (written during internal generation)."""
+"""Public PDF and Word download for full-book exports (written during internal generation)."""
 
 from __future__ import annotations
 
@@ -24,8 +24,8 @@ def _sanitize_filename_component(s: str, max_len: int) -> str:
     return cleaned
 
 
-def _download_pdf_filename(book_public_id: str, pdf_path: Path) -> str:
-    meta = read_pdf_export_metadata(pdf_path)
+def _download_manuscript_filename(book_public_id: str, file_path: Path, ext: str) -> str:
+    meta = read_pdf_export_metadata(file_path)
     author = _sanitize_filename_component((meta or {}).get("author") or "", 80)
     title = _sanitize_filename_component((meta or {}).get("title") or "", 120)
     if author and title:
@@ -38,15 +38,23 @@ def _download_pdf_filename(book_public_id: str, pdf_path: Path) -> str:
         base = f"book-{book_public_id.strip()}"
     if len(base) > 200:
         base = base[:197].rstrip() + "..."
-    return f"{base}.pdf"
+    return f"{base}.{ext}"
 
 
-def _pdf_path(book_public_id: str) -> Path:
+def _export_storage_file(book_public_id: str, suffix: str) -> Path:
     bid = book_public_id.strip()
     if not bid or len(bid) > 80 or any(x in bid for x in ("/", "\\", "..")):
         raise HTTPException(status_code=400, detail="invalid book_public_id")
     root = Path(get_settings().pdf_export_storage_dir).resolve()
-    return root / f"{bid}.pdf"
+    return root / f"{bid}{suffix}"
+
+
+def _pdf_path(book_public_id: str) -> Path:
+    return _export_storage_file(book_public_id, ".pdf")
+
+
+def _docx_path(book_public_id: str) -> Path:
+    return _export_storage_file(book_public_id, ".docx")
 
 
 @router.get("/exports/pdf/{book_public_id}")
@@ -61,6 +69,22 @@ def download_full_book_pdf(book_public_id: str) -> FileResponse:
     return FileResponse(
         path,
         media_type="application/pdf",
-        filename=_download_pdf_filename(book_public_id, path),
+        filename=_download_manuscript_filename(book_public_id, path, "pdf"),
+        content_disposition_type="attachment",
+    )
+
+
+@router.get("/exports/docx/{book_public_id}")
+def download_full_book_docx(book_public_id: str) -> FileResponse:
+    """Serves the Word document generated alongside the PDF at end of full generation."""
+    path = _docx_path(book_public_id)
+    if not path.is_file():
+        raise HTTPException(
+            status_code=404, detail="Word document not found or not generated yet"
+        )
+    return FileResponse(
+        path,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=_download_manuscript_filename(book_public_id, path, "docx"),
         content_disposition_type="attachment",
     )
