@@ -13,13 +13,36 @@ from api.llm.factory import get_llm
 from api.llm.rate_limit_retry import invoke_with_rate_limit_retry
 
 
+def _character_arc_to_str(value: Any) -> str:
+    """Persist character_arc as plain text; models often return a dict despite a string schema."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        lines: list[str] = []
+        for k, v in value.items():
+            if v is None:
+                continue
+            s = str(v).strip()
+            if not s:
+                continue
+            label = str(k).replace("_", " ").strip()
+            lines.append(f"{label}: {s}")
+        return "\n".join(lines)
+    if isinstance(value, list):
+        return "\n".join(str(x).strip() for x in value if str(x).strip())
+    return str(value).strip()
+
+
 class SyncStateFields(BaseModel):
     narrative_arc: str = ""
     key_facts: list[str] = Field(default_factory=list)
     open_threads: list[str] = Field(default_factory=list)
     last_chapter_beat: str = ""
     tone_anchors: str = ""
-    character_arc: str = ""
+    # Groq/tooling may emit a structured object; accept both so validation matches the model.
+    character_arc: str | dict[str, Any] = ""
 
 
 def run_sync_state_update(
@@ -62,5 +85,5 @@ def run_sync_state_update(
         "open_threads": out.open_threads[:12],
         "last_chapter_beat": out.last_chapter_beat,
         "tone_anchors": out.tone_anchors,
-        "character_arc": out.character_arc,
+        "character_arc": _character_arc_to_str(out.character_arc),
     }

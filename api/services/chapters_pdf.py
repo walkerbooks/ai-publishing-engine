@@ -39,6 +39,52 @@ _BODY_PT = 11
 _BODY_LINE_MULT = 264 / 240  # Normal w:line / single-line grid (≈1.1)
 _PARA_AFTER_PT = 12
 
+# Trade trim content width (6" page − 1" left − 1" right).
+_CONTENT_W_MM = _PAGE_W_MM - 2 * _MARGIN_MM
+
+
+def _int_to_roman_upper(n: int) -> str:
+    """Uppercase Roman numerals for front-matter TOC lines (e.g. 3 → III)."""
+    if n <= 0:
+        return ""
+    vals = [
+        (1000, "M"),
+        (900, "CM"),
+        (500, "D"),
+        (400, "CD"),
+        (100, "C"),
+        (90, "XC"),
+        (50, "L"),
+        (40, "XL"),
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
+    ]
+    parts: list[str] = []
+    x = n
+    for v, s in vals:
+        while x >= v:
+            parts.append(s)
+            x -= v
+    return "".join(parts)
+
+
+def _strip_leading_chapter_prefix(raw_title: str, chapter_num: int) -> str:
+    t = (raw_title or "").strip()
+    t = re.sub(r"^chapter\s*\d+\s*:\s*", "", t, flags=re.I).strip()
+    t = re.sub(r"^chapter\s*\d+\s+", "", t, flags=re.I).strip()
+    if not t:
+        return f"CHAPTER {chapter_num}"
+    return t
+
+
+def format_manuscript_chapter_heading(chapter_num: int, raw_title: str) -> str:
+    """Book-style heading: CHAPTER N TITLE (all caps, no colon), matching trade TOC."""
+    body = _strip_leading_chapter_prefix(raw_title, chapter_num)
+    return f"CHAPTER {chapter_num} {body.upper()}"
+
 
 def _pt_to_mm(pt: float) -> float:
     return pt * 25.4 / 72.0
@@ -231,18 +277,51 @@ def _split_paragraphs(text: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
+def _pdf_draw_toc_row(
+    pdf: Any,
+    body_fam: str,
+    *,
+    label_upper: str,
+    page_disp: str,
+    printable_w_mm: float,
+    toc_line_h: float,
+    txt: Any,
+    link_id: int | None = None,
+) -> None:
+    """One TOC line: left label, dot leaders, right-aligned page label (trade style)."""
+    pdf.set_font(body_fam, size=_TOC_LINE_PT)
+    left = txt(label_upper)
+    right = txt(page_disp)
+    w_left = pdf.get_string_width(left + " ")
+    w_right = pdf.get_string_width(" " + right)
+    dot_w = pdf.get_string_width(".")
+    mid = max(0.0, printable_w_mm - w_left - w_right)
+    n_dots = max(3, int(mid / dot_w) if dot_w > 0 else 3)
+    dots = "." * n_dots
+    lk = link_id if link_id is not None else ""
+    pdf.cell(w=w_left, h=toc_line_h, text=left + " ", border=0, link=lk)
+    pdf.cell(w=mid, h=toc_line_h, text=dots, border=0, link=lk)
+    pdf.cell(w=w_right, h=toc_line_h, text=" " + right, border=0, align="R", link=lk)
+    pdf.ln(_pt_to_mm(2))
+
+
 def build_manuscript_pdf_bytes(
     chapters: list[dict[str, Any]],
     book_title: str,
     *,
     subtitle: str | None = None,
     author_name: str | None = None,
+    dedication: str | None = None,
+    toc_lines_out: list[tuple[str, str]] | None = None,
 ) -> bytes:
     """
     Concatenate chapters (sorted by chapter_number) into one PDF.
     Expects dicts with keys title, content (as returned by Go internal chapters API).
     Cover page matches the reference Word file (Century Gothic / Verdana / Palatino); body 6×9".
-    Inserts a Table of Contents after the cover (TOC lines link to chapter headings), then body chapters on a new page.
+    Inserts a Table of Contents after the cover: centered **TABLE OF CONTENTS**, dot leaders,
+    Roman page labels for front matter (Dedication, Acknowledgment, About the Author), Arabic
+    for body chapters (numbering restarts at Chapter 1). Optional ``toc_lines_out`` receives the
+    same (label, page number string) pairs for the Word export.
     """
     from fpdf import FPDF
 
@@ -356,42 +435,117 @@ def build_manuscript_pdf_bytes(
         )
 
     pdf.set_text_color(0, 0, 0)
-    pdf.add_page()
 
     chapter_entries: list[tuple[str, str, str]] = []
     for row in sorted_rows:
         num = int(row.get("chapter_number") or 0)
-        ch_title = txt(str(row.get("title") or f"Chapter {num}").strip()[:500])
+        raw_title = str(row.get("title") or f"Chapter {num}").strip()[:500]
         body = txt(_markdownish_to_plain(str(row.get("content") or "")))
-        if not body and not ch_title:
+        if not body and not raw_title.strip():
             continue
-        line = f"Chapter {num}: {ch_title}" if num else ch_title
-        heading = f"Chapter {num}: {ch_title}" if num else ch_title
-        chapter_entries.append((line, heading, body))
+        heading = txt(format_manuscript_chapter_heading(num, raw_title))
+        chapter_entries.append((heading, heading, body))
 
-    chapter_links = [pdf.add_link() for _ in chapter_entries]
+    printable_w = _CONTENT_W_MM
 
-    # Table of Contents (each line is an internal link to the matching chapter heading).
+    ded_raw = (dedication or "").strip()
+    ded_body = txt(ded_raw) if ded_raw else txt(" ")
+
+    def render_trade_toc(pdf2: Any, outline: list[Any]) -> None:
+        """Filled in by fpdf2 after body pagination; ``outline`` from ``start_section`` calls."""
+        if body_has_bold:
+            pdf2.set_font(body_fam, style="B", size=_TOC_HEADING_PT)
+        else:
+            pdf2.set_font(body_fam, size=_TOC_HEADING_PT)
+        pdf2.multi_cell(
+            0,
+            _pt_to_mm(_TOC_HEADING_PT * 1.2),
+            txt("TABLE OF CONTENTS"),
+            align="C",
+        )
+        pdf2.ln(_pt_to_mm(10))
+        pdf2.set_font(body_fam, size=_TOC_LINE_PT)
+        if not outline:
+            return
+        first_chapter_page = outline[3].page_number if len(outline) > 3 else outline[-1].page_number
+        if toc_lines_out is not None:
+            toc_lines_out.clear()
+        for i, sec in enumerate(outline):
+            if i < 3:
+                disp = _int_to_roman_upper(sec.page_number)
+            else:
+                disp = str(sec.page_number - first_chapter_page + 1)
+            link_id = pdf2.add_link(page=sec.page_number)
+            _pdf_draw_toc_row(
+                pdf2,
+                body_fam,
+                label_upper=str(sec.name).upper(),
+                page_disp=disp,
+                printable_w_mm=printable_w,
+                toc_line_h=toc_line_h,
+                txt=txt,
+                link_id=link_id,
+            )
+            if toc_lines_out is not None:
+                toc_lines_out.append((str(sec.name).upper(), disp))
+
+    # Page 2: reserved TOC (rendered at output); then front matter + chapters advance page numbers.
+    pdf.add_page()
+    pdf.insert_toc_placeholder(render_trade_toc, pages=1, allow_extra_pages=True)
+
+    pdf.start_section("DEDICATION", level=0)
     if body_has_bold:
-        pdf.set_font(body_fam, style="B", size=_TOC_HEADING_PT)
+        pdf.set_font(body_fam, style="B", size=_CHAPTER_PT)
     else:
-        pdf.set_font(body_fam, size=_TOC_HEADING_PT)
-    pdf.multi_cell(
-        0,
-        _pt_to_mm(_TOC_HEADING_PT * 1.2),
-        txt("Table of Contents"),
-        align="C",
-    )
-    pdf.ln(_pt_to_mm(10))
-    pdf.set_font(body_fam, size=_TOC_LINE_PT)
-    for (line, _heading, _body), link_id in zip(chapter_entries, chapter_links):
-        pdf.multi_cell(0, toc_line_h, line, align="L", link=link_id)
-        pdf.ln(_pt_to_mm(2))
+        pdf.set_font(body_fam, size=_CHAPTER_PT)
+    pdf.multi_cell(0, chapter_line_h, txt("DEDICATION"), align="C")
+    pdf.ln(_pt_to_mm(6))
+    pdf.set_font(body_fam, size=_BODY_PT)
+    for para in _split_paragraphs(ded_body) or [ded_body]:
+        pdf.multi_cell(0, body_line_h, para, align="J")
+        pdf.ln(para_gap)
 
     pdf.add_page()
+    pdf.start_section("ACKNOWLEDGMENT", level=0)
+    if body_has_bold:
+        pdf.set_font(body_fam, style="B", size=_CHAPTER_PT)
+    else:
+        pdf.set_font(body_fam, size=_CHAPTER_PT)
+    pdf.multi_cell(0, chapter_line_h, txt("ACKNOWLEDGMENT"), align="C")
+    pdf.ln(_pt_to_mm(6))
+    pdf.set_font(body_fam, size=_BODY_PT)
+    ack = txt(
+        "The author wishes to thank everyone who supported the creation of this book."
+    )
+    pdf.multi_cell(0, body_line_h, ack, align="J")
+    pdf.ln(para_gap)
 
-    for (_line, heading, body), link_id in zip(chapter_entries, chapter_links):
-        pdf.set_link(link_id, y=pdf.get_y(), page=-1)
+    pdf.add_page()
+    pdf.start_section("ABOUT THE AUTHOR", level=0)
+    if body_has_bold:
+        pdf.set_font(body_fam, style="B", size=_CHAPTER_PT)
+    else:
+        pdf.set_font(body_fam, size=_CHAPTER_PT)
+    pdf.multi_cell(0, chapter_line_h, txt("ABOUT THE AUTHOR"), align="C")
+    pdf.ln(_pt_to_mm(6))
+    pdf.set_font(body_fam, size=_BODY_PT)
+    about_lines = []
+    if auth_line:
+        about_lines.append(auth_line)
+    about_lines.append(
+        txt(
+            "This author writes with the goal of connecting with readers through honest, vivid storytelling."
+        )
+    )
+    about_text = "\n\n".join(about_lines)
+    for para in _split_paragraphs(about_text):
+        pdf.multi_cell(0, body_line_h, para, align="J")
+        pdf.ln(para_gap)
+
+    for i, (_line, heading, body) in enumerate(chapter_entries):
+        if i > 0:
+            pdf.add_page()
+        pdf.start_section(heading, level=0)
         if body_has_bold:
             pdf.set_font(body_fam, style="B", size=_CHAPTER_PT)
         else:
