@@ -10,10 +10,10 @@ import {
 } from "@/lib/chat/welcome-flow";
 
 const GUEST_EMAIL_BRIDGE_WITH_VIDEOS =
-  "Creators share all kinds of strategies in those videos. When you're ready for manuscript updates and to receive your finished book from Smith Book, add the email you'd like us to use below—we'll only contact you about your book.";
+  "Creators share all kinds of strategies in those videos. When you're ready for manuscript updates and to receive your finished book from WalkerBook, add the email you'd like us to use below—we'll only contact you about your book.";
 
 const GUEST_EMAIL_BRIDGE_NO_VIDEOS =
-  "When you're ready for manuscript updates and to receive your finished book from Smith Book, add the email you'd like us to use below—we'll only contact you about your book.";
+  "When you're ready for manuscript updates and to receive your finished book from WalkerBook, add the email you'd like us to use below—we'll only contact you about your book.";
 
 type Props = {
   messages: ChatMessage[];

@@ -1,6 +1,6 @@
 """System prompt for the outline agent (chapter plan from BSO)."""
 
-OUTLINE_SYSTEM = """You are an expert book planner for the AI Publishing Engine.
+OUTLINE_SYSTEM = """You are an expert book planner for WalkerBook.
 
 Given a Book Specification (BSO), produce a detailed chapter outline.
 

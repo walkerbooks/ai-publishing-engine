@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils/cn";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Walkerbook",
+  title: "WalkerBook",
   description:
     "Where stories begin their journey — chat through your book idea, shape an outline, preview your voice, and grow a full manuscript with AI-assisted publishing.",
 };
