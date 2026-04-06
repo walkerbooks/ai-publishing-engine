@@ -1,6 +1,6 @@
-## AI Publishing Engine — Python AI Repo
+## WalkerBook — Python AI Repo
 
-This repo is the **AI side** of the AI Publishing Engine described in `learning.md`. It contains:
+This repo is the **AI side** of WalkerBook described in `learning.md`. It contains:
 
 - **Next.js frontend** (`frontend/`) — App Router UI (chat, outline, preview, full book placeholders)
 - **FastAPI AI API** (agents, LLM calls, LangGraph pipeline)

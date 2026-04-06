@@ -83,11 +83,8 @@ export function PreviewPageClient({ bookId }: Props) {
           void startCheckout(bookId, `/book/${bookId}/preview`);
         }}
       />
-      <Link
-        href={`/book/${bookId}/full`}
-        className="mt-4 inline-block text-sm text-blue-600 hover:underline"
-      >
-        Full book page (after payment)
+      <Link href="/chat" className="mt-4 inline-block text-sm text-blue-600 hover:underline">
+        Continue in chat for full book generation
       </Link>
     </div>
   );

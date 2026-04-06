@@ -34,7 +34,7 @@ export function ChatGatePanel({
     "border border-slate-300 bg-transparent text-slate-800 hover:bg-slate-100 focus-visible:ring-slate-400 dark:border-white/20 dark:text-zinc-100 dark:hover:bg-white/10 dark:focus-visible:ring-zinc-500";
 
   return (
-    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/60">
+    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-walker-night">
       {awaitingGate === "outline" ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Button

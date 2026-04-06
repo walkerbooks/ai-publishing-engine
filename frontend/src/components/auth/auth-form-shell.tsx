@@ -8,13 +8,13 @@ type Props = {
   variant?: "page" | "dialog";
 };
 
-/** Same card shell as PayPal flow / chat gate: border, zinc dark surface, Smith Book eyebrow. */
+/** Same card shell as PayPal flow / chat gate: bordered card, theme tokens, WalkerBook eyebrow. */
 export function AuthFormShell({ title, children, className, variant = "page" }: Props) {
   if (variant === "dialog") {
     return (
       <div className={cn("min-w-0 space-y-4", className)}>
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Smith Book · Account
+          WalkerBook · Account
         </p>
         <h2 className="text-balance text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
           {title}
@@ -32,9 +32,9 @@ export function AuthFormShell({ title, children, className, variant = "page" }: 
         className,
       )}
     >
-      <div className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900/60 sm:p-8">
+      <div className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-white/10 dark:bg-walker-night sm:p-8">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Smith Book · Account
+          WalkerBook · Account
         </p>
         <h1 className="text-balance text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
           {title}

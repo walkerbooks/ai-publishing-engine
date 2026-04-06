@@ -3,6 +3,8 @@ import type { BookOutlineLite, ChatMessage, VideoMeta } from "@/lib/types/chat";
 export type PublishingState = {
   sessionId: string;
   activeBookId: string | null;
+  /** True after preview payload was successfully POSTed or PATCHed to Go for `activeBookId`. */
+  bookPreviewRowSynced: boolean;
   chatMessages: ChatMessage[];
   intakeComplete: boolean;
   awaitingGate: null | "outline" | "preview" | "full";
@@ -16,6 +18,8 @@ export type PublishingState = {
   mockPaymentConfirmed: boolean;
   pendingPrompt: string | null;
   userName: string | null;
+  /** Guest onboarding: collected after name (email for updates). */
+  guestEmail: string | null;
 };
 
 export type PublishingActions = {
@@ -46,6 +50,8 @@ export type PublishingActions = {
     spec: Record<string, unknown> | null,
     bookId: string | null,
   ) => void;
+  /** e.g. deep link after PayPal return: /chat?book=… */
+  setActiveBookId: (bookId: string | null) => void;
   setBookOutline: (o: Record<string, unknown> | null) => void;
   setPreviewContent: (s: string) => void;
   appendStreamPreview: (chunk: string) => void;
@@ -53,12 +59,18 @@ export type PublishingActions = {
   setFullBookContent: (s: string) => void;
   setMockPayment: (v: boolean) => void;
   setUserName: (n: string | null) => void;
+  setGuestEmail: (email: string | null) => void;
+  patchChatMessage: (
+    messageId: string,
+    patch: Partial<import("@/lib/types/chat").ChatMessage>,
+  ) => void;
 };
 
 export function createInitialPublishingState(): PublishingState {
   return {
     sessionId: crypto.randomUUID(),
     activeBookId: null,
+    bookPreviewRowSynced: false,
     chatMessages: [],
     intakeComplete: false,
     awaitingGate: null,
@@ -72,5 +84,6 @@ export function createInitialPublishingState(): PublishingState {
     mockPaymentConfirmed: false,
     pendingPrompt: null,
     userName: null,
+    guestEmail: null,
   };
 }

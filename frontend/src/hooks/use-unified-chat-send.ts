@@ -11,10 +11,12 @@ import {
 } from "@/lib/chat/unified-chat/placeholders";
 import { handleUnifiedChatSseEvent } from "@/lib/chat/unified-chat/event-handler";
 import { authGreetingName } from "@/lib/auth/greeting-name";
+import { syncGuestOnboardingFromMessages } from "@/lib/chat/welcome-flow";
 import { assertGuestMaySendNewThread } from "@/lib/guest/guest-send-guard";
 import { useAuthStore } from "@/stores/auth-store";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { usePublishingStore } from "@/stores/publishing-store";
+import { syncGuestPromotionLead } from "@/lib/api/promotion-client";
 
 export function useUnifiedChatSend() {
   const [busy, setBusy] = useState(false);
@@ -30,16 +32,18 @@ export function useUnifiedChatSend() {
     useChatDirectoryStore.getState().clearGuestGateMessage();
 
     await ensureServerConversationBeforeSend();
-    const st = usePublishingStore.getState();
+    const pub = usePublishingStore.getState();
 
     let userText: string;
-    if (st.pendingPrompt) {
-      userText = st.pendingPrompt;
-      st.setPendingPrompt(null);
+    if (pub.pendingPrompt) {
+      userText = pub.pendingPrompt.trim();
+      pub.setPendingPrompt(null);
+      if (!userText) return;
+      pub.pushUserMessage(userText);
     } else {
       const t = typed?.trim();
       if (!t) return;
-      st.pushUserMessage(t);
+      pub.pushUserMessage(t);
       userText = t;
     }
 
@@ -56,7 +60,8 @@ export function useUnifiedChatSend() {
     );
 
     try {
-      const msgs = usePublishingStore.getState().chatMessages;
+      const st = usePublishingStore.getState();
+      const msgs = st.chatMessages;
       const history =
         st.composerStep === "intake"
           ? msgs
@@ -89,11 +94,13 @@ export function useUnifiedChatSend() {
             {
               pushAssistantMessage: st.pushAssistantMessage,
               appendAssistantDelta: st.appendAssistantDelta,
+              patchChatMessage: st.patchChatMessage,
               setIntakeResult: st.setIntakeResult,
               setAwaitingGate: st.setAwaitingGate,
               setAssistantOutline: st.setAssistantOutline,
               setBookOutline: st.setBookOutline,
               setAssistantPreview: st.setAssistantPreview,
+              setPreviewContent: st.setPreviewContent,
               setErr,
             },
             getUnifiedAssistantPlaceholder,
@@ -103,15 +110,26 @@ export function useUnifiedChatSend() {
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "Unified chat failed");
     } finally {
-      // Persist every assistant message created this turn. The last bubble is often a
-      // gate after outline/preview; only persisting .at(-1) skipped outline_json / preview_markdown.
+      // Persist new assistant rows in chat order (await each append). Parallel appends race on
+      // sequence assignment so the PayPal gate can end up *before* the preview row in DB; restore
+      // then treats the preview bubble as "last assistant" and drops awaitingGate === "full".
       const after = usePublishingStore.getState().chatMessages;
       for (const m of after) {
         if (m.role === "assistant" && !messageIdsBeforeStream.has(m.id)) {
-          void persistChatMessageIfAuthenticated(m);
+          await persistChatMessageIfAuthenticated(m);
         }
       }
+      const { userName, guestEmail } = syncGuestOnboardingFromMessages(after);
+      const pub = usePublishingStore.getState();
+      if (userName) pub.setUserName(userName);
+      if (guestEmail) pub.setGuestEmail(guestEmail);
+      // End "streaming" state as soon as the assistant message is complete — not after promotion API.
       setBusy(false);
+      void syncGuestPromotionLead(
+        userName,
+        guestEmail,
+        useAuthStore.getState().isAuthenticated,
+      );
     }
   }, []);
 

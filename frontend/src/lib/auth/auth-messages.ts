@@ -33,6 +33,16 @@ export function mapAuthApiError(message: string, flow: "login" | "signup"): stri
     }
   }
 
+  if (low.includes("google sign-in is not configured")) {
+    return "Google sign-in isn’t set up on the server yet. Use email and password, or contact support.";
+  }
+  if (low.includes("invalid google credential")) {
+    return "Google sign-in didn’t work. Close any pop-ups and try again.";
+  }
+  if (low.includes("already linked to another google account")) {
+    return "This email is already linked to a different Google account.";
+  }
+
   if (low.startsWith("validation failed") || low.includes("field validation")) {
     if (low.includes("first_name") || low.includes("firstname")) {
       return "Please enter your first name.";

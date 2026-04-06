@@ -6,6 +6,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 
 from api.agents.prompts.intake import build_intake_system
 from api.llm.factory import get_llm
+from api.llm.rate_limit_retry import invoke_with_rate_limit_retry
 from api.services.bso_validator import validate_bso
 from api.state.schema import IntakeResponse
 

@@ -31,9 +31,43 @@ class Settings(BaseSettings):
     # Groq (when llm_provider=groq)
     groq_api_key: str | None = None
     groq_model: str = "llama-3.3-70b-versatile"
+    # Cap intake history length to reduce tokens (Groq free tier has a low daily token limit).
+    groq_max_history_messages: int = Field(default=24, validation_alias="GROQ_MAX_HISTORY_MESSAGES")
 
-    # Optional: backend URL for future book persistence
-    backend_url: str | None = None
+    # Planning: words per printed page when converting BSO target_length_pages → total_word_target
+    # (trade paperbacks often use ~250–350; tune without code changes). Outline + chapter budgets use this.
+    book_words_per_page: int = Field(
+        default=280,
+        ge=2,
+        le=400,
+        validation_alias="BOOK_WORDS_PER_PAGE",
+    )
+
+    # Go API (for internal generation jobs calling back to persist chapters)
+    backend_url: str | None = Field(default=None, validation_alias="BACKEND_URL")
+
+    # Must match Go INTERNAL_API_KEY: verifies /internal/generate and authorizes callbacks to Go
+    internal_api_key: str | None = Field(default=None, validation_alias="INTERNAL_API_KEY")
+
+    # Go does not run a PDF worker; export rows advance only via internal AI callback `export`.
+    # When true, skip fpdf generation and POST export failed (dev escape hatch).
+    stub_pdf_export_failed_after_full_book: bool = Field(
+        default=False,
+        validation_alias="STUB_PDF_EXPORT_FAILED_AFTER_FULL_BOOK",
+    )
+
+    # Directory where full-book PDFs are written (default under repo `var/pdf_exports`).
+    pdf_export_storage_dir: str = Field(
+        default=str(_REPO_ROOT / "var" / "pdf_exports"),
+        validation_alias="PDF_EXPORT_STORAGE_DIR",
+    )
+
+    # Browser-openable prefix before `/exports/pdf/{book_public_id}`.
+    # Examples: `http://127.0.0.1:8000/api` (direct AI API) or `http://localhost:3000/api/ai` (Next proxy).
+    pdf_export_public_url_prefix: str = Field(
+        default="http://127.0.0.1:8000/api",
+        validation_alias="PDF_EXPORT_PUBLIC_URL_PREFIX",
+    )
 
     # YouTube Data API v3 (for onboarding video block) — set YOUTUBE_API_KEY in .env
     youtube_api_key: str | None = Field(

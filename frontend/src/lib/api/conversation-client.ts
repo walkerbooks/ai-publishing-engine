@@ -1,5 +1,5 @@
 import { GO_API_PREFIX, goAuthHeaders } from "@/lib/api/go-api";
-import { throwIfGoResponseFailed } from "@/lib/api/go-response";
+import { readGoErrorMessage, throwIfGoResponseFailed } from "@/lib/api/go-response";
 import { getLogger } from "@/lib/log";
 
 const log = getLogger("conversation-client");
@@ -19,7 +19,7 @@ export type ConversationMessageDto = {
   kind?: string | null;
   /** String (JSON / base64), or JSON object/array if the server embeds structured data. */
   outline_json?: unknown;
-  /** Book specification (BSO) at outline time — required to resume preview after reload. */
+  /** Not accepted on append by current Go API; optional on GET if the server ever adds it. */
   book_spec_json?: unknown;
   videos_json?: unknown;
   preview_markdown?: unknown;
@@ -31,18 +31,29 @@ function authHeaders(token: string): HeadersInit {
   return goAuthHeaders(token);
 }
 
+/** Best-effort: never throws — sidebar can load without server conversation support. */
 export async function listConversations(accessToken: string): Promise<ConversationDto[]> {
-  const res = await fetch(`${GO_API_PREFIX}/v1/conversation/list`, {
+  const init: RequestInit = {
     headers: authHeaders(accessToken),
     credentials: "include",
     cache: "no-store",
-  });
-  if (!res.ok) {
-    log.warning(`listConversations: HTTP ${res.status}`);
-    await throwIfGoResponseFailed(res);
+  };
+  let res = await fetch(`${GO_API_PREFIX}/v1/conversations`, init);
+  if (res.status === 404 || res.status === 500) {
+    const alt = await fetch(`${GO_API_PREFIX}/v1/conversation/list`, init);
+    if (alt.ok) res = alt;
   }
-  const data = (await res.json()) as { conversations?: ConversationDto[] };
-  return data.conversations ?? [];
+  if (res.ok) {
+    const data = (await res.json()) as { conversations?: ConversationDto[] };
+    return data.conversations ?? [];
+  }
+  const msg = await readGoErrorMessage(res);
+  log.warning(`listConversations: HTTP ${res.status}`, msg);
+  if (res.status === 401) {
+    const { invalidateGoSession } = await import("@/lib/auth/invalidate-go-session");
+    invalidateGoSession(msg);
+  }
+  return [];
 }
 
 export async function createConversation(
@@ -84,6 +95,24 @@ export async function getConversationMessages(
   return data.messages ?? [];
 }
 
+/** DELETE /v1/conversation/{id} — 204; 404 treated as success (already gone). */
+export async function deleteConversation(
+  accessToken: string,
+  conversationPublicId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${GO_API_PREFIX}/v1/conversation/${encodeURIComponent(conversationPublicId)}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(accessToken),
+      credentials: "include",
+    },
+  );
+  if (res.ok || res.status === 404) return;
+  log.warning(`deleteConversation: HTTP ${res.status}`);
+  await throwIfGoResponseFailed(res);
+}
+
 export async function patchConversationTitle(
   accessToken: string,
   conversationPublicId: string,
@@ -107,22 +136,27 @@ export async function patchConversationTitle(
   return data.conversation;
 }
 
+/** Fields must match Go `AppendConversationMessageRequest` (DisallowUnknownFields). */
 export type AppendConversationMessageBody = {
   role: "user" | "assistant";
   content: string;
   kind?: string | null;
+  /** Base64-encoded UTF-8 JSON (Go []byte in JSON). */
   outline_json?: string | null;
-  book_spec_json?: string | null;
   videos_json?: string | null;
+  /** Plain markdown string (Go *string). */
   preview_markdown?: string | null;
+  /** Base64 UTF-8 JSON of BSO (Go []byte in JSON). */
+  book_spec_json?: string | null;
   client_message_id?: string | null;
 };
 
+/** Best-effort persistence: does not throw on HTTP errors (avoids noisy dev stacks); still invalidates session on 401. */
 export async function appendConversationMessage(
   accessToken: string,
   conversationPublicId: string,
   body: AppendConversationMessageBody,
-): Promise<ConversationMessageDto> {
+): Promise<ConversationMessageDto | null> {
   const res = await fetch(
     `${GO_API_PREFIX}/v1/conversation/${encodeURIComponent(conversationPublicId)}/messages`,
     {
@@ -133,10 +167,18 @@ export async function appendConversationMessage(
     },
   );
   if (!res.ok) {
-    log.warning(`appendConversationMessage: HTTP ${res.status}`);
-    await throwIfGoResponseFailed(res);
+    const msg = await readGoErrorMessage(res);
+    log.warning(`appendConversationMessage: HTTP ${res.status}`, msg);
+    if (res.status === 401) {
+      const { invalidateGoSession } = await import("@/lib/auth/invalidate-go-session");
+      invalidateGoSession(msg);
+    }
+    return null;
   }
   const data = (await res.json()) as { message?: ConversationMessageDto };
-  if (!data.message) throw new Error("Invalid append message response");
+  if (!data.message) {
+    log.warning("appendConversationMessage: invalid response shape");
+    return null;
+  }
   return data.message;
 }

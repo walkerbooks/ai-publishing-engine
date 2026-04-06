@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { ChatMessage } from "@/lib/types/chat";
 import { ChatHero } from "@/components/chat/chat-hero";
 import { ChatThread } from "@/components/chat/chat-thread";
@@ -13,6 +13,7 @@ import { ChatOutlineDrawer } from "@/components/chat/shell/chat-outline-drawer";
 import { useChatScroll } from "@/hooks/use-chat-scroll";
 import { cn } from "@/lib/utils/cn";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
+import { shouldDisableDockComposerForGuestInlineCapture } from "@/lib/chat/welcome-flow";
 
 type GateHandlers = {
   proceedToOutline: () => void;
@@ -32,6 +33,7 @@ type Props = {
   messages: ChatMessage[];
   bookOutline: Record<string, unknown> | null;
   awaitingGate: null | "outline" | "preview" | "full";
+  isAuthenticated: boolean;
   onSend: (text: string) => void;
   clearErr: () => void;
   /** Mobile: controlled slide-over outline panel */
@@ -49,6 +51,7 @@ export function ChatWorkspace({
   messages,
   bookOutline,
   awaitingGate,
+  isAuthenticated,
   onSend,
   clearErr,
   proceedToOutline,
@@ -69,6 +72,11 @@ export function ChatWorkspace({
   useChatScroll(messages, threadScrollRef);
   const guestGateMessage = useChatDirectoryStore((s) => s.guestGateMessage);
   const clearGuestGateMessage = useChatDirectoryStore((s) => s.clearGuestGateMessage);
+
+  const guestInlineCaptureBlocksDock = useMemo(
+    () => shouldDisableDockComposerForGuestInlineCapture(messages, isAuthenticated),
+    [messages, isAuthenticated],
+  );
 
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
@@ -97,7 +105,13 @@ export function ChatWorkspace({
       ) : null}
 
       {!hasThread ? (
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
+        <div
+          className={cn(
+            "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden",
+            "bg-transparent",
+            "dark:bg-[linear-gradient(135deg,#0D1B2A_0%,#112236_55%,#0D4A3A_100%)]",
+          )}
+        >
           <div className="flex min-h-full min-w-0 flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
             <ChatHero
               disabled={busy}
@@ -121,9 +135,6 @@ export function ChatWorkspace({
                 showOutlineColumn && "lg:mr-[300px] xl:mr-[320px]",
               )}
             >
-              <p className="mb-2 shrink-0 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Smith Book · Intake → outline → preview
-              </p>
               {/* relative + absolute inset-0: guarantees a fixed-height clip so overflow-y scrolls inside nested flex/grid */}
               <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
                 <div
@@ -131,7 +142,14 @@ export function ChatWorkspace({
                   className="chat-pane-scroll absolute inset-0 min-h-0 min-w-0 overflow-y-auto"
                   aria-label="Chat messages"
                 >
-                  <ChatThread messages={messages} variant={msgVariant} />
+                  <ChatThread
+                    messages={messages}
+                    variant={msgVariant}
+                    isAuthenticated={isAuthenticated}
+                    busy={busy}
+                    onGuestNameSend={(t) => (clearErr(), onSend(t))}
+                    onGuestEmailSend={(t) => (clearErr(), onSend(t))}
+                  />
                   {busy ? (
                     <div className="mt-3 space-y-2 pb-4">
                       <Skeleton className="h-4 w-2/3" />
@@ -144,7 +162,7 @@ export function ChatWorkspace({
 
             {showOutlineColumn ? (
               <div
-                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-border bg-slate-100 dark:border-white/10 dark:bg-[#0d0d0d] lg:flex xl:w-[320px]"
+                className="absolute inset-y-0 right-0 z-10 hidden w-[300px] flex-col overflow-hidden border-l border-border bg-white/45 backdrop-blur-xl dark:border-white/10 dark:bg-walker-hero-night dark:backdrop-blur-none lg:flex xl:w-[320px]"
                 role="region"
                 aria-label="Generated outline"
               >
@@ -167,7 +185,7 @@ export function ChatWorkspace({
           </div>
 
           {/* Row 2: composer — grid auto row, always under thread */}
-          <div className="chat-dock-enter shrink-0 border-t border-slate-200/90 bg-background/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md dark:border-white/10 dark:bg-[#0d0d0d]/95 sm:px-4 sm:py-4">
+          <div className="chat-dock-enter shrink-0 border-t border-slate-200/90 bg-background/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md dark:border-white/10 dark:bg-walker-night sm:px-4 sm:py-4">
             <div
               className={cn(
                 "mx-auto w-full max-w-3xl",
@@ -188,7 +206,7 @@ export function ChatWorkspace({
                 />
               ) : (
                 <ChatComposer
-                  disabled={busy}
+                  disabled={busy || guestInlineCaptureBlocksDock}
                   onSend={(t) => (clearErr(), onSend(t))}
                   variant="dock"
                 />

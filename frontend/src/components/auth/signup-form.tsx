@@ -3,10 +3,12 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
-import { signup } from "@/lib/api/auth-client";
+import { authWithGoogle, signup } from "@/lib/api/auth-client";
 import { authErrorFromUnknown } from "@/lib/auth/auth-messages";
+import { completeAuthNavigation } from "@/lib/auth/post-auth-navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthFormShell } from "@/components/auth/auth-form-shell";
+import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -50,9 +52,29 @@ export function SignupForm({
     try {
       const { access_token, user } = await signup(email, password, firstName.trim(), lastName.trim());
       setSession(access_token, user.email, user.first_name);
-      router.replace(redirectAfterSignup);
-      router.refresh();
-      onAuthenticated?.();
+      completeAuthNavigation(router, {
+        variant,
+        redirectPath: redirectAfterSignup,
+        onAuthenticated,
+      });
+    } catch (e) {
+      setErr(authErrorFromUnknown(e, "signup"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onGoogleCredential(idToken: string) {
+    setErr(null);
+    setLoading(true);
+    try {
+      const { access_token, user } = await authWithGoogle(idToken);
+      setSession(access_token, user.email, user.first_name);
+      completeAuthNavigation(router, {
+        variant,
+        redirectPath: redirectAfterSignup,
+        onAuthenticated,
+      });
     } catch (e) {
       setErr(authErrorFromUnknown(e, "signup"));
     } finally {
@@ -77,6 +99,21 @@ export function SignupForm({
             {err}
           </p>
         ) : null}
+        <GoogleAuthButton
+          intent="signup"
+          disabled={loading}
+          onCredential={(t) => void onGoogleCredential(t)}
+        />
+        <div className="relative py-1">
+          <div className="absolute inset-0 flex items-center" aria-hidden="true">
+            <span className="w-full border-t border-slate-200 dark:border-white/10" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase tracking-wide">
+            <span className="bg-white/90 px-2 text-muted-foreground dark:bg-walker-night">
+              Or continue with email
+            </span>
+          </div>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block space-y-1.5 text-sm">
             <span className="font-medium text-foreground">First name</span>

@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { VIDEO_BLOCK_HEADING } from "@/lib/constants/welcome";
+import type { ChatMessage } from "@/lib/types/chat";
 import {
   createInitialPublishingState,
   type PublishingActions,
@@ -29,13 +30,20 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           if (m.id !== messageId) return m;
           if (m.videos?.length) return m;
           const list = videos.slice(0, 3);
-          if (!list.length) return m;
+          if (!list.length) {
+            return { ...m, videos: [], welcomeVideosSettled: true };
+          }
           const base = m.content.trim();
           const marker = "Look at this TON of videos";
           const content = base.includes(marker)
             ? m.content
             : `${base}\n\n${VIDEO_BLOCK_HEADING}`;
-          return { ...m, content, videos: list };
+          return {
+            ...m,
+            content,
+            videos: list,
+            welcomeVideosSettled: true,
+          };
         }),
       })),
     popLastUserMessage: () =>
@@ -86,10 +94,21 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
         sessionId: crypto.randomUUID(),
       }),
     setIntakeResult: (intakeComplete, bookSpec, bookId) =>
+      set((s) => {
+        const nextActive = bookId ?? s.activeBookId ?? crypto.randomUUID();
+        const sameBook = nextActive === s.activeBookId;
+        return {
+          intakeComplete,
+          bookSpec,
+          activeBookId: nextActive,
+          bookPreviewRowSynced: sameBook ? s.bookPreviewRowSynced : false,
+        };
+      }),
+    setActiveBookId: (activeBookId) =>
       set((s) => ({
-        intakeComplete,
-        bookSpec,
-        activeBookId: bookId ?? s.activeBookId ?? crypto.randomUUID(),
+        activeBookId,
+        bookPreviewRowSynced:
+          activeBookId === s.activeBookId ? s.bookPreviewRowSynced : false,
       })),
     setBookOutline: (bookOutline) => set({ bookOutline }),
     setPreviewContent: (previewContent) => set({ previewContent }),
@@ -101,5 +120,12 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
     setFullBookContent: (fullBookContent) => set({ fullBookContent }),
     setMockPayment: (mockPaymentConfirmed) => set({ mockPaymentConfirmed }),
     setUserName: (userName) => set({ userName }),
+    setGuestEmail: (guestEmail) => set({ guestEmail }),
+    patchChatMessage: (messageId, patch) =>
+      set((s) => ({
+        chatMessages: s.chatMessages.map((m) =>
+          m.id === messageId ? ({ ...m, ...patch } as ChatMessage) : m,
+        ),
+      })),
   }),
 );

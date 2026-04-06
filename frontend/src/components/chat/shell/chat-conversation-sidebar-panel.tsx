@@ -80,8 +80,7 @@ export function ChatConversationSidebarPanel({
                     aria-label={`Delete ${c.title}`}
                     onClick={(e) => {
                       e.preventDefault();
-                      removeConversation(c.id);
-                      onNavigate?.();
+                      void removeConversation(c.id).then(() => onNavigate?.());
                     }}
                     className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground opacity-70 transition hover:bg-slate-200 hover:text-slate-900 group-hover:opacity-100 dark:hover:bg-white/10 dark:hover:text-zinc-200"
                   >

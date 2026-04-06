@@ -2,7 +2,13 @@
 
 import { create } from "zustand";
 import {
+  getBook,
+  listBooks,
+  pickLinkedBookForConversation,
+} from "@/lib/api/books-client";
+import {
   createConversation,
+  deleteConversation,
   getConversationMessages,
   listConversations,
   patchConversationTitle,
@@ -17,7 +23,7 @@ import {
 } from "@/lib/chat/session-serialization";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { guestConversationLimitCopy, getGuestMaxConversations } from "@/lib/guest/guest-config";
-import { persistGuestDirectory } from "@/lib/guest/guest-directory-persist";
+import { scheduleGuestDirectoryPersist } from "@/lib/guest/guest-directory-persist";
 import { getLogger } from "@/lib/log";
 import { createInitialPublishingState, type PublishingState } from "@/stores/publishing-types";
 import { useAuthStore } from "@/stores/auth-store";
@@ -44,31 +50,16 @@ type ChatDirectoryState = {
 };
 
 type ChatDirectoryActions = {
+  registerNewServerConversation: (c: ConversationDto) => void;
+  hydrateConversationListFromServer: () => Promise<void>;
+  clearGuestGateMessage: () => void;
   upsertActiveFromPublishing: (state: PublishingState) => void;
   selectConversation: (id: string) => Promise<void>;
   startNewConversation: () => Promise<void>;
-  removeConversation: (id: string) => void;
-  hydrateConversationListFromServer: () => Promise<void>;
-  registerNewServerConversation: (c: ConversationDto) => void;
-  clearGuestGateMessage: () => void;
+  removeConversation: (id: string) => Promise<void>;
+  /** Wipe sidebar + active thread (e.g. on logout so the next user does not see prior chats). */
+  clearAll: () => void;
 };
-
-let guestPersistTimer: ReturnType<typeof setTimeout> | undefined;
-
-function scheduleGuestDirectoryPersist(): void {
-  if (typeof window === "undefined") return;
-  if (useAuthStore.getState().isAuthenticated) return;
-  if (guestPersistTimer) clearTimeout(guestPersistTimer);
-  guestPersistTimer = setTimeout(() => {
-    guestPersistTimer = undefined;
-    if (useAuthStore.getState().isAuthenticated) return;
-    const s = useChatDirectoryStore.getState();
-    persistGuestDirectory({
-      conversations: s.conversations,
-      activeConversationId: s.activeConversationId,
-    });
-  }, 500);
-}
 
 function sortConversations(list: StoredConversation[]): StoredConversation[] {
   return [...list].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -110,17 +101,78 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
         set({ listLoaded: true });
         return;
       }
+
+      // Ensure the open thread is registered before merging lists (avoids wiping the store when
+      // activeConversationId was still null due to debounced session sync).
+      get().upsertActiveFromPublishing(usePublishingStore.getState());
+
+      const prevActive = get().activeConversationId;
+      const prevConversations = get().conversations;
+      const localRows = prevConversations.filter((c) => c.serverBacked !== true);
+
       try {
         const list = await listConversations(token);
-        const rows = list.map(dtoToStored);
-        set({ conversations: sortConversations(rows), listLoaded: true });
-        const { activeConversationId } = get();
-        if (activeConversationId && rows.some((r) => r.id === activeConversationId)) {
-          await get().selectConversation(activeConversationId);
-        } else {
-          set({ activeConversationId: null });
-          usePublishingStore.setState(createInitialPublishingState());
+        const serverRows = list.map(dtoToStored);
+        const byId = new Map<string, StoredConversation>();
+        for (const r of serverRows) {
+          byId.set(r.id, r);
         }
+        for (const r of localRows) {
+          if (!byId.has(r.id)) {
+            byId.set(r.id, r);
+          }
+        }
+        const merged = sortConversations([...byId.values()]);
+        set({ conversations: merged, listLoaded: true });
+
+        if (prevActive && merged.some((r) => r.id === prevActive)) {
+          const activeRow = merged.find((r) => r.id === prevActive)!;
+          if (activeRow.serverBacked === true) {
+            await get().selectConversation(prevActive);
+          } else {
+            set({ activeConversationId: prevActive });
+          }
+          return;
+        }
+
+        const pub = usePublishingStore.getState();
+        const hasLocalSession =
+          pub.chatMessages.length > 0 ||
+          pub.bookSpec != null ||
+          pub.intakeComplete;
+
+        if (hasLocalSession) {
+          get().upsertActiveFromPublishing(pub);
+          const again = get().activeConversationId;
+          if (again && merged.some((r) => r.id === again)) {
+            const activeRow = merged.find((r) => r.id === again)!;
+            if (activeRow.serverBacked === true) {
+              await get().selectConversation(again);
+            } else {
+              set({ activeConversationId: again });
+            }
+            return;
+          }
+          const orphan = again
+            ? prevConversations.find((c) => c.id === again) ??
+              get().conversations.find((c) => c.id === again)
+            : null;
+          if (again && orphan && merged.every((r) => r.id !== again)) {
+            const remerged = sortConversations([orphan, ...merged]);
+            set({
+              conversations: remerged,
+              listLoaded: true,
+              activeConversationId: again,
+            });
+            if (orphan.serverBacked === true) {
+              await get().selectConversation(again);
+            }
+            return;
+          }
+        }
+
+        set({ activeConversationId: null });
+        usePublishingStore.setState(createInitialPublishingState());
       } catch (e) {
         log.warning("hydrateConversationListFromServer failed", e);
         set({ listLoaded: true });
@@ -133,8 +185,17 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       const title = deriveConversationTitle(snap);
       const now = Date.now();
 
-      if (!activeConversationId && state.chatMessages.length > 0) {
-        if (!useAuthStore.getState().isAuthenticated) {
+      if (!activeConversationId) {
+        if (useAuthStore.getState().isAuthenticated) {
+          const needsId =
+            state.chatMessages.length > 0 ||
+            state.bookSpec != null ||
+            state.intakeComplete;
+          if (needsId) {
+            activeConversationId = crypto.randomUUID();
+            set({ activeConversationId });
+          }
+        } else if (state.chatMessages.length > 0) {
           const maxGuest = getGuestMaxConversations();
           if (maxGuest > 0) {
             const localCount = get().conversations.filter((c) => c.serverBacked !== true)
@@ -144,9 +205,9 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
               return;
             }
           }
+          activeConversationId = crypto.randomUUID();
+          set({ activeConversationId });
         }
-        activeConversationId = crypto.randomUUID();
-        set({ activeConversationId });
       }
       if (!activeConversationId) return;
 
@@ -163,7 +224,10 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       set({
         conversations: sortConversations([row, ...existing]),
       });
-      scheduleGuestDirectoryPersist();
+      scheduleGuestDirectoryPersist(() => ({
+        conversations: get().conversations,
+        activeConversationId: get().activeConversationId,
+      }));
 
       const token = getAccessToken();
       if (
@@ -209,7 +273,45 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
         try {
           const msgs = await getConversationMessages(token, id);
           const restored = restorePublishingFromApiMessages(id, msgs);
-          usePublishingStore.setState(restored);
+          let next: PublishingState = restored;
+          try {
+            const books = await listBooks(token);
+            const linked = pickLinkedBookForConversation(books, id);
+            if (linked?.PublicID) {
+              next = {
+                ...restored,
+                activeBookId: linked.PublicID,
+                bookPreviewRowSynced: true,
+              };
+            }
+            if (
+              !next.bookSpec &&
+              next.activeBookId &&
+              token
+            ) {
+              try {
+                const book = await getBook(next.activeBookId, token);
+                const desc = book.Description?.trim();
+                if (desc) {
+                  const j = JSON.parse(desc) as {
+                    book_spec?: Record<string, unknown>;
+                  };
+                  if (
+                    j.book_spec &&
+                    typeof j.book_spec === "object" &&
+                    Object.keys(j.book_spec).length > 0
+                  ) {
+                    next = { ...next, bookSpec: j.book_spec };
+                  }
+                }
+              } catch {
+                /* best-effort — old rows may lack description */
+              }
+            }
+          } catch (e) {
+            log.warning("selectConversation: listBooks failed", e);
+          }
+          usePublishingStore.setState(next);
           set({ activeConversationId: id });
           return;
         } catch (e) {
@@ -221,7 +323,11 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       if (!target.snapshot) return;
       applyPublishingSnapshot(usePublishingStore.setState, target.snapshot);
       set({ activeConversationId: id });
-      if (!authed) scheduleGuestDirectoryPersist();
+      if (!authed)
+        scheduleGuestDirectoryPersist(() => ({
+          conversations: get().conversations,
+          activeConversationId: get().activeConversationId,
+        }));
     },
 
     startNewConversation: async () => {
@@ -269,10 +375,27 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
           ...s.conversations,
         ]),
       }));
-      scheduleGuestDirectoryPersist();
+      scheduleGuestDirectoryPersist(() => ({
+        conversations: get().conversations,
+        activeConversationId: get().activeConversationId,
+      }));
     },
 
-    removeConversation: (id) => {
+    removeConversation: async (id) => {
+      const row = get().conversations.find((c) => c.id === id);
+      const token = getAccessToken();
+      const authed = Boolean(
+        useAuthStore.getState().isAuthenticated && token,
+      );
+      if (row?.serverBacked === true && authed && token) {
+        try {
+          await deleteConversation(token, id);
+        } catch (e) {
+          log.warning("removeConversation: server delete failed", e);
+          return;
+        }
+      }
+
       const { activeConversationId, conversations } = get();
       const nextList = conversations.filter((c) => c.id !== id);
       let nextActive = activeConversationId;
@@ -285,18 +408,23 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       });
       const after = get();
       if (after.activeConversationId) {
-        const row = after.conversations.find((c) => c.id === after.activeConversationId);
-        if (row?.snapshot) {
-          applyPublishingSnapshot(usePublishingStore.setState, row.snapshot);
+        const nextRow = after.conversations.find((c) => c.id === after.activeConversationId);
+        if (nextRow?.snapshot) {
+          applyPublishingSnapshot(usePublishingStore.setState, nextRow.snapshot);
           return;
         }
-        if (row?.serverBacked === true && useAuthStore.getState().isAuthenticated) {
+        if (nextRow?.serverBacked === true && useAuthStore.getState().isAuthenticated) {
           void after.selectConversation(after.activeConversationId);
           return;
         }
       }
       usePublishingStore.setState(createInitialPublishingState());
-      scheduleGuestDirectoryPersist();
+      scheduleGuestDirectoryPersist(() => ({
+        conversations: get().conversations,
+        activeConversationId: get().activeConversationId,
+      }));
     },
+
+  clearAll: () => set({ conversations: [], activeConversationId: null }),
   }),
 );

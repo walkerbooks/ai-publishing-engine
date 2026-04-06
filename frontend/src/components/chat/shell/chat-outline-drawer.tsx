@@ -47,7 +47,7 @@ export function ChatOutlineDrawer({ open, onClose, outline, className }: Props) 
       />
       <aside
         className={cn(
-          "absolute right-0 top-0 flex h-full w-[min(100vw-2.5rem,320px)] max-w-[92vw] flex-col border-l border-border bg-slate-100 shadow-2xl transition-transform duration-300 ease-out dark:border-white/10 dark:bg-[#0d0d0d]",
+          "absolute right-0 top-0 flex h-full w-[min(100vw-2.5rem,320px)] max-w-[92vw] flex-col border-l border-border bg-slate-100 shadow-2xl transition-transform duration-300 ease-out dark:border-white/10 dark:bg-walker-hero-night",
           open ? "translate-x-0" : "translate-x-full",
         )}
         role="dialog"

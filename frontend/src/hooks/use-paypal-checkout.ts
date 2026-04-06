@@ -2,12 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { requestFullGeneration } from "@/lib/api/books-client";
 import { createPayPalCheckout } from "@/lib/api/payments-client";
+import { promoteActiveGuestConversationToServer } from "@/lib/chat/conversation-sync";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { getLogger } from "@/lib/log";
-import { PAYPAL_BOOK_STORAGE_KEY } from "@/lib/paypal/checkout-session";
+import {
+  PAYPAL_BOOK_STORAGE_KEY,
+  writePayPalCheckoutContext,
+} from "@/lib/paypal/checkout-session";
+import { useChatDirectoryStore } from "@/stores/chat-directory-store";
+import { usePublishingStore } from "@/stores/publishing-store";
 
 const log = getLogger("use-paypal-checkout");
+const PAYPAL_BYPASS = process.env.NEXT_PUBLIC_PAYPAL_BYPASS === "true";
 
 export function usePayPalCheckout() {
   const router = useRouter();
@@ -17,6 +25,23 @@ export function usePayPalCheckout() {
   const startCheckout = useCallback(
     async (bookPublicId: string, loginRedirectPath?: string) => {
       setError(null);
+      if (PAYPAL_BYPASS) {
+        const token = getAccessToken();
+        if (token) {
+          try {
+            await requestFullGeneration(bookPublicId, token);
+          } catch (e) {
+            log.warning("PayPal bypass: requestFullGeneration failed", e);
+            setError(e instanceof Error ? e.message : "Could not start full book generation");
+            return;
+          }
+        }
+        usePublishingStore.getState().setMockPayment(true);
+        if (typeof window !== "undefined" && window.location.pathname !== "/chat") {
+          router.push("/chat");
+        }
+        return;
+      }
       const token = getAccessToken();
       if (!token) {
         log.debug("checkout: no access token; redirecting to login");
@@ -30,6 +55,13 @@ export function usePayPalCheckout() {
       }
       setLoading(true);
       try {
+        await promoteActiveGuestConversationToServer();
+        const convId = useChatDirectoryStore.getState().activeConversationId;
+        writePayPalCheckoutContext({
+          v: 1,
+          book_public_id: bookPublicId,
+          conversation_public_id: convId,
+        });
         const { checkout_url } = await createPayPalCheckout(bookPublicId, token);
         try {
           sessionStorage.setItem(PAYPAL_BOOK_STORAGE_KEY, bookPublicId);

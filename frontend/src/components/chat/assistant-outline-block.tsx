@@ -3,13 +3,25 @@
 import type { BookOutlineLite } from "@/lib/types/chat";
 import { OutlineChapters, type ChapterItem } from "@/components/outline/outline-chapters";
 import { OutlineMetrics } from "@/components/outline/outline-metrics";
+import { cn } from "@/lib/utils/cn";
 
-type Props = { outline: BookOutlineLite };
+type Props = {
+  outline: BookOutlineLite;
+  /** Inside chat bubble: no extra card — bubble supplies the panel. */
+  chrome?: "card" | "embedded";
+};
 
-export function AssistantOutlineBlock({ outline }: Props) {
+export function AssistantOutlineBlock({ outline, chrome = "card" }: Props) {
   const chapters = outline.chapters ?? [];
+  const embedded = chrome === "embedded";
   return (
-    <div className="w-full rounded-lg border border-border/80 bg-slate-100 p-3 dark:bg-background">
+    <div
+      className={cn(
+        "w-full rounded-lg border border-border/80 bg-slate-100 p-3 dark:border-walker-navy/30 dark:bg-walker-nightPanel",
+        embedded &&
+          "rounded-none border-0 bg-transparent p-0 shadow-none dark:border-0 dark:bg-transparent",
+      )}
+    >
       <OutlineMetrics
         title={String(outline.book_title ?? "Book")}
         subtitle={outline.subtitle ? String(outline.subtitle) : undefined}

@@ -31,13 +31,13 @@ export function useVideoInjection() {
   useEffect(() => {
     const opts = skipNameOnboarding ? { skipNameOnboarding: true } : undefined;
     if (!shouldAttachWelcomeVideos(messages, opts) || lock.current) return;
-    const targetId = skipNameOnboarding ? messages[1]?.id : messages[3]?.id;
+    const targetId = messages.at(-1)?.id;
     if (!targetId) return;
     lock.current = true;
     fetchVideos("make money selling ebooks on Amazon KDP", 3)
       .then((v) => attachOnboardingVideosToMessage(targetId, v))
       .catch(() => {
-        /* leave name reply unchanged if fetch fails */
+        attachOnboardingVideosToMessage(targetId, []);
       });
   }, [
     messages,

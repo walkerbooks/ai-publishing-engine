@@ -8,8 +8,12 @@ export function authGreetingName(
 ): string | null {
   if (!isAuthenticated) return null;
   const fn = firstName?.trim();
-  if (fn) return fn;
-  const local = email?.split("@")[0]?.trim();
+  const local = email?.split("@")[0]?.trim() ?? "";
+  if (fn) {
+    if (fn.length >= 3) return fn;
+    if (local.length > fn.length) return local;
+    return fn;
+  }
   if (local) return local;
   return "there";
 }
@@ -25,7 +29,11 @@ export function authGreetingLabelForUi(
 ): string | null {
   if (!isAuthenticated) return null;
   const fn = firstName?.trim();
-  if (fn) return fn;
-  const local = email?.split("@")[0]?.trim();
+  const local = email?.split("@")[0]?.trim() ?? "";
+  if (fn) {
+    if (fn.length >= 3) return fn;
+    if (local.length > fn.length) return local;
+    return fn || null;
+  }
   return local || null;
 }

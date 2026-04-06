@@ -1,6 +1,12 @@
+/**
+ * Initial ChatHero `<h1>` must match server HTML and the client’s first paint.
+ * Random greetings run only in `useEffect` after hydration.
+ */
+export const CHAT_HERO_HYDRATION_SAFE_HEADLINE = "What's on your mind today?" as const;
+
 /** Random hero greetings when the visitor is not logged in (or has no display label). */
 export const GENERIC_CHAT_GREETINGS = [
-  "What's on your mind today?",
+  CHAT_HERO_HYDRATION_SAFE_HEADLINE,
   "Ready to bring your book to life?",
   "What story are we telling today?",
   "Let's shape your next book—where do you want to start?",

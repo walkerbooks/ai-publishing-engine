@@ -24,9 +24,9 @@ export function minimalBookSpecFromOutline(
 ): Record<string, unknown> {
   const title =
     typeof outline.book_title === "string" ? outline.book_title : undefined;
-  let pages = 150;
+  let pages = 24;
   if (typeof outline.estimated_pages === "number" && Number.isFinite(outline.estimated_pages)) {
-    pages = Math.min(300, Math.max(50, Math.round(outline.estimated_pages)));
+    pages = Math.min(200, Math.max(1, Math.round(outline.estimated_pages)));
   }
   return {
     genre: "General nonfiction",
@@ -49,6 +49,8 @@ export function apiMessageToChatMessage(m: ConversationMessageDto): ChatMessage 
   const outline = parseJson<ChatMessage["outline"]>(outlineRaw ?? undefined);
   const videos = parseJson<VideoMeta[]>(videosRaw ?? undefined);
   const previewRaw = decodeApiBlob(m.preview_markdown ?? undefined);
+  const specRaw = decodeApiBlob(m.book_spec_json ?? undefined);
+  const bookSpec = parseJson<Record<string, unknown>>(specRaw ?? undefined);
   return {
     id: m.client_message_id || m.id,
     role: m.role,
@@ -56,35 +58,65 @@ export function apiMessageToChatMessage(m: ConversationMessageDto): ChatMessage 
     kind,
     outline,
     videos: videos?.length ? videos : undefined,
+    bookSpec: bookSpec && Object.keys(bookSpec).length > 0 ? bookSpec : undefined,
     previewMarkdown: previewRaw ?? undefined,
   };
 }
 
-export function chatMessageToAppendBody(
-  msg: ChatMessage,
-  bookSpecWhenOutline?: Record<string, unknown> | null,
-): AppendConversationMessageBody {
+/** Must match Go `validate:"omitempty,oneof=..."` on append message. */
+const APPEND_MESSAGE_KINDS = new Set<ChatBlockKind>([
+  "intake",
+  "outline",
+  "preview",
+  "gate",
+]);
+
+export function chatMessageToAppendBody(msg: ChatMessage): AppendConversationMessageBody {
+  if (msg.role === "user") {
+    return {
+      role: "user",
+      content: msg.content,
+      client_message_id: msg.id,
+    };
+  }
+
   const body: AppendConversationMessageBody = {
-    role: msg.role,
+    role: "assistant",
     content: msg.content,
     client_message_id: msg.id,
   };
-  if (msg.role === "assistant") {
-    if (msg.kind) body.kind = msg.kind;
-    if (msg.outline != null) {
-      body.outline_json = utf8ToBase64(JSON.stringify(msg.outline));
-    }
-    if (msg.kind === "outline" && bookSpecWhenOutline && Object.keys(bookSpecWhenOutline).length > 0) {
-      body.book_spec_json = utf8ToBase64(JSON.stringify(bookSpecWhenOutline));
-    }
-    if (msg.videos?.length) {
-      body.videos_json = utf8ToBase64(JSON.stringify(msg.videos));
-    }
-    if (msg.previewMarkdown) {
-      body.preview_markdown = utf8ToBase64(msg.previewMarkdown);
-    }
+  if (msg.kind && APPEND_MESSAGE_KINDS.has(msg.kind)) {
+    body.kind = msg.kind;
+  }
+  if (msg.outline != null) {
+    body.outline_json = utf8ToBase64(JSON.stringify(msg.outline));
+  }
+  if (msg.videos?.length) {
+    body.videos_json = utf8ToBase64(JSON.stringify(msg.videos));
+  }
+  if (msg.previewMarkdown) {
+    body.preview_markdown = msg.previewMarkdown;
+  }
+  if (msg.bookSpec != null && Object.keys(msg.bookSpec).length > 0) {
+    body.book_spec_json = utf8ToBase64(JSON.stringify(msg.bookSpec));
   }
   return body;
+}
+
+/** Classify gate copy — check full/payment before "preview" (post-preview gate text also says "preview"). */
+function gateStageFromGateContent(content: string): "outline" | "preview" | "full" {
+  const c = content.toLowerCase();
+  if (
+    c.includes("unlock the full") ||
+    c.includes("full book") ||
+    c.includes("payment") ||
+    c.includes("paypal") ||
+    (c.includes("unlock") && c.includes("full"))
+  ) {
+    return "full";
+  }
+  if (c.includes("preview")) return "preview";
+  return "outline";
 }
 
 /** Rebuild publishing state from persisted messages; book_spec_json on outline rows restores BSO. */
@@ -122,18 +154,43 @@ export function restorePublishingFromApiMessages(
     bookSpec = minimalBookSpecFromOutline(bookOutline);
   }
 
+  const hasPreviewMessage = chatMessages.some(
+    (m) => m.role === "assistant" && m.kind === "preview",
+  );
+
+  let previewContent = "";
+  for (let i = chatMessages.length - 1; i >= 0; i--) {
+    const m = chatMessages[i];
+    if (m.role === "assistant" && m.kind === "preview" && m.previewMarkdown?.trim()) {
+      previewContent = m.previewMarkdown.trim();
+      break;
+    }
+  }
+
   let composerStep: PublishingState["composerStep"] = "intake";
-  const lastAsst = [...chatMessages].reverse().find((m) => m.role === "assistant");
-  if (lastAsst?.kind === "preview") composerStep = "preview";
-  else if (lastAsst?.kind === "outline" || bookOutline) composerStep = "outline";
+  if (hasPreviewMessage) {
+    composerStep = "preview";
+  } else if (bookOutline) {
+    composerStep = "outline";
+  }
+
+  /** Newest gate bubble (not necessarily the newest assistant — preview may sort after gate if inserts raced). */
+  const lastGate = [...chatMessages].reverse().find(
+    (m) => m.role === "assistant" && m.kind === "gate",
+  );
 
   let awaitingGate: PublishingState["awaitingGate"] = null;
-  if (lastAsst?.kind === "gate") {
-    const c = (lastAsst.content || "").toLowerCase();
-    if (c.includes("preview")) awaitingGate = "preview";
-    else if (c.includes("full") || c.includes("payment") || c.includes("access"))
+  if (lastGate) {
+    const stage = gateStageFromGateContent(lastGate.content || "");
+    if (stage === "preview" && hasPreviewMessage) {
+      awaitingGate = null;
+    } else if (stage === "full") {
       awaitingGate = "full";
-    else awaitingGate = "outline";
+    } else if (stage === "preview") {
+      awaitingGate = "preview";
+    } else {
+      awaitingGate = "outline";
+    }
   }
 
   return {
@@ -141,8 +198,9 @@ export function restorePublishingFromApiMessages(
     sessionId: conversationPublicId,
     chatMessages,
     bookOutline,
-    intakeComplete: Boolean(bookOutline),
+    intakeComplete: Boolean(bookOutline || bookSpec),
     bookSpec,
+    previewContent,
     composerStep,
     composerAction: "proceed",
     awaitingGate,

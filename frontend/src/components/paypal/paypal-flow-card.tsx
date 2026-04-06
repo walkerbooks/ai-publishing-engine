@@ -8,10 +8,10 @@ type Props = {
 };
 
 /**
- * Matches chat gate / composer panels: bordered card, theme tokens, Smith Book eyebrow.
+ * Matches chat gate / composer panels: bordered card, theme tokens, WalkerBook eyebrow.
  */
 export function PayPalFlowCard({
-  eyebrow = "Smith Book · Payment",
+  eyebrow = "WalkerBook · Payment",
   title,
   children,
   className,
@@ -24,7 +24,7 @@ export function PayPalFlowCard({
         className,
       )}
     >
-      <div className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900/60 sm:p-8">
+      <div className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-white/10 dark:bg-walker-night sm:p-8">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {eyebrow}
         </p>

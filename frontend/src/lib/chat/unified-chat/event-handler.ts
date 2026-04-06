@@ -1,8 +1,10 @@
 import type { ChatBlockKind } from "@/lib/types/chat";
+import { syncBookToServerAfterPreview } from "@/lib/api/sync-server-book";
 
 type Handlers = {
   pushAssistantMessage: (msg: any) => void;
   appendAssistantDelta: (messageId: string, delta: string) => void;
+  patchChatMessage: (messageId: string, patch: Record<string, unknown>) => void;
   setIntakeResult: (
     complete: boolean,
     spec: Record<string, unknown> | null,
@@ -15,6 +17,7 @@ type Handlers = {
     messageId: string,
     previewMarkdown: string,
   ) => void;
+  setPreviewContent: (markdown: string) => void;
   setErr: (msg: string) => void;
 };
 
@@ -47,10 +50,21 @@ export function handleUnifiedChatSseEvent(
   }
 
   if (event === "book_spec_ready") {
+    const mid = data.messageId as string | undefined;
+    const spec = (data.bookSpec ?? null) as Record<string, unknown> | null;
+    if (
+      mid &&
+      spec &&
+      typeof spec === "object" &&
+      Object.keys(spec).length > 0
+    ) {
+      handlers.patchChatMessage(mid, { bookSpec: spec });
+    }
+    const bookId = crypto.randomUUID();
     handlers.setIntakeResult(
       Boolean(data.intakeComplete),
-      (data.bookSpec ?? null) as Record<string, unknown> | null,
-      null,
+      spec,
+      bookId,
     );
     return;
   }
@@ -63,10 +77,10 @@ export function handleUnifiedChatSseEvent(
   }
 
   if (event === "preview_ready") {
-    handlers.setAssistantPreview(
-      data.messageId as string,
-      data.previewMarkdown,
-    );
+    const md = String(data.previewMarkdown ?? "");
+    handlers.setAssistantPreview(data.messageId as string, md);
+    handlers.setPreviewContent(md);
+    void syncBookToServerAfterPreview(md);
     return;
   }
 
