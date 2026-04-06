@@ -86,6 +86,32 @@ def format_manuscript_chapter_heading(chapter_num: int, raw_title: str) -> str:
     return f"CHAPTER {chapter_num} {body.upper()}"
 
 
+def strip_leading_chapter_heading_from_markdown(content: str, chapter_num: int) -> str:
+    """
+    Drop the first line when it repeats the chapter title (LLM markdown), e.g.
+    ``## Chapter 5: Tragic Conclusion`` or ``CHAPTER 5 TRAGIC CONCLUSION``, since
+    PDF/DOCX already print ``CHAPTER 5 TRAGIC CONCLUSION`` as the section heading.
+    """
+    t = (content or "").replace("\r\n", "\n").replace("\r", "\n")
+    if not t.strip():
+        return t
+    n = int(chapter_num)
+    # Avoid stripping narrative like "Chapter 5 was cold…": require # markdown, or ":"/dash
+    # after the number, or manuscript-style ALL-CAPS "CHAPTER N …" ((?-i:CHAPTER) so Title Case
+    # "Chapter" does not match).
+    pat = re.compile(
+        rf"(?:^[ \t]*\n)*"
+        rf"(?:"
+        rf"^[ \t]*#{{1,6}}[ \t]*Chapter[ \t]+{n}\b[ \t]*[^\n]*"
+        rf"|^[ \t]*Chapter[ \t]+{n}\b[ \t]*[:\u2013\u2014\-][ \t]*[^\n]*"
+        rf"|^[ \t]*(?-i:CHAPTER)[ \t]+{n}\b[ \t]+[^\n]+"
+        rf")\s*(?:\n+|\Z)",
+        re.IGNORECASE | re.MULTILINE,
+    )
+    stripped, n_sub = pat.subn("", t, count=1)
+    return stripped.lstrip() if n_sub else t.lstrip()
+
+
 def _pt_to_mm(pt: float) -> float:
     return pt * 25.4 / 72.0
 
@@ -302,7 +328,8 @@ def _pdf_draw_toc_row(
     pdf.cell(w=w_left, h=toc_line_h, text=left + " ", border=0, link=lk)
     pdf.cell(w=mid, h=toc_line_h, text=dots, border=0, link=lk)
     pdf.cell(w=w_right, h=toc_line_h, text=" " + right, border=0, align="R", link=lk)
-    pdf.ln(_pt_to_mm(2))
+    # fpdf2: ln(h) moves down by exactly h (not “line height + h”). A tiny h alone stacks rows.
+    pdf.ln(toc_line_h + _pt_to_mm(2))
 
 
 def build_manuscript_pdf_bytes(
@@ -440,7 +467,10 @@ def build_manuscript_pdf_bytes(
     for row in sorted_rows:
         num = int(row.get("chapter_number") or 0)
         raw_title = str(row.get("title") or f"Chapter {num}").strip()[:500]
-        body = txt(_markdownish_to_plain(str(row.get("content") or "")))
+        raw_content = strip_leading_chapter_heading_from_markdown(
+            str(row.get("content") or ""), num
+        )
+        body = txt(_markdownish_to_plain(raw_content))
         if not body and not raw_title.strip():
             continue
         heading = txt(format_manuscript_chapter_heading(num, raw_title))

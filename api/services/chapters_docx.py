@@ -30,6 +30,7 @@ from api.services.chapters_pdf import (
     format_manuscript_chapter_heading,
     _markdownish_to_plain,
     _split_paragraphs,
+    strip_leading_chapter_heading_from_markdown,
 )
 
 # Content width 6" − 1" − 1" — right tab for dot leaders (TOC page numbers).
@@ -142,7 +143,10 @@ def build_manuscript_docx_bytes(
     for row in sorted_rows:
         num = int(row.get("chapter_number") or 0)
         raw_title = str(row.get("title") or f"Chapter {num}").strip()[:500]
-        body = _markdownish_to_plain(str(row.get("content") or ""))
+        raw_content = strip_leading_chapter_heading_from_markdown(
+            str(row.get("content") or ""), num
+        )
+        body = _markdownish_to_plain(raw_content)
         if not body and not raw_title.strip():
             continue
         heading = format_manuscript_chapter_heading(num, raw_title)
