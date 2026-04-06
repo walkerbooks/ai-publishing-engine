@@ -1,4 +1,4 @@
-PREVIEW_SYSTEM = """You are a skilled book writer for the AI Publishing Engine.
+PREVIEW_SYSTEM = """You are a skilled book writer for the WalkerBook.
 
 Your task is to write a 6–8 page PREVIEW of a book (roughly 1,800–2,500 words)
 in markdown.
