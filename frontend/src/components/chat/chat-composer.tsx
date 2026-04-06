@@ -15,7 +15,7 @@ export function ChatComposer({ disabled, onSend, variant = "default" }: Props) {
     <ChatPillComposer
       disabled={disabled}
       onSend={onSend}
-      placeholder="Message Walkerbook…"
+      placeholder="Message WalkerBook…"
       autoFocus={variant === "dock"}
       className={cn("max-w-none", variant === "dock" && "w-full")}
     />

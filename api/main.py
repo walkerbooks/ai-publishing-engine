@@ -22,7 +22,7 @@ _root_env = Path(__file__).resolve().parents[1] / ".env"
 load_dotenv(_root_env if _root_env.is_file() else None)
 load_dotenv()
 
-app = FastAPI(title="AI Publishing Engine - AI API")
+app = FastAPI(title="WalkerBook - AI API")
 app.include_router(chat_router)
 app.include_router(chat_unified_router)
 app.include_router(outline_router)
@@ -33,7 +33,7 @@ app.include_router(exports_download_router)
 
 
 class TestChatRequest(BaseModel):
-    message: str = "Say hello. This is a test of the AI Publishing Engine stack."
+    message: str = "Say hello. This is a test of the WalkerBook AI stack."
 
 
 class TestChatResponse(BaseModel):
