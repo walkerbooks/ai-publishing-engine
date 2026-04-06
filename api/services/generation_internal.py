@@ -148,6 +148,7 @@ def _finalize_chapter_after_body(
     sync["open_threads"] = updated["open_threads"]
     sync["last_chapter_beat"] = updated["last_chapter_beat"]
     sync["tone_anchors"] = updated["tone_anchors"]
+    sync["character_arc"] = updated["character_arc"]
     sync["previous_excerpt_tail"] = excerpt_tail
     patch_book_sync_state(book_id, sync)
 
@@ -163,6 +164,22 @@ def _fail(book_public_id: str, message: str) -> None:
             "error": message[:4000],
         }
     )
+
+
+def _outline_dedication_from_book(book: dict[str, Any]) -> str | None:
+    desc = str(book.get("description") or "").strip()
+    if not desc:
+        return None
+    try:
+        data = json.loads(desc)
+        outline = data.get("book_outline")
+        if isinstance(outline, dict):
+            d = outline.get("dedication")
+            if d is not None and str(d).strip():
+                return str(d).strip()
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return None
 
 
 def _pdf_title_metadata_from_book(book: dict[str, Any], fallback_title: str) -> tuple[str, str | None, str | None]:
@@ -216,11 +233,15 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
         book = fetch_book_by_internal_id(book_id)
         chapters = fetch_internal_chapters(book_id)
         main_title, subtitle, author_name = _pdf_title_metadata_from_book(book, book_title)
+        dedication = _outline_dedication_from_book(book)
+        toc_lines: list[tuple[str, str]] = []
         pdf_bytes = build_manuscript_pdf_bytes(
             chapters,
             main_title,
             subtitle=subtitle,
             author_name=author_name,
+            dedication=dedication,
+            toc_lines_out=toc_lines,
         )
         out = Path(settings.pdf_export_storage_dir) / f"{public_id}.pdf"
         write_pdf_to_path(out, pdf_bytes)
@@ -231,6 +252,8 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
                 main_title,
                 subtitle=subtitle,
                 author_name=author_name,
+                dedication=dedication,
+                toc_lines=toc_lines,
             )
             docx_out = Path(settings.pdf_export_storage_dir) / f"{public_id}.docx"
             write_docx_to_path(docx_out, docx_bytes)

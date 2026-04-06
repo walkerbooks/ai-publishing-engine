@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import Any
 
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.enum.text import (
+    WD_ALIGN_PARAGRAPH,
+    WD_LINE_SPACING,
+    WD_TAB_ALIGNMENT,
+    WD_TAB_LEADER,
+)
 from docx.shared import Inches, Pt, RGBColor
 
 from api.services.chapters_pdf import (
@@ -22,9 +27,14 @@ from api.services.chapters_pdf import (
     _TOC_HEADING_PT,
     _TOC_LINE_PT,
     _format_subtitle_line,
+    format_manuscript_chapter_heading,
     _markdownish_to_plain,
     _split_paragraphs,
+    strip_leading_chapter_heading_from_markdown,
 )
+
+# Content width 6" − 1" − 1" — right tab for dot leaders (TOC page numbers).
+_TOC_TAB_POS = Inches(4)
 
 # Must match ``chapters_pdf`` / reference Word manuscript (see ``_register_*_fonts`` there).
 _FONT_COVER = "Century Gothic"
@@ -55,6 +65,8 @@ def build_manuscript_docx_bytes(
     *,
     subtitle: str | None = None,
     author_name: str | None = None,
+    dedication: str | None = None,
+    toc_lines: list[tuple[str, str]] | None = None,
 ) -> bytes:
     """
     Concatenate chapters (sorted by chapter_number) into one .docx.
@@ -62,7 +74,11 @@ def build_manuscript_docx_bytes(
 
     Uses the same point sizes, margins, cover colour, markdown cleanup, and spacing rules
     as ``build_manuscript_pdf_bytes`` (6×9", 1" margins; Century Gothic / Verdana /
-    Palatino on the cover; Times body; justified chapter text; TOC as plain lines).
+    Palatino on the cover; Times body; justified chapter text).
+
+    **TOC:** Pass ``toc_lines`` from ``build_manuscript_pdf_bytes(..., toc_lines_out=…)`` so
+    Word matches the PDF (uppercase labels, dot leaders, Roman front matter + Arabic chapters).
+    If ``toc_lines`` is omitted, a PDF is built once to obtain the same line list (slower).
     """
     sorted_rows = sorted(
         [c for c in chapters if isinstance(c, dict)],
@@ -126,33 +142,113 @@ def build_manuscript_docx_bytes(
     chapter_entries: list[tuple[str, str, str]] = []
     for row in sorted_rows:
         num = int(row.get("chapter_number") or 0)
-        ch_title = str(row.get("title") or f"Chapter {num}").strip()[:500]
-        body = _markdownish_to_plain(str(row.get("content") or ""))
-        if not body and not ch_title:
+        raw_title = str(row.get("title") or f"Chapter {num}").strip()[:500]
+        raw_content = strip_leading_chapter_heading_from_markdown(
+            str(row.get("content") or ""), num
+        )
+        body = _markdownish_to_plain(raw_content)
+        if not body and not raw_title.strip():
             continue
-        line = f"Chapter {num}: {ch_title}" if num else ch_title
-        heading = f"Chapter {num}: {ch_title}" if num else ch_title
-        chapter_entries.append((line, heading, body))
+        heading = format_manuscript_chapter_heading(num, raw_title)
+        chapter_entries.append((heading, heading, body))
 
-    # Table of Contents: centered heading, then left lines (no bullets), 11 pt — matches PDF.
+    toc: list[tuple[str, str]] = list(toc_lines) if toc_lines else []
+    if not toc:
+        from api.services.chapters_pdf import build_manuscript_pdf_bytes
+
+        build_manuscript_pdf_bytes(
+            sorted_rows,
+            main_title,
+            subtitle=sub if sub else None,
+            author_name=auth if auth else None,
+            dedication=dedication,
+            toc_lines_out=toc,
+        )
+
+    # Table of Contents: centered **TABLE OF CONTENTS**, Times; dot leaders + page numbers.
     p_toc = doc.add_paragraph()
     p_toc.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_toc.paragraph_format.space_after = Pt(10)
-    r_toc = p_toc.add_run("Table of Contents")
+    r_toc = p_toc.add_run("TABLE OF CONTENTS")
     r_toc.font.name = _FONT_BODY
     r_toc.font.bold = True
     r_toc.font.size = Pt(_TOC_HEADING_PT)
 
-    for line, _h, _b in chapter_entries:
-        p_line = doc.add_paragraph(line)
-        p_line.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    for label, page_str in toc:
+        p_line = doc.add_paragraph()
         p_line.paragraph_format.space_after = Pt(2)
         p_line.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
         p_line.paragraph_format.line_spacing = 1.2
-        r_ln = p_line.runs[0]
-        r_ln.font.name = _FONT_BODY
-        r_ln.font.size = Pt(_TOC_LINE_PT)
-        r_ln.font.bold = False
+        p_line.paragraph_format.tab_stops.add_tab_stop(
+            _TOC_TAB_POS, WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS
+        )
+        r_line = p_line.add_run(f"{label}\t{page_str}")
+        r_line.font.name = _FONT_BODY
+        r_line.font.size = Pt(_TOC_LINE_PT)
+        r_line.font.bold = False
+
+    doc.add_page_break()
+
+    ded = (dedication or "").strip()
+    p_dd = doc.add_paragraph()
+    p_dd.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_dd.paragraph_format.space_after = Pt(6)
+    r_dd = p_dd.add_run("DEDICATION")
+    r_dd.font.name = _FONT_BODY
+    r_dd.font.bold = True
+    r_dd.font.size = Pt(_CHAPTER_PT)
+    for para in _split_paragraphs(ded) if ded else [" "]:
+        bp = doc.add_paragraph()
+        r = bp.add_run(para)
+        r.font.name = _FONT_BODY
+        r.font.size = Pt(_BODY_PT)
+        bp.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        bp.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
+        bp.paragraph_format.line_spacing = _BODY_LINE_MULT
+        bp.paragraph_format.space_after = Pt(_PARA_AFTER_PT)
+
+    doc.add_page_break()
+
+    p_ack = doc.add_paragraph()
+    p_ack.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_ack.paragraph_format.space_after = Pt(6)
+    r_ack = p_ack.add_run("ACKNOWLEDGMENT")
+    r_ack.font.name = _FONT_BODY
+    r_ack.font.bold = True
+    r_ack.font.size = Pt(_CHAPTER_PT)
+    p_ack_b = doc.add_paragraph()
+    r_ab = p_ack_b.add_run(
+        "The author wishes to thank everyone who supported the creation of this book."
+    )
+    r_ab.font.name = _FONT_BODY
+    r_ab.font.size = Pt(_BODY_PT)
+    p_ack_b.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    p_ack_b.paragraph_format.space_after = Pt(_PARA_AFTER_PT)
+
+    doc.add_page_break()
+
+    p_abt = doc.add_paragraph()
+    p_abt.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_abt.paragraph_format.space_after = Pt(6)
+    r_abt = p_abt.add_run("ABOUT THE AUTHOR")
+    r_abt.font.name = _FONT_BODY
+    r_abt.font.bold = True
+    r_abt.font.size = Pt(_CHAPTER_PT)
+    about_parts = []
+    if auth:
+        about_parts.append(auth)
+    about_parts.append(
+        "This author writes with the goal of connecting with readers through honest, vivid storytelling."
+    )
+    for para in _split_paragraphs("\n\n".join(about_parts)):
+        bp = doc.add_paragraph()
+        r = bp.add_run(para)
+        r.font.name = _FONT_BODY
+        r.font.size = Pt(_BODY_PT)
+        bp.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        bp.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
+        bp.paragraph_format.line_spacing = _BODY_LINE_MULT
+        bp.paragraph_format.space_after = Pt(_PARA_AFTER_PT)
 
     doc.add_page_break()
 
