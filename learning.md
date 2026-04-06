@@ -1,12 +1,12 @@
-# AI Publishing Engine — End-to-End Plan & Tech Stack
+# WalkerBook — End-to-End Plan & Tech Stack
 
-This document consolidates the full vision, architecture, tech stack, and implementation plan for the AI Publishing Engine (multi-agent, stateful, monetized book generation system).
+This document consolidates the full vision, architecture, tech stack, and implementation plan for WalkerBook (multi-agent, stateful, monetized book generation system).
 
 ---
 
 ## 1. What We're Building
 
-**We are not building a chatbot.** We are building an **AI Publishing Engine** that:
+**We are not building a chatbot.** We are building **WalkerBook** — a platform that:
 
 | Capability | Description |
 |------------|-------------|

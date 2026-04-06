@@ -89,7 +89,7 @@ export function AppHeader() {
               className={cn(
                 "inline-flex shrink-0 touch-manipulation rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2 focus-visible:ring-offset-walker-mist dark:focus-visible:ring-offset-walker-charcoal",
               )}
-              aria-label="Walkerbook home"
+              aria-label="WalkerBook home"
             >
               <Image
                 src="/walkerbook/Walkerbook logo with hiker silhouette.png"
