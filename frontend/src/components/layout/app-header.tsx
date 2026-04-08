@@ -25,6 +25,7 @@ export function AppHeader() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const email = useAuthStore((s) => s.email);
   const firstName = useAuthStore((s) => s.firstName);
+  const role = useAuthStore((s) => s.role);
   const logout = useAuthStore((s) => s.logout);
   const reloginPrompt = useAuthStore((s) => s.reloginPrompt);
   const clearReloginPrompt = useAuthStore((s) => s.clearReloginPrompt);
@@ -110,9 +111,17 @@ export function AppHeader() {
               <Link href="/" className={navLinkClass(pathname === "/")}>
                 Home
               </Link>
-              <Link href="/chat?new=1" className={navLinkClass(pathname === "/chat")}>
+              <Link
+                href={role === "admin" ? "/chat?app=1&new=1" : "/chat?new=1"}
+                className={navLinkClass(pathname === "/chat")}
+              >
                 Chat
               </Link>
+              {role === "admin" ? (
+                <Link href="/admin" className={navLinkClass(pathname.startsWith("/admin"))}>
+                  Dashboard
+                </Link>
+              ) : null}
               <Link
                 href="/#how-it-works"
                 className={navLinkClass(false)}

@@ -9,6 +9,8 @@ export type AuthUser = {
   email: string;
   first_name: string;
   last_name: string;
+  /** From Go `users.role`: `user` (default) or `admin`. */
+  role?: "user" | "admin";
 };
 
 export type AuthResponse = {

@@ -1,6 +1,30 @@
 type RouterLike = { replace: (href: string) => void; refresh: () => void };
 
 /**
+ * Full-page login/signup without `?next=` defaults to `/chat`. Admins should land on `/admin`
+ * instead. Dialog logins keep the requested path so in-context sign-in does not bounce away.
+ */
+export function resolvePostAuthRedirectPath(
+  requestedPath: string,
+  userRole: string | null | undefined,
+  options: {
+    variant: "page" | "dialog";
+    /** True when the user did not set `?next=` (only applies to full-page auth). */
+    defaultConsumerLanding: boolean;
+  },
+): string {
+  if (options.variant === "dialog") return requestedPath;
+  if (
+    userRole === "admin" &&
+    options.defaultConsumerLanding &&
+    requestedPath === "/chat"
+  ) {
+    return "/admin";
+  }
+  return requestedPath;
+}
+
+/**
  * After login/signup: page variant always navigates. Dialog on /chat stays put (same pathname
  * as redirect target) so client chat state is not torn down by a redundant replace + remount.
  */

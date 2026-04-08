@@ -5,7 +5,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { authWithGoogle, signup } from "@/lib/api/auth-client";
 import { authErrorFromUnknown } from "@/lib/auth/auth-messages";
-import { completeAuthNavigation } from "@/lib/auth/post-auth-navigation";
+import {
+  completeAuthNavigation,
+  resolvePostAuthRedirectPath,
+} from "@/lib/auth/post-auth-navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthFormShell } from "@/components/auth/auth-form-shell";
 import { GoogleAuthButton } from "@/components/auth/google-auth-button";
@@ -15,6 +18,8 @@ import { Input } from "@/components/ui/input";
 export type SignupFormProps = {
   variant?: "page" | "dialog";
   redirectAfterSignup?: string;
+  /** When true (full-page signup with no `?next=`), admins are sent to `/admin` instead of `/chat`. */
+  defaultConsumerLanding?: boolean;
   onAuthenticated?: () => void;
   onSwitchToLogin?: () => void;
 };
@@ -22,9 +27,11 @@ export type SignupFormProps = {
 export function SignupFormWithNextFromUrl() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
+  const hasExplicitNext = Boolean(next && next.startsWith("/"));
   return (
     <SignupForm
-      redirectAfterSignup={next && next.startsWith("/") ? next : "/chat"}
+      redirectAfterSignup={hasExplicitNext ? next! : "/chat"}
+      defaultConsumerLanding={!hasExplicitNext}
       variant="page"
     />
   );
@@ -33,6 +40,7 @@ export function SignupFormWithNextFromUrl() {
 export function SignupForm({
   variant = "page",
   redirectAfterSignup = "/chat",
+  defaultConsumerLanding = false,
   onAuthenticated,
   onSwitchToLogin,
 }: SignupFormProps) {
@@ -51,10 +59,14 @@ export function SignupForm({
     setLoading(true);
     try {
       const { access_token, user } = await signup(email, password, firstName.trim(), lastName.trim());
-      setSession(access_token, user.email, user.first_name);
+      setSession(access_token, user.email, user.first_name, user.role);
+      const redirectPath = resolvePostAuthRedirectPath(redirectAfterSignup, user.role, {
+        variant,
+        defaultConsumerLanding,
+      });
       completeAuthNavigation(router, {
         variant,
-        redirectPath: redirectAfterSignup,
+        redirectPath,
         onAuthenticated,
       });
     } catch (e) {
@@ -69,10 +81,14 @@ export function SignupForm({
     setLoading(true);
     try {
       const { access_token, user } = await authWithGoogle(idToken);
-      setSession(access_token, user.email, user.first_name);
+      setSession(access_token, user.email, user.first_name, user.role);
+      const redirectPath = resolvePostAuthRedirectPath(redirectAfterSignup, user.role, {
+        variant,
+        defaultConsumerLanding,
+      });
       completeAuthNavigation(router, {
         variant,
-        redirectPath: redirectAfterSignup,
+        redirectPath,
         onAuthenticated,
       });
     } catch (e) {

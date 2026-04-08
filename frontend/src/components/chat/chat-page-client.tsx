@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { useVideoInjection } from "@/hooks/use-video-injection";
 import { useUnifiedChatSend } from "@/hooks/use-unified-chat-send";
@@ -20,9 +20,18 @@ import { useFullBookChatFlow } from "@/hooks/use-full-book-chat-flow";
 export function ChatPageClient() {
   useVideoInjection();
   useFullBookChatFlow();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const setActiveBookId = usePublishingStore((s) => s.setActiveBookId);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const role = useAuthStore((s) => s.role);
+  const skipAdminChatRedirect = searchParams.get("app") === "1";
+
+  useEffect(() => {
+    if (skipAdminChatRedirect) return;
+    if (role !== "admin") return;
+    router.replace("/admin");
+  }, [role, router, skipAdminChatRedirect]);
 
   useEffect(() => {
     const b = searchParams.get("book")?.trim();
