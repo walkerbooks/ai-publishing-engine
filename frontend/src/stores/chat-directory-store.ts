@@ -23,7 +23,6 @@ import {
 } from "@/lib/chat/session-serialization";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { guestConversationLimitCopy, getGuestMaxConversations } from "@/lib/guest/guest-config";
-import { scheduleGuestDirectoryPersist } from "@/lib/guest/guest-directory-persist";
 import { getLogger } from "@/lib/log";
 import { createInitialPublishingState, type PublishingState } from "@/stores/publishing-types";
 import { useAuthStore } from "@/stores/auth-store";
@@ -224,10 +223,6 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       set({
         conversations: sortConversations([row, ...existing]),
       });
-      scheduleGuestDirectoryPersist(() => ({
-        conversations: get().conversations,
-        activeConversationId: get().activeConversationId,
-      }));
 
       const token = getAccessToken();
       if (
@@ -323,11 +318,6 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
       if (!target.snapshot) return;
       applyPublishingSnapshot(usePublishingStore.setState, target.snapshot);
       set({ activeConversationId: id });
-      if (!authed)
-        scheduleGuestDirectoryPersist(() => ({
-          conversations: get().conversations,
-          activeConversationId: get().activeConversationId,
-        }));
     },
 
     startNewConversation: async () => {
@@ -375,10 +365,6 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
           ...s.conversations,
         ]),
       }));
-      scheduleGuestDirectoryPersist(() => ({
-        conversations: get().conversations,
-        activeConversationId: get().activeConversationId,
-      }));
     },
 
     removeConversation: async (id) => {
@@ -419,10 +405,6 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
         }
       }
       usePublishingStore.setState(createInitialPublishingState());
-      scheduleGuestDirectoryPersist(() => ({
-        conversations: get().conversations,
-        activeConversationId: get().activeConversationId,
-      }));
     },
 
   clearAll: () => set({ conversations: [], activeConversationId: null }),

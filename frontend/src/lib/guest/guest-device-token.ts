@@ -2,14 +2,17 @@ const KEY = "ai_pub_guest_device_token";
 
 let memoryToken: string | null = null;
 
-/** Stable per-browser id sent to Go so start-session can reuse the same guest row. */
+/**
+ * Per-tab session id for Go guest/start-session. sessionStorage (not localStorage) so closing
+ * the tab ends the device binding; aligns with session-only guest chat (no cross-visit restore).
+ */
 export function getOrCreateGuestDeviceToken(): string {
   if (typeof window === "undefined") return "";
   try {
-    let t = localStorage.getItem(KEY);
+    let t = sessionStorage.getItem(KEY);
     if (!t?.trim()) {
       t = crypto.randomUUID();
-      localStorage.setItem(KEY, t);
+      sessionStorage.setItem(KEY, t);
     }
     return t;
   } catch {

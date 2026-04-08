@@ -18,7 +18,7 @@ export function getGuestMaxConversations(): number {
 
 export function guestConversationLimitCopy(max: number): string {
   if (max <= 1) {
-    return "Free guests can have one book chat on this device. Sign in to create more conversations and sync across devices.";
+    return "Free guests can have one book chat per browser session. Sign in to save chats across visits and devices.";
   }
-  return `Free guests can have up to ${max} book chats on this device. Sign in to create more and sync across devices.`;
+  return `Free guests can have up to ${max} book chats per browser session. Sign in to save more and sync across devices.`;
 }

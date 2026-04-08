@@ -11,7 +11,7 @@ import {
 
 export type { PublishingState } from "@/stores/publishing-types";
 
-/** In-memory only — full refresh starts a new chat (no localStorage). */
+/** In-memory session state; full page reload clears the thread (guests are not restored from disk). */
 export const usePublishingStore = create<PublishingState & PublishingActions>()(
   (set) => ({
     ...createInitialPublishingState(),
@@ -102,6 +102,7 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           bookSpec,
           activeBookId: nextActive,
           bookPreviewRowSynced: sameBook ? s.bookPreviewRowSynced : false,
+          subscriptionFullGenUnlocked: sameBook ? s.subscriptionFullGenUnlocked : false,
         };
       }),
     setActiveBookId: (activeBookId) =>
@@ -109,6 +110,8 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
         activeBookId,
         bookPreviewRowSynced:
           activeBookId === s.activeBookId ? s.bookPreviewRowSynced : false,
+        subscriptionFullGenUnlocked:
+          activeBookId === s.activeBookId ? s.subscriptionFullGenUnlocked : false,
       })),
     setBookOutline: (bookOutline) => set({ bookOutline }),
     setPreviewContent: (previewContent) => set({ previewContent }),
@@ -119,6 +122,8 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
     clearStreamPreview: () => set({ streamedPreviewContent: "" }),
     setFullBookContent: (fullBookContent) => set({ fullBookContent }),
     setMockPayment: (mockPaymentConfirmed) => set({ mockPaymentConfirmed }),
+    setSubscriptionFullGenUnlocked: (subscriptionFullGenUnlocked) =>
+      set({ subscriptionFullGenUnlocked }),
     setUserName: (userName) => set({ userName }),
     setGuestEmail: (guestEmail) => set({ guestEmail }),
     patchChatMessage: (messageId, patch) =>
