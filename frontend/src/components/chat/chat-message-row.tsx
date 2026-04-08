@@ -72,6 +72,7 @@ export function ChatMessageRow({
             statusLine={message.fullGenStatusText ?? "…"}
             firstChapterMarkdown={message.fullChapterMarkdown}
             bookTitle={message.fullBookTitle}
+            authorName={message.fullBookAuthorName}
             pdfUrl={message.fullPdfUrl}
             error={message.fullGenError}
             chrome="embedded"

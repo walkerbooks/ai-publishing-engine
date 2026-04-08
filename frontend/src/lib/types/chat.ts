@@ -43,6 +43,13 @@ export type ChatMessage = {
   outline?: BookOutlineLite;
   /** Persisted on intake row as book_spec_json — restores BSO when reopening a thread. */
   bookSpec?: Record<string, unknown> | null;
+  /** From book_spec_ready SSE — whether to show Sounds good / change (collaborative intake). */
+  offerCollaborativeFeedback?: boolean | null;
+  /**
+   * Collaborative intake: server says whether to show agree/change vs dock composer.
+   * Undefined when not sent (client may fall back to heuristics).
+   */
+  offerCollaborativeFeedback?: boolean;
   previewMarkdown?: string;
   /** kind === "full" — in-chat manuscript + export */
   fullGenPhase?: FullBookGenPhase;
@@ -50,6 +57,8 @@ export type ChatMessage = {
   fullChapterMarkdown?: string;
   fullPdfUrl?: string | null;
   fullBookTitle?: string | null;
+  /** Display name for export filename "Author - Title.pdf" (e.g. account first name). */
+  fullBookAuthorName?: string | null;
   fullGenError?: string | null;
 };
 
