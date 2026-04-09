@@ -1,4 +1,15 @@
-"""Build a simple PDF from stored chapter bodies (markdown → plain text + fpdf2)."""
+"""Build a simple PDF from stored chapter bodies (markdown → plain text + fpdf2).
+
+Formatting matched to the reference .docx (analysed from XML):
+  - 6×9 trade paperback
+  - Margins: top 1.03" (26.14 mm) / left+right 0.75" (19.05 mm) / bottom 0.19" (4.94 mm)
+  - Cover: Times New Roman bold, colour #231F20; title 36 pt / subtitle 20 pt; By + author 24 pt
+    anchored to the bottom of the page (By second-to-last line, author last)
+  - Chapter headings: Times NR bold 16 pt, centred, 0 pt before / 8 pt after
+  - Body: Times NR 11 pt, justified, NO side indents, 1.15× line spacing,
+    0 pt before / 8 pt after each paragraph
+  - TOC: after About the Author (and optional Dedication), before chapters; dot-leader rows
+"""
 
 from __future__ import annotations
 
@@ -11,8 +22,7 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-# Optional: copy DejaVuSans.ttf from https://github.com/dejavu-fonts/dejavu-fonts (ttf/) here.
-# Avoids Windows Fonts\arial.ttf etc.: fontTools can hit 'charmap' decode errors on those files.
+# Optional bundled DejaVu fonts (avoid Windows Fonts charmap decode errors).
 _BUNDLED_DEJAVU = (
     Path(__file__).resolve().parent.parent / "data" / "fonts" / "DejaVuSans.ttf"
 )
@@ -20,47 +30,54 @@ _BUNDLED_DEJAVU_SERIF = (
     Path(__file__).resolve().parent.parent / "data" / "fonts" / "DejaVuSerif.ttf"
 )
 
-# Isaac Adams / Word manuscript template: 6" × 9" trade size, 1" margins (see word/document.xml).
-_PAGE_W_MM = 6 * 25.4
-_PAGE_H_MM = 9 * 25.4
-_MARGIN_MM = 25.4  # 1 inch
+# ---------------------------------------------------------------------------
+# Page geometry — matched to reference XML (DXA ÷ 1440 × 25.4 = mm)
+# ---------------------------------------------------------------------------
+_PAGE_W_MM = 6 * 25.4          # 152.4 mm
+_PAGE_H_MM = 9 * 25.4          # 228.6 mm
 
-# Cover page (Isaac Adams manuscript): main + subtitle = Century Gothic bold, #231F20;
-# "By" = Verdana bold 24pt; author name = Palatino Linotype bold 24pt (see word/document.xml).
-_COVER_MAIN_PT = 28
-_COVER_SUB_PT = 24
-_COVER_BY_PT = 24
-_COVER_TEXT_RGB = (35, 31, 32)  # #231F20
-# Heading 1 = Times New Roman bold 16pt centered; Normal = 11pt, ~1.1 line, 12pt after.
-_CHAPTER_PT = 16
+# Reference margins (DXA → mm):  top=1480, left/right=1080, bottom=280
+_MARGIN_TOP_MM    = 1480 / 1440 * 25.4   # ≈ 26.14 mm  (1.03")
+_MARGIN_SIDE_MM   = 1080 / 1440 * 25.4   # ≈ 19.05 mm  (0.75")
+_MARGIN_BOTTOM_MM =  280 / 1440 * 25.4   # ≈  4.94 mm  (0.19") — matches reference
+
+# Content width: page − left − right
+_CONTENT_W_MM = _PAGE_W_MM - 2 * _MARGIN_SIDE_MM   # ≈ 114.3 mm
+
+# ---------------------------------------------------------------------------
+# Typography — matched to reference XML
+# ---------------------------------------------------------------------------
+
+# Cover: Times New Roman bold #231F20 — sizes aligned with ``chapters_docx`` (36 / 20 / 24 pt).
+_COVER_MAIN_PT  = 36
+_COVER_SUB_PT   = 20
+_COVER_BY_PT    = 24
+_COVER_TEXT_RGB = (35, 31, 32)    # #231F20
+
+_CHAPTER_PT     = 16    # 32 half-pts — Heading1 in reference
 _TOC_HEADING_PT = 16
-_TOC_LINE_PT = 11
-_BODY_PT = 11
-_BODY_LINE_MULT = 264 / 240  # Normal w:line / single-line grid (≈1.1)
-_PARA_AFTER_PT = 12
+_TOC_LINE_PT    = 11    # 22 half-pts — same as body
+_BODY_PT        = 11    # 22 half-pts
 
-# Trade trim content width (6" page − 1" left − 1" right).
-_CONTENT_W_MM = _PAGE_W_MM - 2 * _MARGIN_MM
+# Body spacing — from BodyText paragraph XML:
+#   line=276 auto  →  276/240 ≈ 1.15×  (was 264/240 ≈ 1.10)
+#   before=0 twips, after=160 twips = 8 pt  (was 12 pt)
+_BODY_LINE_MULT = 276 / 240   # ≈ 1.15
+_PARA_AFTER_PT  = 8           # 160 twips ÷ 20
 
+
+# ---------------------------------------------------------------------------
+# Utility helpers (unchanged from original)
+# ---------------------------------------------------------------------------
 
 def _int_to_roman_upper(n: int) -> str:
     """Uppercase Roman numerals for front-matter TOC lines (e.g. 3 → III)."""
     if n <= 0:
         return ""
     vals = [
-        (1000, "M"),
-        (900, "CM"),
-        (500, "D"),
-        (400, "CD"),
-        (100, "C"),
-        (90, "XC"),
-        (50, "L"),
-        (40, "XL"),
-        (10, "X"),
-        (9, "IX"),
-        (5, "V"),
-        (4, "IV"),
-        (1, "I"),
+        (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
+        (100, "C"),  (90, "XC"), (50, "L"),  (40, "XL"),
+        (10, "X"),   (9, "IX"),  (5, "V"),   (4, "IV"),  (1, "I"),
     ]
     parts: list[str] = []
     x = n
@@ -74,7 +91,7 @@ def _int_to_roman_upper(n: int) -> str:
 def _strip_leading_chapter_prefix(raw_title: str, chapter_num: int) -> str:
     t = (raw_title or "").strip()
     t = re.sub(r"^chapter\s*\d+\s*:\s*", "", t, flags=re.I).strip()
-    t = re.sub(r"^chapter\s*\d+\s+", "", t, flags=re.I).strip()
+    t = re.sub(r"^chapter\s*\d+\s+", "",  t, flags=re.I).strip()
     if not t:
         return f"CHAPTER {chapter_num}"
     return t
@@ -89,16 +106,12 @@ def format_manuscript_chapter_heading(chapter_num: int, raw_title: str) -> str:
 def strip_leading_chapter_heading_from_markdown(content: str, chapter_num: int) -> str:
     """
     Drop the first line when it repeats the chapter title (LLM markdown), e.g.
-    ``## Chapter 5: Tragic Conclusion`` or ``CHAPTER 5 TRAGIC CONCLUSION``, since
-    PDF/DOCX already print ``CHAPTER 5 TRAGIC CONCLUSION`` as the section heading.
+    ``## Chapter 5: Tragic Conclusion`` or ``CHAPTER 5 TRAGIC CONCLUSION``.
     """
     t = (content or "").replace("\r\n", "\n").replace("\r", "\n")
     if not t.strip():
         return t
     n = int(chapter_num)
-    # Avoid stripping narrative like "Chapter 5 was cold…": require # markdown, or ":"/dash
-    # after the number, or manuscript-style ALL-CAPS "CHAPTER N …" ((?-i:CHAPTER) so Title Case
-    # "Chapter" does not match).
     pat = re.compile(
         rf"(?:^[ \t]*\n)*"
         rf"(?:"
@@ -116,30 +129,70 @@ def _pt_to_mm(pt: float) -> float:
     return pt * 25.4 / 72.0
 
 
+def _cover_by_author_block_height_mm(
+    pdf: Any,
+    *,
+    title_fam: str,
+    title_has_bold: bool,
+    author_fam: str | None,
+    author_bold_loaded: bool,
+    auth_line: str,
+    txt: Any,
+) -> float:
+    """Vertical space (mm) for the centred By line + gap + author block (with wrapping)."""
+    from fpdf.enums import MethodReturnValue
+
+    h_line = _pt_to_mm(_COVER_BY_PT * 1.15)
+    gap = _pt_to_mm(4)
+    ew = pdf.epw
+
+    pdf.set_font(title_fam, style="B" if title_has_bold else "", size=_COVER_BY_PT)
+    by_lines = pdf.multi_cell(
+        w=ew,
+        h=h_line,
+        text=txt("By"),
+        align="C",
+        dry_run=True,
+        output=MethodReturnValue.LINES,
+    )
+    n_by = len(by_lines)
+
+    if author_fam:
+        pdf.set_font(
+            author_fam, style="B" if author_bold_loaded else "", size=_COVER_BY_PT
+        )
+    else:
+        pdf.set_font(title_fam, style="B" if title_has_bold else "", size=_COVER_BY_PT)
+    auth_lines = pdf.multi_cell(
+        w=ew,
+        h=h_line,
+        text=auth_line,
+        align="C",
+        dry_run=True,
+        output=MethodReturnValue.LINES,
+    )
+    n_auth = len(auth_lines)
+
+    return n_by * h_line + gap + n_auth * h_line
+
+
 def _latin1_safe(text: str) -> str:
-    """Helvetica / core fonts only support Latin-1 in fpdf2."""
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
 def _markdownish_to_plain(text: str) -> str:
-    """Light cleanup so PDF text is readable (not full CommonMark)."""
     t = text.replace("\r\n", "\n").replace("\r", "\n")
-    t = re.sub(r"^#+\s+", "", t, flags=re.MULTILINE)
+    t = re.sub(r"^#+\s+",        "", t, flags=re.MULTILINE)
     t = re.sub(r"\*\*([^*]+)\*\*", r"\1", t)
-    t = re.sub(r"__([^_]+)__", r"\1", t)
-    t = re.sub(r"\*([^*]+)\*", r"\1", t)
-    t = re.sub(r"`([^`]+)`", r"\1", t)
-    t = re.sub(r"^\s*[-*+]\s+", "• ", t, flags=re.MULTILINE)
+    t = re.sub(r"__([^_]+)__",    r"\1", t)
+    t = re.sub(r"\*([^*]+)\*",    r"\1", t)
+    t = re.sub(r"`([^`]+)`",      r"\1", t)
+    t = re.sub(r"^\s*[-*+]\s+",   "• ",  t, flags=re.MULTILINE)
     t = re.sub(r"\n{3,}", "\n\n", t)
     return t.strip()
 
 
 def _unicode_ttf_path() -> Path | None:
-    """
-    TTF that fpdf2/fontTools can load reliably.
-    Do not use typical Windows Fonts\\*.ttf paths: many trigger 'charmap' decode errors
-    when parsing the name table (e.g. arial.ttf on en-US Windows).
-    """
     try:
         if _BUNDLED_DEJAVU.is_file():
             return _BUNDLED_DEJAVU
@@ -192,17 +245,15 @@ def _dejavu_sans_bold_path(regular: Path) -> Path:
 
 def _register_manuscript_fonts(pdf: Any) -> tuple[str, str, bool, bool, bool]:
     """
-    Register fonts to match the reference Word manuscript (Verdana, Times body).
-    Returns (title_font_family, body_font_family, use_unicode, body_has_bold, title_has_bold).
+    Register Times New Roman for all text (cover, headings, body, TOC).
+    Returns (title_fam, body_fam, use_unicode, body_has_bold, title_has_bold);
+    ``title_fam`` and ``body_fam`` are the same registered family when load succeeds.
     """
-    title_fam = "MsTitle"
-    body_fam = "MsBody"
+    fam = "MsBody"
     wf = _windows_fonts_dir()
-    title_ok, title_bold = _try_register_font(
-        pdf, title_fam, wf / "verdana.ttf", wf / "verdanab.ttf"
-    )
+
     body_ok, body_bold = _try_register_font(
-        pdf, body_fam, wf / "times.ttf", wf / "timesbd.ttf"
+        pdf, fam, wf / "times.ttf", wf / "timesbd.ttf"
     )
 
     if not body_ok:
@@ -228,7 +279,7 @@ def _register_manuscript_fonts(pdf: Any) -> tuple[str, str, bool, bool, bool]:
         except OSError:
             pass
         for reg, bld in serif_candidates:
-            ok, bb = _try_register_font(pdf, body_fam, reg, bld)
+            ok, bb = _try_register_font(pdf, fam, reg, bld)
             if ok:
                 body_ok = True
                 body_bold = bb
@@ -238,55 +289,23 @@ def _register_manuscript_fonts(pdf: Any) -> tuple[str, str, bool, bool, bool]:
         p = _unicode_ttf_path()
         if p is not None:
             body_ok, body_bold = _try_register_font(
-                pdf, body_fam, p, _dejavu_sans_bold_path(p)
+                pdf, fam, p, _dejavu_sans_bold_path(p)
             )
 
-    if not title_ok and body_ok:
-        title_fam = body_fam
-        title_ok = True
-    elif not body_ok and title_ok:
-        body_fam = title_fam
-        body_ok = True
-
-    if not title_ok or not body_ok:
+    if not body_ok:
         return ("Helvetica", "Helvetica", False, False, False)
-    return (title_fam, body_fam, True, body_bold, title_bold)
+    return (fam, fam, True, body_bold, body_bold)
 
 
 def _register_cover_fonts(
-    pdf: Any, fallback_sans_bold: Path | None
+    pdf: Any, _fallback_sans_bold: Path | None
 ) -> tuple[str | None, str | None, bool, bool]:
     """
-    Century Gothic for cover lines; Palatino for author.
-    Returns (cover_fam, author_fam, cover_use_style_b, author_has_bold).
-    If only GOTHICB.ttf is registered as MsCover regular, cover_use_style_b is False (face is already bold).
+    Cover uses the same Times family as ``_register_manuscript_fonts`` (no Tahoma/Palatino).
+    Returns (cover_fam, author_fam, cover_use_style_b, author_has_bold) — all unused
+    when None/False so callers fall back to ``title_fam`` / ``body_fam``.
     """
-    wf = _windows_fonts_dir()
-    ok, gothic_bold_loaded = _try_register_font(
-        pdf, "MsCover", wf / "GOTHIC.TTF", wf / "GOTHICB.TTF"
-    )
-    cover_use_style_b = bool(ok and gothic_bold_loaded)
-    if not ok and (wf / "GOTHICB.TTF").is_file():
-        try:
-            pdf.add_font("MsCover", "", str(wf / "GOTHICB.TTF"))
-            ok = True
-            cover_use_style_b = False
-        except Exception as e:
-            log.warning("Could not load GOTHICB as MsCover: %s", e)
-    aok, author_bold = _try_register_font(pdf, "MsAuthor", wf / "pala.ttf", wf / "palab.ttf")
-    if not ok and fallback_sans_bold is not None and fallback_sans_bold.is_file():
-        try:
-            pdf.add_font("MsCover", "", str(fallback_sans_bold))
-            ok = True
-            cover_use_style_b = False
-        except Exception as e:
-            log.warning("Could not load fallback cover font: %s", e)
-    return (
-        "MsCover" if ok else None,
-        "MsAuthor" if aok else None,
-        cover_use_style_b,
-        author_bold,
-    )
+    return (None, None, False, False)
 
 
 def _format_subtitle_line(subtitle: str) -> str:
@@ -316,21 +335,24 @@ def _pdf_draw_toc_row(
 ) -> None:
     """One TOC line: left label, dot leaders, right-aligned page label (trade style)."""
     pdf.set_font(body_fam, size=_TOC_LINE_PT)
-    left = txt(label_upper)
+    left  = txt(label_upper)
     right = txt(page_disp)
-    w_left = pdf.get_string_width(left + " ")
+    w_left  = pdf.get_string_width(left + " ")
     w_right = pdf.get_string_width(" " + right)
-    dot_w = pdf.get_string_width(".")
-    mid = max(0.0, printable_w_mm - w_left - w_right)
-    n_dots = max(3, int(mid / dot_w) if dot_w > 0 else 3)
-    dots = "." * n_dots
-    lk = link_id if link_id is not None else ""
-    pdf.cell(w=w_left, h=toc_line_h, text=left + " ", border=0, link=lk)
-    pdf.cell(w=mid, h=toc_line_h, text=dots, border=0, link=lk)
-    pdf.cell(w=w_right, h=toc_line_h, text=" " + right, border=0, align="R", link=lk)
-    # fpdf2: ln(h) moves down by exactly h (not “line height + h”). A tiny h alone stacks rows.
+    dot_w   = pdf.get_string_width(".")
+    mid     = max(0.0, printable_w_mm - w_left - w_right)
+    n_dots  = max(3, int(mid / dot_w) if dot_w > 0 else 3)
+    dots    = "." * n_dots
+    lk      = link_id if link_id is not None else ""
+    pdf.cell(w=w_left, h=toc_line_h, text=left + " ",  border=0, link=lk)
+    pdf.cell(w=mid,    h=toc_line_h, text=dots,         border=0, link=lk)
+    pdf.cell(w=w_right,h=toc_line_h, text=" " + right,  border=0, align="R", link=lk)
     pdf.ln(toc_line_h + _pt_to_mm(2))
 
+
+# ---------------------------------------------------------------------------
+# Main PDF builder
+# ---------------------------------------------------------------------------
 
 def build_manuscript_pdf_bytes(
     chapters: list[dict[str, Any]],
@@ -343,12 +365,11 @@ def build_manuscript_pdf_bytes(
 ) -> bytes:
     """
     Concatenate chapters (sorted by chapter_number) into one PDF.
-    Expects dicts with keys title, content (as returned by Go internal chapters API).
-    Cover page matches the reference Word file (Century Gothic / Verdana / Palatino); body 6×9".
-    Inserts a Table of Contents after the cover: centered **TABLE OF CONTENTS**, dot leaders,
-    Roman page labels for front matter (Dedication, Acknowledgment, About the Author), Arabic
-    for body chapters (numbering restarts at Chapter 1). Optional ``toc_lines_out`` receives the
-    same (label, page number string) pairs for the Word export.
+
+    Formatting mirrors the reference .docx:
+      - 6×9, top 1.03" / sides 0.75" / bottom 0.19"
+      - Times New Roman throughout; 11 pt body; 1.15× leading; 8 pt after each para
+      - Front matter then TOC then chapters (TOC Roman labels for pre-chapter sections)
     """
     from fpdf import FPDF
 
@@ -360,151 +381,187 @@ def build_manuscript_pdf_bytes(
         raise ValueError("no chapters to render")
 
     pdf = FPDF(format=(_PAGE_W_MM, _PAGE_H_MM), unit="mm")
-    pdf.set_auto_page_break(auto=True, margin=_MARGIN_MM)
-    pdf.set_margins(_MARGIN_MM, _MARGIN_MM, _MARGIN_MM)
+    # Asymmetric margins matching reference XML
+    pdf.set_margins(_MARGIN_SIDE_MM, _MARGIN_TOP_MM, _MARGIN_SIDE_MM)
+    pdf.set_auto_page_break(auto=True, margin=_MARGIN_BOTTOM_MM)
 
     title_fam, body_fam, use_unicode, body_has_bold, title_has_bold = (
         _register_manuscript_fonts(pdf)
     )
-    sans_bold: Path | None = None
-    p = _unicode_ttf_path()
-    if p is not None:
-        sb = _dejavu_sans_bold_path(p)
-        if sb.is_file():
-            sans_bold = sb
     cover_fam, author_fam, cover_use_b, author_bold_loaded = _register_cover_fonts(
-        pdf, sans_bold
+        pdf, None
     )
 
     def txt(s: str) -> str:
         return s if use_unicode else _latin1_safe(s)
 
-    body_line_h = _pt_to_mm(_BODY_PT) * _BODY_LINE_MULT
-    para_gap = _pt_to_mm(_PARA_AFTER_PT)
-    chapter_line_h = _pt_to_mm(_CHAPTER_PT * 1.2)
-    toc_line_h = _pt_to_mm(_TOC_LINE_PT) * 1.2
+    # Derived measurements
+    body_line_h     = _pt_to_mm(_BODY_PT) * _BODY_LINE_MULT   # ≈ 1.15× body pt
+    para_gap        = _pt_to_mm(_PARA_AFTER_PT)                # 8 pt → mm after each para
+    chapter_line_h  = _pt_to_mm(_CHAPTER_PT * 1.2)
+    toc_line_h      = _pt_to_mm(_TOC_LINE_PT) * 1.2
 
+    # ------------------------------------------------------------------
+    # Cover font helpers
+    # ------------------------------------------------------------------
     def _cover_font_main() -> None:
         if cover_fam:
-            if cover_use_b:
-                pdf.set_font(cover_fam, style="B", size=_COVER_MAIN_PT)
-            else:
-                pdf.set_font(cover_fam, size=_COVER_MAIN_PT)
+            pdf.set_font(cover_fam, style="B" if cover_use_b else "", size=_COVER_MAIN_PT)
         else:
-            pdf.set_font(
-                title_fam,
-                style="B" if title_has_bold else "",
-                size=_COVER_MAIN_PT,
-            )
+            pdf.set_font(title_fam, style="B" if title_has_bold else "", size=_COVER_MAIN_PT)
 
     def _cover_font_sub() -> None:
         if cover_fam:
-            if cover_use_b:
-                pdf.set_font(cover_fam, style="B", size=_COVER_SUB_PT)
-            else:
-                pdf.set_font(cover_fam, size=_COVER_SUB_PT)
+            pdf.set_font(cover_fam, style="B" if cover_use_b else "", size=_COVER_SUB_PT)
         else:
-            pdf.set_font(
-                title_fam,
-                style="B" if title_has_bold else "",
-                size=_COVER_SUB_PT,
-            )
+            pdf.set_font(title_fam, style="B" if title_has_bold else "", size=_COVER_SUB_PT)
 
+    # ------------------------------------------------------------------
+    # Strings
+    # ------------------------------------------------------------------
     main_title = txt((book_title or "Manuscript").strip()[:500])
-    sub = (subtitle or "").strip()
-    sub_line = txt(_format_subtitle_line(sub)) if sub else ""
-    auth = (author_name or "").strip()
-    auth_line = txt(auth[:300]) if auth else ""
+    sub        = (subtitle or "").strip()
+    sub_line   = txt(_format_subtitle_line(sub)) if sub else ""
+    auth       = (author_name or "").strip()
+    auth_line  = txt(auth[:300]) if auth else ""
 
+    # ------------------------------------------------------------------
+    # Cover page — title/subtitle at top; By + author at bottom of printable area
+    # ------------------------------------------------------------------
     pdf.add_page()
     pdf.ln(_pt_to_mm(28))
     pdf.set_text_color(*_COVER_TEXT_RGB)
     _cover_font_main()
-    pdf.multi_cell(
-        0,
-        _pt_to_mm(_COVER_MAIN_PT * 1.2),
-        main_title,
-        align="C",
-    )
-    pdf.ln(_pt_to_mm(8))
+    pdf.multi_cell(0, _pt_to_mm(_COVER_MAIN_PT * 1.2), main_title, align="C")
+    pdf.set_x(pdf.l_margin)
+    if not auth_line:
+        pdf.ln(_pt_to_mm(8))
+
     if sub_line:
         _cover_font_sub()
-        pdf.multi_cell(
-            0,
-            _pt_to_mm(_COVER_SUB_PT * 1.15),
-            sub_line,
-            align="C",
-        )
-    pdf.ln(_pt_to_mm(18))
+        pdf.multi_cell(0, _pt_to_mm(_COVER_SUB_PT * 1.15), sub_line, align="C")
+        pdf.set_x(pdf.l_margin)
+
     if auth_line:
-        if title_has_bold:
-            pdf.set_font(title_fam, style="B", size=_COVER_BY_PT)
-        else:
-            pdf.set_font(title_fam, size=_COVER_BY_PT)
-        pdf.multi_cell(0, _pt_to_mm(_COVER_BY_PT * 1.15), txt("By"), align="C")
+        y_after_header = pdf.get_y()
+        content_bottom = float(pdf.h) - float(pdf.b_margin)
+        block_h = _cover_by_author_block_height_mm(
+            pdf,
+            title_fam=title_fam,
+            title_has_bold=title_has_bold,
+            author_fam=author_fam,
+            author_bold_loaded=author_bold_loaded,
+            auth_line=auth_line,
+            txt=txt,
+        )
+        # Small inset so the last line does not trip fpdf's page break / rounding
+        safety_mm = 2.0
+        target_y = content_bottom - block_h - safety_mm
+        min_y = y_after_header + _pt_to_mm(12)
+        if target_y < min_y:
+            target_y = min_y
+        pdf.set_y(target_y)
+        pdf.set_x(pdf.l_margin)
+
+        pdf.set_font(
+            title_fam, style="B" if title_has_bold else "", size=_COVER_BY_PT
+        )
+        h_by = _pt_to_mm(_COVER_BY_PT * 1.15)
+        pdf.multi_cell(0, h_by, txt("By"), align="C")
+        pdf.set_x(pdf.l_margin)
         pdf.ln(_pt_to_mm(4))
         if author_fam:
-            if author_bold_loaded:
-                pdf.set_font(author_fam, style="B", size=_COVER_BY_PT)
-            else:
-                pdf.set_font(author_fam, size=_COVER_BY_PT)
+            pdf.set_font(
+                author_fam, style="B" if author_bold_loaded else "", size=_COVER_BY_PT
+            )
         else:
             pdf.set_font(
-                title_fam,
-                style="B" if title_has_bold else "",
-                size=_COVER_BY_PT,
+                title_fam, style="B" if title_has_bold else "", size=_COVER_BY_PT
             )
-        pdf.multi_cell(
-            0,
-            _pt_to_mm(_COVER_BY_PT * 1.15),
-            auth_line,
-            align="C",
-        )
+        pdf.multi_cell(0, h_by, auth_line, align="C")
 
     pdf.set_text_color(0, 0, 0)
 
+    # ------------------------------------------------------------------
+    # Pre-process chapters
+    # ------------------------------------------------------------------
     chapter_entries: list[tuple[str, str, str]] = []
     for row in sorted_rows:
-        num = int(row.get("chapter_number") or 0)
+        num       = int(row.get("chapter_number") or 0)
         raw_title = str(row.get("title") or f"Chapter {num}").strip()[:500]
-        raw_content = strip_leading_chapter_heading_from_markdown(
+        raw_body  = strip_leading_chapter_heading_from_markdown(
             str(row.get("content") or ""), num
         )
-        body = txt(_markdownish_to_plain(raw_content))
-        if not body and not raw_title.strip():
-            continue
+        body    = txt(_markdownish_to_plain(raw_body))
         heading = txt(format_manuscript_chapter_heading(num, raw_title))
-        chapter_entries.append((heading, heading, body))
+        if body or raw_title.strip():
+            chapter_entries.append((heading, heading, body))
 
     printable_w = _CONTENT_W_MM
-
-    ded_raw = (dedication or "").strip()
+    ded_raw  = (dedication or "").strip()
     ded_body = txt(ded_raw) if ded_raw else txt(" ")
 
+    # ------------------------------------------------------------------
+    # Helper: render a section heading (16 pt bold, centred, 0/8 pt spacing)
+    # ------------------------------------------------------------------
+    def _render_section_heading(label: str) -> None:
+        if body_has_bold:
+            pdf.set_font(body_fam, style="B", size=_CHAPTER_PT)
+        else:
+            pdf.set_font(body_fam, size=_CHAPTER_PT)
+        pdf.multi_cell(0, chapter_line_h, txt(label), align="C")
+        # 8 pt gap after heading (matches Heading1 after=160 twips)
+        pdf.ln(_pt_to_mm(_PARA_AFTER_PT))
+
+    # ------------------------------------------------------------------
+    # Helper: render body paragraphs (11 pt, justified, 1.15×, 8 pt after)
+    # ------------------------------------------------------------------
+    def _render_body_paragraphs(body_text: str, trailing_gap_mm: float = 0.0) -> None:
+        pdf.set_font(body_fam, size=_BODY_PT)
+        for para in _split_paragraphs(body_text) or [body_text]:
+            # before = 0 pt (matches BodyText before=0 twips in reference XML)
+            pdf.multi_cell(0, body_line_h, para, align="J")
+            # after = 8 pt  (matches BodyText after=160 twips)
+            pdf.ln(para_gap)
+        if trailing_gap_mm:
+            pdf.ln(trailing_gap_mm)
+
+    # ------------------------------------------------------------------
+    # TOC renderer (called by fpdf2 at output time)
+    # ------------------------------------------------------------------
     def render_trade_toc(pdf2: Any, outline: list[Any]) -> None:
-        """Filled in by fpdf2 after body pagination; ``outline`` from ``start_section`` calls."""
         if body_has_bold:
             pdf2.set_font(body_fam, style="B", size=_TOC_HEADING_PT)
         else:
             pdf2.set_font(body_fam, size=_TOC_HEADING_PT)
         pdf2.multi_cell(
-            0,
-            _pt_to_mm(_TOC_HEADING_PT * 1.2),
-            txt("TABLE OF CONTENTS"),
-            align="C",
+            0, _pt_to_mm(_TOC_HEADING_PT * 1.2), txt("TABLE OF CONTENTS"), align="C"
         )
         pdf2.ln(_pt_to_mm(10))
         pdf2.set_font(body_fam, size=_TOC_LINE_PT)
         if not outline:
             return
-        first_chapter_page = outline[3].page_number if len(outline) > 3 else outline[-1].page_number
+        first_ch_idx = next(
+            (
+                i
+                for i, sec in enumerate(outline)
+                if str(sec.name).upper().startswith("CHAPTER ")
+            ),
+            len(outline),
+        )
+        if first_ch_idx < len(outline):
+            first_chapter_page = outline[first_ch_idx].page_number
+        else:
+            first_chapter_page = outline[-1].page_number
         if toc_lines_out is not None:
             toc_lines_out.clear()
         for i, sec in enumerate(outline):
-            if i < 3:
+            if first_ch_idx < len(outline) and i < first_ch_idx:
                 disp = _int_to_roman_upper(sec.page_number)
-            else:
+            elif first_ch_idx < len(outline) and i >= first_ch_idx:
                 disp = str(sec.page_number - first_chapter_page + 1)
+            else:
+                disp = _int_to_roman_upper(sec.page_number)
             link_id = pdf2.add_link(page=sec.page_number)
             _pdf_draw_toc_row(
                 pdf2,
@@ -519,82 +576,67 @@ def build_manuscript_pdf_bytes(
             if toc_lines_out is not None:
                 toc_lines_out.append((str(sec.name).upper(), disp))
 
-    # Page 2: reserved TOC (rendered at output); then front matter + chapters advance page numbers.
-    pdf.add_page()
-    pdf.insert_toc_placeholder(render_trade_toc, pages=1, allow_extra_pages=True)
-
-    pdf.start_section("DEDICATION", level=0)
-    if body_has_bold:
-        pdf.set_font(body_fam, style="B", size=_CHAPTER_PT)
-    else:
-        pdf.set_font(body_fam, size=_CHAPTER_PT)
-    pdf.multi_cell(0, chapter_line_h, txt("DEDICATION"), align="C")
-    pdf.ln(_pt_to_mm(6))
-    pdf.set_font(body_fam, size=_BODY_PT)
-    for para in _split_paragraphs(ded_body) or [ded_body]:
-        pdf.multi_cell(0, body_line_h, para, align="J")
-        pdf.ln(para_gap)
-
+    # ------------------------------------------------------------------
+    # Front matter (matches DOCX order, without a separate copyright page)
+    # ------------------------------------------------------------------
     pdf.add_page()
     pdf.start_section("ACKNOWLEDGMENT", level=0)
-    if body_has_bold:
-        pdf.set_font(body_fam, style="B", size=_CHAPTER_PT)
-    else:
-        pdf.set_font(body_fam, size=_CHAPTER_PT)
-    pdf.multi_cell(0, chapter_line_h, txt("ACKNOWLEDGMENT"), align="C")
-    pdf.ln(_pt_to_mm(6))
-    pdf.set_font(body_fam, size=_BODY_PT)
-    ack = txt(
-        "The author wishes to thank everyone who supported the creation of this book."
+    _render_section_heading("ACKNOWLEDGMENT")
+    _render_body_paragraphs(
+        txt("The author wishes to thank everyone who supported the creation of this book.")
     )
-    pdf.multi_cell(0, body_line_h, ack, align="J")
-    pdf.ln(para_gap)
 
     pdf.add_page()
     pdf.start_section("ABOUT THE AUTHOR", level=0)
-    if body_has_bold:
-        pdf.set_font(body_fam, style="B", size=_CHAPTER_PT)
-    else:
-        pdf.set_font(body_fam, size=_CHAPTER_PT)
-    pdf.multi_cell(0, chapter_line_h, txt("ABOUT THE AUTHOR"), align="C")
-    pdf.ln(_pt_to_mm(6))
-    pdf.set_font(body_fam, size=_BODY_PT)
+    _render_section_heading("ABOUT THE AUTHOR")
     about_lines = []
     if auth_line:
         about_lines.append(auth_line)
     about_lines.append(
-        txt(
-            "This author writes with the goal of connecting with readers through honest, vivid storytelling."
-        )
+        txt("This author writes with the goal of connecting with readers through "
+            "honest, vivid storytelling.")
     )
-    about_text = "\n\n".join(about_lines)
-    for para in _split_paragraphs(about_text):
-        pdf.multi_cell(0, body_line_h, para, align="J")
-        pdf.ln(para_gap)
+    _render_body_paragraphs("\n\n".join(about_lines))
 
+    if ded_raw:
+        pdf.add_page()
+        pdf.start_section("DEDICATION", level=0)
+        _render_section_heading("DEDICATION")
+        _render_body_paragraphs(ded_body)
+
+    # ------------------------------------------------------------------
+    # Table of contents — after About (and optional Dedication), before chapters
+    # ------------------------------------------------------------------
+    pdf.add_page()
+    pdf.insert_toc_placeholder(render_trade_toc, pages=1, allow_extra_pages=True)
+
+    # ------------------------------------------------------------------
+    # Chapters — start on the page after the TOC reservation
+    # ------------------------------------------------------------------
+    pdf.add_page()
     for i, (_line, heading, body) in enumerate(chapter_entries):
         if i > 0:
             pdf.add_page()
         pdf.start_section(heading, level=0)
-        if body_has_bold:
-            pdf.set_font(body_fam, style="B", size=_CHAPTER_PT)
-        else:
-            pdf.set_font(body_fam, size=_CHAPTER_PT)
-        pdf.multi_cell(0, chapter_line_h, heading, align="C")
-        pdf.ln(_pt_to_mm(6))
+        _render_section_heading(heading)
 
-        pdf.set_font(body_fam, size=_BODY_PT)
         if body:
-            for para in _split_paragraphs(body):
-                pdf.multi_cell(0, body_line_h, para, align="J")
-                pdf.ln(para_gap)
-        pdf.ln(_pt_to_mm(8))
+            # Extra 8 pt trailing gap after the last paragraph in the chapter
+            # (mirrors the +8 pt applied to the last para in the DOCX builder)
+            _render_body_paragraphs(body, trailing_gap_mm=_pt_to_mm(8))
 
+    # ------------------------------------------------------------------
+    # Output
+    # ------------------------------------------------------------------
     out = pdf.output()
     if isinstance(out, str):
         return out.encode("latin-1", errors="replace")
     return bytes(out)
 
+
+# ---------------------------------------------------------------------------
+# File I/O helpers (unchanged)
+# ---------------------------------------------------------------------------
 
 def write_pdf_to_path(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -604,7 +646,7 @@ def write_pdf_to_path(path: Path, data: bytes) -> None:
 def write_pdf_export_metadata(
     pdf_path: Path, *, author: str | None, title: str | None
 ) -> None:
-    """Sidecar JSON for download filename (``Author - Title.pdf``). Written with the PDF."""
+    """Sidecar JSON for download filename (``Author - Title.pdf``)."""
     meta_path = pdf_path.with_name(f"{pdf_path.stem}.export.json")
     meta_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"author": (author or "").strip(), "title": (title or "").strip()}
@@ -624,5 +666,5 @@ def read_pdf_export_metadata(pdf_path: Path) -> dict[str, str] | None:
         return None
     return {
         "author": str(data.get("author") or ""),
-        "title": str(data.get("title") or ""),
+        "title":  str(data.get("title")  or ""),
     }

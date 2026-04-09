@@ -13,11 +13,11 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
   {
     tier: "single",
     name: "Single Book",
-    priceLabel: "$19",
+    priceLabel: "$19.98",
     frequencyLabel: "One Time",
     features: [
       "1 fully personalized book",
-      "1–200 professionally written pages",
+      "100+ pages per book",
       "Delivered in under 1 hour",
       "You define the topic, tone, and style",
       "Ready to publish, sell, or share (Amazon, Google Play, Apple Books)",
@@ -28,11 +28,11 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
   {
     tier: "double",
     name: "Double Book",
-    priceLabel: "$35",
+    priceLabel: "$24.97",
     frequencyLabel: "One Time",
     features: [
       "2 fully personalized books",
-      "1–200 professionally written pages each",
+      "100+ pages per book",
       "Delivered in under 1 hour each",
       "You define topic, tone, and style per book",
       "Ready to publish, sell, or share (Amazon, Google Play, Apple Books)",
@@ -42,12 +42,12 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
   },
   {
     tier: "triple",
-    name: "Triple Book",
-    priceLabel: "$49",
+    name: "Triple Pack",
+    priceLabel: "$29.99",
     frequencyLabel: "One Time",
     features: [
       "3 fully personalized books",
-      "1–200 professionally written pages each",
+      "100+ professional written pages",
       "Delivered in under 1 hour each",
       "You define topic, tone, and style per book",
       "Ready to publish, sell, or share (Amazon, Google Play, Apple Books)",
