@@ -20,8 +20,11 @@ type GateHandlers = {
   changeRequirements: () => void;
   proceedToPreview: () => void;
   changeOutline: () => void;
-  unlockFull: () => void;
+  payForFullBook: () => void;
+  generateFullWithSubscription: () => void;
   changePreview: () => void;
+  fullBookGateMode?: "loading" | "generate" | "paypal";
+  generateFullBusy?: boolean;
   payPalLoading?: boolean;
   payPalError?: string | null;
 };
@@ -58,8 +61,11 @@ export function ChatWorkspace({
   changeRequirements,
   proceedToPreview,
   changeOutline,
-  unlockFull,
+  payForFullBook,
+  generateFullWithSubscription,
   changePreview,
+  fullBookGateMode,
+  generateFullBusy,
   payPalLoading,
   payPalError,
   outlineMobileOpen = false,
@@ -199,9 +205,12 @@ export function ChatWorkspace({
                   onChangeRequirements={changeRequirements}
                   onProceedToPreview={proceedToPreview}
                   onChangeOutline={changeOutline}
-                  onUnlockFull={unlockFull}
+                  onPayForFullBook={payForFullBook}
+                  onGenerateFullWithSubscription={generateFullWithSubscription}
                   onChangePreview={changePreview}
+                  fullBookGateMode={fullBookGateMode}
                   payPalLoading={payPalLoading}
+                  generateFullBusy={generateFullBusy}
                   payPalError={payPalError}
                 />
               ) : (

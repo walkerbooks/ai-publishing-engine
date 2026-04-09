@@ -10,11 +10,15 @@ import { useAuthDialogRequestStore } from "@/stores/auth-dialog-request-store";
 import { createInitialPublishingState } from "@/stores/publishing-types";
 import { usePublishingStore } from "@/stores/publishing-store";
 import { ensureGuestSessionWithServer } from "@/lib/api/guest-client";
-import { hydrateGuestStoresFromPersistence } from "@/lib/guest/guest-hydrate";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { ChatWorkspace } from "@/components/chat/chat-workspace";
 import { ChatShell } from "@/components/chat/shell/chat-shell";
 import { FullBookPricingDialog } from "@/components/paypal/full-book-pricing-dialog";
+import type { FullBookPackageTier } from "@/lib/paypal/full-book-packages";
+import {
+  checkFullGenerationEntitlement,
+  fetchSubscriptionEntitlement,
+} from "@/lib/api/subscriptions-client";
 import { useFullBookChatFlow } from "@/hooks/use-full-book-chat-flow";
 
 export function ChatPageClient() {
@@ -82,12 +86,10 @@ export function ChatPageClient() {
       useChatDirectoryStore.setState({
         conversations: [],
         activeConversationId: null,
-        listLoaded: false,
+        listLoaded: true,
       });
       usePublishingStore.setState(createInitialPublishingState());
-      void ensureGuestSessionWithServer().finally(() => {
-        hydrateGuestStoresFromPersistence();
-      });
+      void ensureGuestSessionWithServer();
     }
     prevAuthenticated.current = isAuthenticated;
   }, [isAuthenticated, bookParam, hydrateConversationListFromServer, refreshProfile]);
@@ -99,6 +101,37 @@ export function ChatPageClient() {
   } = usePayPalCheckout();
   const [payPalGateErr, setPayPalGateErr] = useState<string | null>(null);
   const [fullBookPricingOpen, setFullBookPricingOpen] = useState(false);
+  const [fullBookGateMode, setFullBookGateMode] = useState<
+    "loading" | "generate" | "paypal"
+  >("paypal");
+  const [generateFullBusy, setGenerateFullBusy] = useState(false);
+
+  useEffect(() => {
+    if (awaitingGate !== "full") return;
+    const token = getAccessToken();
+    if (!isAuthenticated || !token) {
+      setFullBookGateMode("paypal");
+      return;
+    }
+    let cancelled = false;
+    setFullBookGateMode("loading");
+    void (async () => {
+      try {
+        const ent = await fetchSubscriptionEntitlement(token);
+        if (cancelled) return;
+        setFullBookGateMode(
+          ent.has_entitlement && ent.can_start_full_generation
+            ? "generate"
+            : "paypal",
+        );
+      } catch {
+        if (!cancelled) setFullBookGateMode("paypal");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [awaitingGate, isAuthenticated]);
 
   const hasThread = messages.length > 0;
   const showConversationChrome =
@@ -127,7 +160,7 @@ export function ChatPageClient() {
     (usePublishingStore.getState().setAwaitingGate(null),
     usePublishingStore.getState().setComposerStep("outline"),
     usePublishingStore.getState().setComposerAction("revise"));
-  const unlockFull = () => {
+  const payForFullBook = () => {
     clearPayPalErr();
     setPayPalGateErr(null);
     const id = usePublishingStore.getState().activeBookId;
@@ -145,12 +178,41 @@ export function ChatPageClient() {
     setFullBookPricingOpen(true);
   };
 
-  const continueFullBookPayPal = () => {
+  const generateFullWithSubscription = async () => {
+    clearPayPalErr();
+    setPayPalGateErr(null);
+    const id = usePublishingStore.getState().activeBookId;
+    if (!id) {
+      setPayPalGateErr("No book ID yet — continue until a book is created, then try again.");
+      return;
+    }
+    const token = getAccessToken();
+    if (!token) {
+      useAuthDialogRequestStore.getState().requestLogin();
+      setPayPalGateErr("Sign in to use your subscription credits.");
+      return;
+    }
+    setGenerateFullBusy(true);
+    try {
+      const gate = await checkFullGenerationEntitlement(token);
+      if (!gate.ok) {
+        setPayPalGateErr(gate.message);
+        setFullBookGateMode("paypal");
+        return;
+      }
+      usePublishingStore.getState().setSubscriptionFullGenUnlocked(true);
+      usePublishingStore.getState().setAwaitingGate(null);
+    } finally {
+      setGenerateFullBusy(false);
+    }
+  };
+
+  const continueFullBookPayPal = (tier: FullBookPackageTier) => {
     clearPayPalErr();
     const id = usePublishingStore.getState().activeBookId;
     if (!id) return;
     setFullBookPricingOpen(false);
-    void startCheckout(id, "/chat");
+    void startCheckout(id, "/chat", tier);
   };
   const changePreview = () =>
     (usePublishingStore.getState().setAwaitingGate(null),
@@ -191,7 +253,10 @@ export function ChatPageClient() {
           changeRequirements={changeRequirements}
           proceedToPreview={proceedToPreview}
           changeOutline={changeOutline}
-          unlockFull={unlockFull}
+          payForFullBook={payForFullBook}
+          generateFullWithSubscription={() => void generateFullWithSubscription()}
+          fullBookGateMode={fullBookGateMode}
+          generateFullBusy={generateFullBusy}
           changePreview={changePreview}
           payPalLoading={payPalLoading}
           payPalError={payPalGateErr ?? payPalErr}

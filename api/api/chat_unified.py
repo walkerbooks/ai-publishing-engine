@@ -15,7 +15,10 @@ from pydantic import BaseModel, Field
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
 
 from api.agents.intake_agent import run_intake
-from api.agents.outline_agent import run_outline
+from api.agents.outline_agent import (
+    merge_target_pages_from_revision_into_spec,
+    run_outline,
+)
 from api.agents.preview_agent import run_preview
 from api.agents.prompts.intake import build_intake_reply_system
 from api.config import get_settings
@@ -66,7 +69,7 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
     history = payload.history or []
     settings = get_settings()
     provider = settings.llm_provider
-
+    print(f"Provider: {provider}")
     step = payload.step
     action = payload.action
 
@@ -168,10 +171,17 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                     "message_start",
                     {"messageId": outline_message_id, "role": "assistant", "kind": "outline"},
                 )
-                outline = run_outline(book_spec=payload.book_spec, revision_notes=revision_notes)
+                outline, book_spec_used = run_outline(
+                    book_spec=payload.book_spec,
+                    revision_notes=revision_notes,
+                )
                 yield _sse(
                     "outline_ready",
-                    {"messageId": outline_message_id, "outline": outline},
+                    {
+                        "messageId": outline_message_id,
+                        "outline": outline,
+                        "bookSpec": book_spec_used,
+                    },
                 )
                 yield _sse("message_end", {"messageId": outline_message_id})
 
@@ -198,19 +208,27 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                         detail="book_spec and book_outline are required for preview",
                     )
                 revision_notes = message if action == "revise" and message else None
+                book_spec_for_preview = merge_target_pages_from_revision_into_spec(
+                    dict(payload.book_spec),
+                    revision_notes,
+                )
 
                 yield _sse(
                     "message_start",
                     {"messageId": preview_message_id, "role": "assistant", "kind": "preview"},
                 )
                 preview_markdown = run_preview(
-                    book_spec=payload.book_spec,
+                    book_spec=book_spec_for_preview,
                     book_outline=payload.book_outline,
                     revision_notes=revision_notes,
                 )
                 yield _sse(
                     "preview_ready",
-                    {"messageId": preview_message_id, "previewMarkdown": preview_markdown},
+                    {
+                        "messageId": preview_message_id,
+                        "previewMarkdown": preview_markdown,
+                        "bookSpec": book_spec_for_preview,
+                    },
                 )
                 yield _sse("message_end", {"messageId": preview_message_id})
 

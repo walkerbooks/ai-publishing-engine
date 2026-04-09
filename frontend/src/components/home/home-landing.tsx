@@ -47,7 +47,7 @@ export function HomeLanding() {
           <div className="w-full max-w-lg leading-none">
             <Image
               src="/walkerbook/Walkerbook-transparent.png"
-              alt="Walkerbook — Where stories begin their journey"
+              alt="WalkerBook — Where stories begin their journey"
               width={360}
               height={120}
               className="mx-auto block h-auto w-full max-w-sm sm:max-w-md dark:drop-shadow-[0_4px_28px_rgba(0,0,0,0.35)]"

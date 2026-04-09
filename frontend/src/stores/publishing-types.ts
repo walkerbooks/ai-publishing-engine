@@ -16,6 +16,11 @@ export type PublishingState = {
   streamedPreviewContent: string;
   fullBookContent: string;
   mockPaymentConfirmed: boolean;
+  /**
+   * User chose full book via subscription credits (skips PayPal). Drives the same poller path as
+   * mock payment while the book is still preview_ready / awaiting_payment.
+   */
+  subscriptionFullGenUnlocked: boolean;
   pendingPrompt: string | null;
   userName: string | null;
   /** Guest onboarding: collected after name (email for updates). */
@@ -58,6 +63,7 @@ export type PublishingActions = {
   clearStreamPreview: () => void;
   setFullBookContent: (s: string) => void;
   setMockPayment: (v: boolean) => void;
+  setSubscriptionFullGenUnlocked: (v: boolean) => void;
   setUserName: (n: string | null) => void;
   setGuestEmail: (email: string | null) => void;
   patchChatMessage: (
@@ -82,6 +88,7 @@ export function createInitialPublishingState(): PublishingState {
     streamedPreviewContent: "",
     fullBookContent: "",
     mockPaymentConfirmed: false,
+    subscriptionFullGenUnlocked: false,
     pendingPrompt: null,
     userName: null,
     guestEmail: null,

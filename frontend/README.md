@@ -1,6 +1,6 @@
-# AI Publishing — Next.js frontend
+# WalkerBook — Next.js frontend
 
-App Router UI for the AI Publishing Engine. Proxies AI calls to the FastAPI service so the browser never needs direct access to the Python server (avoids CORS in production when same-origin).
+App Router UI for WalkerBook. Proxies AI calls to the FastAPI service so the browser never needs direct access to the Python server (avoids CORS in production when same-origin).
 
 ## Setup
 

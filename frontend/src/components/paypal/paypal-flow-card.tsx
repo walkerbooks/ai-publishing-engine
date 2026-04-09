@@ -8,10 +8,10 @@ type Props = {
 };
 
 /**
- * Matches chat gate / composer panels: bordered card, theme tokens, Walkerbook eyebrow.
+ * Matches chat gate / composer panels: bordered card, theme tokens, WalkerBook eyebrow.
  */
 export function PayPalFlowCard({
-  eyebrow = "Walkerbook · Payment",
+  eyebrow = "WalkerBook · Payment",
   title,
   children,
   className,

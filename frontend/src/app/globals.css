@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  /* Walkerbook — pale horizon / mist for light surfaces */
+  /* WalkerBook — pale horizon / mist for light surfaces */
   --background: 213 35% 97%;
   --foreground: 220 32% 16%;
   --muted: 213 28% 93%;

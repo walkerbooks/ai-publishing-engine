@@ -3,15 +3,23 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 
+type FullGateMode = "loading" | "generate" | "paypal";
+
 type Props = {
   awaitingGate: null | "outline" | "preview" | "full";
   onProceedToOutline: () => void;
   onChangeRequirements: () => void;
   onProceedToPreview: () => void;
   onChangeOutline: () => void;
-  onUnlockFull: () => void;
+  /** Opens PayPal / pricing when user must pay. */
+  onPayForFullBook: () => void;
+  /** Uses subscription credits; skips pricing when entitlement allows. */
+  onGenerateFullWithSubscription: () => void;
   onChangePreview: () => void;
+  /** When gate is `full`, how to label the primary action (from GET /subscriptions/entitlement). */
+  fullBookGateMode?: FullGateMode;
   payPalLoading?: boolean;
+  generateFullBusy?: boolean;
   payPalError?: string | null;
 };
 
@@ -21,9 +29,12 @@ export function ChatGatePanel({
   onChangeRequirements,
   onProceedToPreview,
   onChangeOutline,
-  onUnlockFull,
+  onPayForFullBook,
+  onGenerateFullWithSubscription,
   onChangePreview,
+  fullBookGateMode = "paypal",
   payPalLoading,
+  generateFullBusy = false,
   payPalError,
 }: Props) {
   if (!awaitingGate) return null;
@@ -75,13 +86,37 @@ export function ChatGatePanel({
               {payPalError}
             </p>
           ) : null}
-          <Button
-            onClick={onUnlockFull}
-            className={cn(btnPrimary)}
-            disabled={payPalLoading}
-          >
-            {payPalLoading ? "Opening PayPal…" : "Pay with PayPal (full book)"}
-          </Button>
+          {fullBookGateMode === "loading" ? (
+            <Button className={cn(btnPrimary)} disabled>
+              Checking your plan…
+            </Button>
+          ) : fullBookGateMode === "generate" ? (
+            <Button
+              onClick={onGenerateFullWithSubscription}
+              className={cn(btnPrimary)}
+              disabled={generateFullBusy}
+            >
+              {generateFullBusy ? "Starting…" : "Generate full book"}
+            </Button>
+          ) : (
+            <Button
+              onClick={onPayForFullBook}
+              className={cn(btnPrimary)}
+              disabled={payPalLoading}
+            >
+              {payPalLoading ? "Opening PayPal…" : "Pay with PayPal (full book)"}
+            </Button>
+          )}
+          {fullBookGateMode === "generate" ? (
+            <Button
+              variant="outline"
+              onClick={onPayForFullBook}
+              className={cn(btnGhost)}
+              disabled={payPalLoading || generateFullBusy}
+            >
+              {payPalLoading ? "Opening PayPal…" : "Buy another plan instead"}
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             onClick={onChangePreview}

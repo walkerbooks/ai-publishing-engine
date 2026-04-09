@@ -73,6 +73,11 @@ export function handleUnifiedChatSseEvent(
     const outline = data.outline as Record<string, unknown> | undefined;
     handlers.setAssistantOutline(data.messageId as string, outline);
     if (outline) handlers.setBookOutline(outline);
+    const spec = data.bookSpec as Record<string, unknown> | undefined;
+    if (spec && typeof spec === "object" && Object.keys(spec).length > 0) {
+      handlers.setIntakeResult(true, spec, null);
+      handlers.patchChatMessage(data.messageId as string, { bookSpec: spec });
+    }
     return;
   }
 
@@ -80,6 +85,11 @@ export function handleUnifiedChatSseEvent(
     const md = String(data.previewMarkdown ?? "");
     handlers.setAssistantPreview(data.messageId as string, md);
     handlers.setPreviewContent(md);
+    const spec = data.bookSpec as Record<string, unknown> | undefined;
+    if (spec && typeof spec === "object" && Object.keys(spec).length > 0) {
+      handlers.setIntakeResult(true, spec, null);
+      handlers.patchChatMessage(data.messageId as string, { bookSpec: spec });
+    }
     void syncBookToServerAfterPreview(md);
     return;
   }

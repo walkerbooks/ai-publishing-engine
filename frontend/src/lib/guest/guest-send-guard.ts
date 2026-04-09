@@ -6,8 +6,8 @@ import { usePublishingStore } from "@/stores/publishing-store";
 export type GuestSendGate = { ok: true } | { ok: false; message: string };
 
 /**
- * Block starting a *new* guest thread when the device already has the max number
- * of local (non-server) conversations. Continuing the active thread is always allowed.
+ * Block starting a *new* guest thread when this session already has the max number of
+ * local (non-server) conversations. Continuing the active thread is always allowed.
  */
 export function assertGuestMaySendNewThread(): GuestSendGate {
   if (useAuthStore.getState().isAuthenticated) return { ok: true };
