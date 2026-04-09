@@ -134,6 +134,14 @@ class IntakeResponse(BaseModel):
     reply: str = Field(..., description="Assistant reply to show in chat")
     bso: Optional[IntakeBookSpecification] = Field(None, description="Extracted BSO (partial until complete)")
     intake_complete: bool = Field(False, description="True when BSO is ready to confirm")
+    offer_collaborative_feedback: bool = Field(
+        False,
+        description=(
+            "Collaborative-build sessions only: set True when the reply is a checkpoint the user can "
+            "approve or revise (Sounds good / change). Set False when the user must type their next "
+            "answer (e.g. you asked a direct question)."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------

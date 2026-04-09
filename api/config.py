@@ -43,6 +43,14 @@ class Settings(BaseSettings):
         validation_alias="BOOK_WORDS_PER_PAGE",
     )
 
+    # When set (e.g. 20 for fast local testing), intake infers this target_length_pages if the user omits length.
+    default_target_length_pages: int | None = Field(
+        default=None,
+        ge=1,
+        le=200,
+        validation_alias="DEFAULT_TARGET_LENGTH_PAGES",
+    )
+
     # Go API (for internal generation jobs calling back to persist chapters)
     backend_url: str | None = Field(default=None, validation_alias="BACKEND_URL")
 

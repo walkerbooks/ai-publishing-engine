@@ -18,12 +18,17 @@ import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { usePublishingStore } from "@/stores/publishing-store";
 import { syncGuestPromotionLead } from "@/lib/api/promotion-client";
 
+export type UnifiedSendOptions = {
+  /** With collaborative brief on server, finalize intake + outline gate without re-running intake LLM. */
+  collaborativeAck?: boolean;
+};
+
 export function useUnifiedChatSend() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const clearErr = () => setErr(null);
-  const send = useCallback(async (typed: string | null) => {
+  const send = useCallback(async (typed: string | null, opts?: UnifiedSendOptions) => {
     const guestGate = assertGuestMaySendNewThread();
     if (!guestGate.ok) {
       setErr(guestGate.message);
@@ -42,9 +47,9 @@ export function useUnifiedChatSend() {
       pub.pushUserMessage(userText);
     } else {
       const t = typed?.trim();
-      if (!t) return;
-      pub.pushUserMessage(t);
-      userText = t;
+      if (!t && !opts?.collaborativeAck) return;
+      userText = t || "Yes — that works for me. Please continue.";
+      pub.pushUserMessage(userText);
     }
 
     const userMsg = usePublishingStore.getState().chatMessages.at(-1);
@@ -76,6 +81,17 @@ export function useUnifiedChatSend() {
         auth.email,
       );
 
+      const tryAck =
+        Boolean(opts?.collaborativeAck) &&
+        st.composerStep === "intake" &&
+        st.intakeCollaborative;
+      const ackSpec = tryAck ? st.bookSpec : null;
+      const useCollaborativeAck =
+        tryAck &&
+        ackSpec &&
+        typeof ackSpec === "object" &&
+        Object.keys(ackSpec).length > 0;
+
       await streamUnifiedChat(
         {
           message: userText,
@@ -86,6 +102,8 @@ export function useUnifiedChatSend() {
           bookSpec: st.bookSpec,
           bookOutline: st.bookOutline,
           userDisplayName,
+          intakeCollaborative: st.intakeCollaborative,
+          intakeCollaborativeAck: useCollaborativeAck,
         },
         (event, data) => {
           handleUnifiedChatSseEvent(

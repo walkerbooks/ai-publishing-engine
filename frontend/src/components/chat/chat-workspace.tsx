@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/types/chat";
 import { ChatHero } from "@/components/chat/chat-hero";
 import { ChatThread } from "@/components/chat/chat-thread";
@@ -13,7 +13,9 @@ import { ChatOutlineDrawer } from "@/components/chat/shell/chat-outline-drawer";
 import { useChatScroll } from "@/hooks/use-chat-scroll";
 import { cn } from "@/lib/utils/cn";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
+import { usePublishingStore } from "@/stores/publishing-store";
 import { shouldDisableDockComposerForGuestInlineCapture } from "@/lib/chat/welcome-flow";
+import { shouldShowCollaborativeFeedback } from "@/lib/chat/collaborative-feedback";
 
 type GateHandlers = {
   proceedToOutline: () => void;
@@ -27,6 +29,12 @@ type GateHandlers = {
   generateFullBusy?: boolean;
   payPalLoading?: boolean;
   payPalError?: string | null;
+  bookKickoffStage?: "choice" | "title" | "subtitle" | "summary" | "general_idea" | "done";
+  onBookKickoffOptionSelect?: (option: "start_together" | "complete_idea") => void;
+  onBookKickoffInputSend?: (text: string) => void;
+  onCollaborativeAgree?: () => void;
+  onCollaborativeQuickChange?: (message: string) => void;
+  onCollaborativeChangeSend?: (text: string) => void;
 };
 
 type Props = {
@@ -70,6 +78,12 @@ export function ChatWorkspace({
   payPalError,
   outlineMobileOpen = false,
   onCloseOutlineMobile,
+  bookKickoffStage,
+  onBookKickoffOptionSelect,
+  onBookKickoffInputSend,
+  onCollaborativeAgree,
+  onCollaborativeQuickChange,
+  onCollaborativeChangeSend,
 }: Props) {
   const showOutlineColumn = Boolean(bookOutline);
   const threadScrollRef = useRef<HTMLDivElement>(null);
@@ -79,10 +93,87 @@ export function ChatWorkspace({
   const guestGateMessage = useChatDirectoryStore((s) => s.guestGateMessage);
   const clearGuestGateMessage = useChatDirectoryStore((s) => s.clearGuestGateMessage);
 
+  const intakeCollaborative = usePublishingStore((s) => s.intakeCollaborative);
+  const intakeComplete = usePublishingStore((s) => s.intakeComplete);
+  const composerStep = usePublishingStore((s) => s.composerStep);
+  const [collaborativeChangeOpen, setCollaborativeChangeOpen] = useState(false);
+
+  const showCollaborativeFeedback = useMemo(
+    () =>
+      shouldShowCollaborativeFeedback(messages, {
+        intakeCollaborative,
+        intakeComplete,
+        busy,
+        awaitingGate,
+        composerStep,
+        bookKickoffStage: bookKickoffStage ?? "done",
+        isAuthenticated,
+      }),
+    [
+      messages,
+      intakeCollaborative,
+      intakeComplete,
+      busy,
+      awaitingGate,
+      composerStep,
+      bookKickoffStage,
+      isAuthenticated,
+    ],
+  );
+
+  useEffect(() => {
+    if (!showCollaborativeFeedback) setCollaborativeChangeOpen(false);
+  }, [showCollaborativeFeedback]);
+
   const guestInlineCaptureBlocksDock = useMemo(
     () => shouldDisableDockComposerForGuestInlineCapture(messages, isAuthenticated),
     [messages, isAuthenticated],
   );
+  /** Same `[adding spice...]`-style placeholders as unified stream; hide kickoff UI until revealed. */
+  const assistantKickoffLoader =
+    messages.at(-1)?.role === "assistant" &&
+    messages.at(-1)!.content.trim().startsWith("[");
+  const showBookKickoffChoices =
+    bookKickoffStage === "choice" &&
+    messages.at(-1)?.role === "assistant" &&
+    !assistantKickoffLoader;
+  const showBookKickoffInput =
+    (bookKickoffStage === "title" ||
+      bookKickoffStage === "subtitle" ||
+      bookKickoffStage === "summary" ||
+      bookKickoffStage === "general_idea") &&
+    messages.at(-1)?.role === "assistant" &&
+    !assistantKickoffLoader;
+
+  const bookKickoffInputPlaceholder = useMemo(() => {
+    switch (bookKickoffStage) {
+      case "title":
+        return "Type your title...";
+      case "subtitle":
+        return "Type your subtitle...";
+      case "summary":
+        return "Give a 2-3 sentence summary...";
+      case "general_idea":
+        return "Share your idea in a sentence or two...";
+      default:
+        return "Type your answer...";
+    }
+  }, [bookKickoffStage]);
+
+  const bookKickoffInputAriaLabel = useMemo(() => {
+    switch (bookKickoffStage) {
+      case "title":
+        return "Working title";
+      case "subtitle":
+        return "Subtitle";
+      case "summary":
+        return "Book summary";
+      case "general_idea":
+        return "Your book idea";
+      default:
+        return "Your answer";
+    }
+  }, [bookKickoffStage]);
 
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
@@ -155,6 +246,28 @@ export function ChatWorkspace({
                     busy={busy}
                     onGuestNameSend={(t) => (clearErr(), onSend(t))}
                     onGuestEmailSend={(t) => (clearErr(), onSend(t))}
+                    showBookKickoffChoices={showBookKickoffChoices}
+                    onBookKickoffOptionSelect={onBookKickoffOptionSelect}
+                    showBookKickoffInput={showBookKickoffInput}
+                    onBookKickoffInputSend={onBookKickoffInputSend}
+                    bookKickoffInputPlaceholder={bookKickoffInputPlaceholder}
+                    bookKickoffInputAriaLabel={bookKickoffInputAriaLabel}
+                    showCollaborativeFeedback={showCollaborativeFeedback}
+                    collaborativeChangeMode={collaborativeChangeOpen}
+                    onCollaborativeAgree={() => {
+                      setCollaborativeChangeOpen(false);
+                      onCollaborativeAgree?.();
+                    }}
+                    onCollaborativeChooseChange={() => setCollaborativeChangeOpen(true)}
+                    onCollaborativeChangeBack={() => setCollaborativeChangeOpen(false)}
+                    onCollaborativeQuickChange={(msg) => {
+                      setCollaborativeChangeOpen(false);
+                      onCollaborativeQuickChange?.(msg);
+                    }}
+                    onCollaborativeChangeSend={(text) => {
+                      setCollaborativeChangeOpen(false);
+                      onCollaborativeChangeSend?.(text);
+                    }}
                   />
                   {busy ? (
                     <div className="mt-3 space-y-2 pb-4">
@@ -215,7 +328,14 @@ export function ChatWorkspace({
                 />
               ) : (
                 <ChatComposer
-                  disabled={busy || guestInlineCaptureBlocksDock}
+                  disabled={
+                    busy ||
+                    guestInlineCaptureBlocksDock ||
+                    showBookKickoffChoices ||
+                    showBookKickoffInput ||
+                    showCollaborativeFeedback ||
+                    assistantKickoffLoader
+                  }
                   onSend={(t) => (clearErr(), onSend(t))}
                   variant="dock"
                 />

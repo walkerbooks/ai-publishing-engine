@@ -15,11 +15,43 @@ import { ChatWorkspace } from "@/components/chat/chat-workspace";
 import { ChatShell } from "@/components/chat/shell/chat-shell";
 import { FullBookPricingDialog } from "@/components/paypal/full-book-pricing-dialog";
 import type { FullBookPackageTier } from "@/lib/paypal/full-book-packages";
+import type { ChatMessage } from "@/lib/types/chat";
 import {
   checkFullGenerationEntitlement,
   fetchSubscriptionEntitlement,
 } from "@/lib/api/subscriptions-client";
 import { useFullBookChatFlow } from "@/hooks/use-full-book-chat-flow";
+import { getUnifiedAssistantPlaceholder } from "@/lib/chat/unified-chat/placeholders";
+
+const KICKOFF_ASSISTANT_LOADER_MS = 550;
+
+function scheduleKickoffAssistantReveal(
+  id: string,
+  finalContent: string,
+  timers: ReturnType<typeof setTimeout>[],
+) {
+  const pub = usePublishingStore.getState();
+  pub.pushAssistantMessage({
+    id,
+    role: "assistant",
+    kind: "intake",
+    content: getUnifiedAssistantPlaceholder("intake", ""),
+  } as ChatMessage);
+  const t = setTimeout(() => {
+    usePublishingStore.getState().patchChatMessage(id, { content: finalContent });
+    const i = timers.indexOf(t);
+    if (i >= 0) timers.splice(i, 1);
+  }, KICKOFF_ASSISTANT_LOADER_MS);
+  timers.push(t);
+}
+
+type BookKickoffStage =
+  | "choice"
+  | "title"
+  | "subtitle"
+  | "summary"
+  | "general_idea"
+  | "done";
 
 export function ChatPageClient() {
   useVideoInjection();
@@ -55,6 +87,7 @@ export function ChatPageClient() {
   const awaitingGate = usePublishingStore((s) => s.awaitingGate);
   const bookOutline = usePublishingStore((s) => s.bookOutline);
   const conversationCount = useChatDirectoryStore((s) => s.conversations.length);
+  const listLoaded = useChatDirectoryStore((s) => s.listLoaded);
 
   const bookParam = searchParams.get("book")?.trim() ?? null;
 
@@ -96,6 +129,17 @@ export function ChatPageClient() {
     "loading" | "generate" | "paypal"
   >("paypal");
   const [generateFullBusy, setGenerateFullBusy] = useState(false);
+  const [bookKickoffStage, setBookKickoffStage] = useState<BookKickoffStage>("choice");
+  const [bookKickoffTitle, setBookKickoffTitle] = useState("");
+  const [bookKickoffSubtitle, setBookKickoffSubtitle] = useState("");
+  const kickoffLoaderTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => {
+      kickoffLoaderTimersRef.current.forEach(clearTimeout);
+      kickoffLoaderTimersRef.current = [];
+    };
+  }, []);
 
   useEffect(() => {
     if (awaitingGate !== "full") return;
@@ -123,6 +167,111 @@ export function ChatPageClient() {
       cancelled = true;
     };
   }, [awaitingGate, isAuthenticated]);
+
+  /** Guests and first-time signed-in users use the YouTube welcome path; returning signed-in users get the title/summary kickoff. */
+  useEffect(() => {
+    if (!listLoaded) return;
+    if (!isAuthenticated) {
+      setBookKickoffStage("done");
+      return;
+    }
+    if (conversationCount === 0) {
+      setBookKickoffStage("done");
+    } else if (messages.length === 0) {
+      setBookKickoffStage("choice");
+    }
+  }, [listLoaded, isAuthenticated, conversationCount, messages.length]);
+
+  useEffect(() => {
+    if (messages.length) return;
+    if (bookKickoffStage !== "choice") return;
+    if (!isAuthenticated || !listLoaded || conversationCount === 0) return;
+    const id = "book-kickoff-choice";
+    const exists = usePublishingStore.getState().chatMessages.some((m) => m.id === id);
+    if (exists) return;
+    scheduleKickoffAssistantReveal(
+      id,
+      "Hi! I'm glad you're here.\n\nBefore we dive in, do you already have a working title, subtitle, and a short summary in mind?",
+      kickoffLoaderTimersRef.current,
+    );
+  }, [messages.length, bookKickoffStage, isAuthenticated, listLoaded, conversationCount]);
+
+  const startNormalBookFlow = (idea: string) => {
+    setBookKickoffStage("done");
+    usePublishingStore.getState().setIntakeCollaborative(true);
+    const finalPrompt = `Let's build this together. Here's my general idea: ${idea}`;
+    void send(finalPrompt);
+  };
+
+  const startCompleteIdeaFlow = (summary: string) => {
+    setBookKickoffStage("done");
+    usePublishingStore.getState().setIntakeCollaborative(false);
+    const finalPrompt =
+      `Here's my book concept:\n` +
+      `Title: ${bookKickoffTitle}\n` +
+      `Subtitle: ${bookKickoffSubtitle}\n` +
+      `Summary: ${summary}`;
+    void send(finalPrompt);
+  };
+
+  const handleBookKickoffOption = (option: "start_together" | "complete_idea") => {
+    if (bookKickoffStage !== "choice") return;
+    const pub = usePublishingStore.getState();
+    if (option === "complete_idea") {
+      pub.pushUserMessage("I have a full concept ready.");
+      scheduleKickoffAssistantReveal(
+        crypto.randomUUID(),
+        "What's the working title for your book?",
+        kickoffLoaderTimersRef.current,
+      );
+      setBookKickoffStage("title");
+      return;
+    }
+    pub.pushUserMessage("No, let's build it together.");
+    scheduleKickoffAssistantReveal(
+      crypto.randomUUID(),
+      "What's the book about in a sentence or two?",
+      kickoffLoaderTimersRef.current,
+    );
+    setBookKickoffStage("general_idea");
+  };
+
+  const handleSend = (text: string) => {
+    const value = text.trim();
+    if (!value) return;
+    const pub = usePublishingStore.getState();
+    if (bookKickoffStage === "title") {
+      pub.pushUserMessage(value);
+      setBookKickoffTitle(value);
+      scheduleKickoffAssistantReveal(
+        crypto.randomUUID(),
+        "Nice. What subtitle would you like?",
+        kickoffLoaderTimersRef.current,
+      );
+      setBookKickoffStage("subtitle");
+      return;
+    }
+    if (bookKickoffStage === "subtitle") {
+      pub.pushUserMessage(value);
+      setBookKickoffSubtitle(value);
+      scheduleKickoffAssistantReveal(
+        crypto.randomUUID(),
+        "Great. Give me a 2-3 sentence summary of the book.",
+        kickoffLoaderTimersRef.current,
+      );
+      setBookKickoffStage("summary");
+      return;
+    }
+    if (bookKickoffStage === "summary") {
+      startCompleteIdeaFlow(value);
+      return;
+    }
+    if (bookKickoffStage === "general_idea") {
+      startNormalBookFlow(value);
+      return;
+    }
+    void send(value);
+  };
 
   const hasThread = messages.length > 0;
   const showConversationChrome =
@@ -156,13 +305,15 @@ export function ChatPageClient() {
     setPayPalGateErr(null);
     const id = usePublishingStore.getState().activeBookId;
     if (!id) {
-      setPayPalGateErr("No book ID yet — continue until a book is created, then try again.");
+      setPayPalGateErr(
+        "We're almost there. Finish the steps until your book is created, then try again.",
+      );
       return;
     }
     if (!getAccessToken()) {
       useAuthDialogRequestStore.getState().requestLogin();
       setPayPalGateErr(
-        "Sign in or create an account to pay with PayPal — then tap the button again.",
+        "Please sign in or create an account to pay with PayPal, then tap the button again.",
       );
       return;
     }
@@ -174,13 +325,15 @@ export function ChatPageClient() {
     setPayPalGateErr(null);
     const id = usePublishingStore.getState().activeBookId;
     if (!id) {
-      setPayPalGateErr("No book ID yet — continue until a book is created, then try again.");
+      setPayPalGateErr(
+        "We're almost there. Finish the steps until your book is created, then try again.",
+      );
       return;
     }
     const token = getAccessToken();
     if (!token) {
       useAuthDialogRequestStore.getState().requestLogin();
-      setPayPalGateErr("Sign in to use your subscription credits.");
+      setPayPalGateErr("Please sign in to use your subscription credits.");
       return;
     }
     setGenerateFullBusy(true);
@@ -210,6 +363,18 @@ export function ChatPageClient() {
     usePublishingStore.getState().setComposerStep("preview"),
     usePublishingStore.getState().setComposerAction("revise"));
 
+  const handleCollaborativeAgree = () => {
+    void send("Yes — that works for me. Please continue.", {
+      collaborativeAck: true,
+    });
+  };
+  const handleCollaborativeQuickChange = (message: string) => {
+    void handleSend(message);
+  };
+  const handleCollaborativeChangeSend = (text: string) => {
+    void handleSend(`I'd like to change something: ${text}`);
+  };
+
   return (
     <>
       <FullBookPricingDialog
@@ -238,7 +403,7 @@ export function ChatPageClient() {
           isAuthenticated={isAuthenticated}
           outlineMobileOpen={outlineMobileOpen}
           onCloseOutlineMobile={() => setOutlineMobileOpen(false)}
-          onSend={(t) => void send(t)}
+          onSend={handleSend}
           clearErr={clearErr}
           proceedToOutline={proceedToOutline}
           changeRequirements={changeRequirements}
@@ -251,6 +416,12 @@ export function ChatPageClient() {
           changePreview={changePreview}
           payPalLoading={payPalLoading}
           payPalError={payPalGateErr ?? payPalErr}
+          bookKickoffStage={bookKickoffStage}
+          onBookKickoffOptionSelect={handleBookKickoffOption}
+          onBookKickoffInputSend={handleSend}
+          onCollaborativeAgree={handleCollaborativeAgree}
+          onCollaborativeQuickChange={handleCollaborativeQuickChange}
+          onCollaborativeChangeSend={handleCollaborativeChangeSend}
         />
       </ChatShell>
     </>

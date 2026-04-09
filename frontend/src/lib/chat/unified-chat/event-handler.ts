@@ -52,13 +52,21 @@ export function handleUnifiedChatSseEvent(
   if (event === "book_spec_ready") {
     const mid = data.messageId as string | undefined;
     const spec = (data.bookSpec ?? null) as Record<string, unknown> | null;
-    if (
-      mid &&
-      spec &&
-      typeof spec === "object" &&
-      Object.keys(spec).length > 0
-    ) {
-      handlers.patchChatMessage(mid, { bookSpec: spec });
+    if (mid) {
+      const patch: Record<string, unknown> = {};
+      if (
+        spec &&
+        typeof spec === "object" &&
+        Object.keys(spec).length > 0
+      ) {
+        patch.bookSpec = spec;
+      }
+      if (typeof data.offerCollaborativeFeedback === "boolean") {
+        patch.offerCollaborativeFeedback = data.offerCollaborativeFeedback;
+      }
+      if (Object.keys(patch).length > 0) {
+        handlers.patchChatMessage(mid, patch);
+      }
     }
     const bookId = crypto.randomUUID();
     handlers.setIntakeResult(

@@ -103,3 +103,7 @@ export function exportFileUrl(ex: ExportStatusPayload): string | undefined {
   const u = ex.file_url?.trim();
   return u || undefined;
 }
+
+export function exportPreviewUrl(bookPublicId: string, format: ExportFormat): string {
+  return `${GO_API_PREFIX}/v1/exports/${encodeURIComponent(bookPublicId)}/${encodeURIComponent(format)}/preview`;
+}

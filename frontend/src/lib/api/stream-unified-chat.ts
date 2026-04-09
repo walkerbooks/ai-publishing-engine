@@ -12,6 +12,10 @@ export type UnifiedChatInput = {
   bookOutline?: Record<string, unknown> | null;
   /** Logged-in user display name — backend skips name onboarding and greets by name. */
   userDisplayName?: string | null;
+  /** Matches "Let's build it together" kickoff — backend uses collaborative intake prompts. */
+  intakeCollaborative?: boolean;
+  /** User confirmed collaborative brief; server finalizes intake + outline gate without re-running LLM. */
+  intakeCollaborativeAck?: boolean;
 };
 
 export async function streamUnifiedChat(
@@ -33,6 +37,8 @@ export async function streamUnifiedChat(
       book_spec: input.bookSpec ?? null,
       book_outline: input.bookOutline ?? null,
       user_display_name: input.userDisplayName ?? null,
+      intake_collaborative: input.intakeCollaborative ?? false,
+      intake_collaborative_ack: input.intakeCollaborativeAck ?? false,
     }),
   });
 
