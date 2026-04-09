@@ -7,15 +7,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils/cn";
-import { FULL_BOOK_PACKAGES } from "@/lib/paypal/full-book-packages";
+import {
+  FULL_BOOK_PACKAGES,
+  type FullBookPackageTier,
+} from "@/lib/paypal/full-book-packages";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   loading?: boolean;
   error?: string | null;
-  /** Same PayPal checkout as “Pay with PayPal (full book)” — tier is display-only. */
-  onBuy: () => void;
+  onBuy: (tier: FullBookPackageTier) => void;
 };
 
 const NAVY = "#2E2E5C";
@@ -97,7 +99,7 @@ export function FullBookPricingDialog({
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={() => onBuy()}
+                  onClick={() => onBuy(pkg.tier)}
                   className={cn(
                     "flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60",
                   )}

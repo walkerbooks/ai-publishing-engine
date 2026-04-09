@@ -44,7 +44,7 @@ def _intake_node(state: BookPipelineState) -> BookPipelineState:
 def _outline_node(state: BookPipelineState) -> BookPipelineState:
     """Run outline agent; update state with book_outline."""
     book_spec = state.get("book_spec") or {}
-    outline = run_outline(book_spec=book_spec)
+    outline, _spec_used = run_outline(book_spec=book_spec)
     return {"book_outline": outline}
 
 

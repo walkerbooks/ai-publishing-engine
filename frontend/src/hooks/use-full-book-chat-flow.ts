@@ -14,6 +14,7 @@ import {
   getExportStatus,
   requestBookExport,
 } from "@/lib/api/exports-client";
+import { checkFullGenerationEntitlement } from "@/lib/api/subscriptions-client";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { randomFullBookQuip } from "@/lib/chat/full-book-quips";
 import type { FullBookGenPhase } from "@/lib/types/chat";
@@ -60,6 +61,9 @@ export function useFullBookChatFlow() {
   const bookOutline = usePublishingStore((s) => s.bookOutline);
   const previewContent = usePublishingStore((s) => s.previewContent);
   const mockPaymentConfirmed = usePublishingStore((s) => s.mockPaymentConfirmed);
+  const subscriptionFullGenUnlocked = usePublishingStore(
+    (s) => s.subscriptionFullGenUnlocked,
+  );
   const patchChatMessage = usePublishingStore((s) => s.patchChatMessage);
   const pushAssistantMessage = usePublishingStore((s) => s.pushAssistantMessage);
   const setAwaitingGate = usePublishingStore((s) => s.setAwaitingGate);
@@ -132,7 +136,10 @@ export function useFullBookChatFlow() {
       }
 
       const statusNorm = (book.Status || "").trim().toLowerCase();
-      const paid = PAID_LIKE.has(statusNorm) || mockPaymentConfirmed;
+      const paid =
+        PAID_LIKE.has(statusNorm) ||
+        mockPaymentConfirmed ||
+        subscriptionFullGenUnlocked;
       if (!paid) return;
 
       setAwaitingGate(null);
@@ -165,7 +172,20 @@ export function useFullBookChatFlow() {
 
         if (jobAlreadyTracked) {
           genRequestedRef.current = true;
-        } else if (canPostFullBook || mockPaymentConfirmed) {
+        } else if (
+          canPostFullBook ||
+          mockPaymentConfirmed ||
+          subscriptionFullGenUnlocked
+        ) {
+          const gate = await checkFullGenerationEntitlement(token);
+          if (!gate.ok) {
+            patchChatMessage(msgId, {
+              fullGenError: gate.message,
+              fullGenStatusText: "",
+            });
+            return;
+          }
+          patchChatMessage(msgId, { fullGenError: null });
           genRequestedRef.current = true;
           void requestFullGeneration(activeBookId, token).catch(() => {
             genRequestedRef.current = false;
@@ -287,6 +307,7 @@ export function useFullBookChatFlow() {
     bookOutline,
     previewContent,
     mockPaymentConfirmed,
+    subscriptionFullGenUnlocked,
     patchChatMessage,
     pushAssistantMessage,
     setAwaitingGate,

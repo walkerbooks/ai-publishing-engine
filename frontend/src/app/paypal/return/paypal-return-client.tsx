@@ -5,8 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { getBook } from "@/lib/api/books-client";
+import {
+  createSubscription,
+  packageTierToSubscriptionPlan,
+} from "@/lib/api/subscriptions-client";
 import { getAccessToken } from "@/lib/auth/access-token";
-import { PAYPAL_BOOK_STORAGE_KEY } from "@/lib/paypal/checkout-session";
+import {
+  PAYPAL_BOOK_STORAGE_KEY,
+  readPayPalCheckoutContext,
+  subscriptionPostedStorageKey,
+} from "@/lib/paypal/checkout-session";
 import { PayPalFlowCard } from "@/components/paypal/paypal-flow-card";
 import { Button } from "@/components/ui/button";
 import { getLogger } from "@/lib/log";
@@ -55,6 +63,27 @@ export function PayPalReturnClient() {
             sessionStorage.removeItem(PAYPAL_BOOK_STORAGE_KEY);
           } catch {
             /* */
+          }
+          const postedKey = subscriptionPostedStorageKey(bookId!);
+          let alreadyPosted = false;
+          try {
+            alreadyPosted = sessionStorage.getItem(postedKey) === "1";
+          } catch {
+            /* */
+          }
+          if (!alreadyPosted) {
+            const ctx = readPayPalCheckoutContext();
+            const plan = packageTierToSubscriptionPlan(ctx?.package_tier ?? "single");
+            try {
+              await createSubscription(plan, token);
+              try {
+                sessionStorage.setItem(postedKey, "1");
+              } catch {
+                /* */
+              }
+            } catch (e) {
+              log.warning("createSubscription after PayPal failed (non-blocking)", e);
+            }
           }
           log.debug("book paid-like; redirecting to full book", {
             bookId,
