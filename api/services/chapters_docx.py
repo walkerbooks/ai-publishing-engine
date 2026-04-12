@@ -2,14 +2,15 @@
 
 Layout:
   - 6×9 trade paperback, margins: top 1.03" / left+right 0.75" / bottom 0.19"
-  - Cover: title 36 pt bold centred; By / author 24 pt bold centred at bottom of page
-    (By = second-to-last line, author = last)
-  - Copyright page: 12 pt centred (© line + all rights reserved)
+  - Cover: title + subtitle auto-fit so By/author stay on page 1; By then author on the
+    next line (24 pt bold centred), then two blank lines below the author
+  - Copyright page (second page): 12 pt; © line + all rights reserved, centred
+    horizontally and vertically on the page
   - Acknowledgment / About the Author: section title 16 pt bold centred; body 11 pt
   - TOC: after About the Author (and optional Dedication); heading 16 pt; entries 11 pt
-    with dot leader at 4"; Chapter 1 begins on the following page
+    with dot leader to a right tab at the full text width; Chapter 1 begins on the following page
   - Chapters: "Chapter N" on first line, title on second line (both 16 pt bold centred);
-    body 11 pt justified with indents and 1.15× line spacing
+    body 11 pt justified, **0.75 cm first-line indent** per paragraph, 1.15× line spacing
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from docx import Document
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE
 from docx.enum.text import (
     WD_ALIGN_PARAGRAPH,
     WD_BREAK,
@@ -26,7 +28,9 @@ from docx.enum.text import (
     WD_TAB_ALIGNMENT,
     WD_TAB_LEADER,
 )
-from docx.shared import Inches, Pt, RGBColor, Twips
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Cm, Inches, Pt, RGBColor, Twips
 
 from api.services.chapters_pdf import (
     _COVER_TEXT_RGB,
@@ -35,6 +39,8 @@ from api.services.chapters_pdf import (
     _smart_double_quotes,
     _split_paragraphs,
     _strip_leading_chapter_prefix,
+    _toc_clean_page_disp,
+    _toc_display_label,
     strip_leading_chapter_heading_from_markdown,
 )
 
@@ -64,11 +70,83 @@ _PARA_AFTER_PT     = 8.0    # 160 twips ÷ 20
 _CHAPTER_BEFORE_PT = 4.8    # 69 twips  ÷ 20  (Heading1 space-before)
 _CHAPTER_AFTER_PT  = 8.0    # 160 twips ÷ 20  (Heading1 space-after)
 
-# Body-text side indents (416 / 414 DXA ≈ 0.289")
-_BODY_INDENT_INCHES = 416 / 1440
+# First-line indent for narrative body (ack / about / dedication / chapters)
+_BODY_FIRST_LINE_INDENT = Cm(0.75)
 
-# TOC right-tab position (content width = 6" − 0.75" − 0.75" = 4.5"; tab at 4")
-_TOC_TAB_POS = Inches(4)
+# Printable width (inches) for wrap estimates on 6×9 with 0.75" side margins
+_COVER_TEXT_WIDTH_IN = 4.5
+
+
+def _toc_right_tab_position(doc: Document):
+    """Right tab at the inner edge of the text block so page numbers align flush right."""
+    sec = doc.sections[0]
+    return sec.page_width - sec.left_margin - sec.right_margin
+
+
+def _cover_chars_per_line(pt: float) -> int:
+    """Approximate chars per line at ``pt`` bold Times on the cover text measure."""
+    width_pt = _COVER_TEXT_WIDTH_IN * 72.0
+    return max(10, int(width_pt / (pt * 0.52)))
+
+
+def _cover_footer_reserve_pt() -> float:
+    """
+    Vertical space (pt) reserved for: 'By' line + gap + up to two author lines
+    (long names may wrap) + two blank lines below (same leading as the By block).
+    """
+    line = _COVER_BY_PT * 1.15
+    return line + 4.0 + (2.0 * line) + (2.0 * line)
+
+
+def _estimate_cover_title_block_pt(
+    main_title: str,
+    subtitle_line: str,
+    main_pt: float,
+    sub_pt: float,
+) -> float:
+    """Conservative height (pt) for title + optional subtitle from top of body."""
+    used = 28.0  # space_before cover title
+    cm = _cover_chars_per_line(main_pt)
+    n_main = max(1, (len(main_title) + cm - 1) // cm)
+    used += n_main * (main_pt * 1.2)
+    sub = (subtitle_line or "").strip()
+    if sub:
+        cs = _cover_chars_per_line(sub_pt)
+        n_sub = max(1, (len(sub) + cs - 1) // cs)
+        used += 6.0 + n_sub * (sub_pt * 1.15)
+    used += 24.0  # Word / wrapping fudge
+    return used
+
+
+def _cover_fit_font_sizes(
+    doc: Document,
+    main_title: str,
+    subtitle_line: str,
+    *,
+    require_by_footer: bool,
+) -> tuple[float, float]:
+    """
+    Pick (title_pt, subtitle_pt) so title + subtitle fit on page 1.
+
+    When ``require_by_footer`` is True, also reserve space for By + author + two lines
+    below the author (same as ``_cover_footer_reserve_pt``).
+    """
+    usable = _section_body_usable_height_pt(doc)
+    reserve = _cover_footer_reserve_pt() if require_by_footer else 24.0
+    min_gap = 8.0
+    main_candidates = [36.0, 32.0, 28.0, 26.0, 24.0, 22.0, 20.0, 18.0]
+    sub_candidates = [20.0, 18.0, 16.0, 14.0, 12.0]
+
+    sub_has = bool((subtitle_line or "").strip())
+    for main_pt in main_candidates:
+        sub_opts: list[float] = sub_candidates if sub_has else [0.0]
+        for sub_pt in sub_opts:
+            used = _estimate_cover_title_block_pt(
+                main_title, subtitle_line if sub_has else "", main_pt, sub_pt
+            )
+            if used + reserve + min_gap <= usable:
+                return (main_pt, sub_pt if sub_has else _COVER_SUB_PT)
+    return (18.0, 12.0 if sub_has else _COVER_SUB_PT)
 
 
 # ---------------------------------------------------------------------------
@@ -89,48 +167,31 @@ def _set_trade_page_layout(doc: Document) -> None:
         section.footer_distance = Twips(720)  # 0.50"
 
 
+def _section_body_usable_height_pt(doc: Document) -> float:
+    """Vertical space inside page margins (pt), for centering short blocks like copyright."""
+    sec = doc.sections[0]
+    return float(
+        sec.page_height.pt - sec.top_margin.pt - sec.bottom_margin.pt
+    )
+
+
 def _cover_space_before_by_pt(
     doc: Document,
     main_title: str,
     *,
     subtitle_line: str,
+    main_pt: float,
+    sub_pt: float,
 ) -> float:
     """
-    Space before the 'By' paragraph so 'By' and the author sit on the last two
-    lines of the cover body area (By second-to-last, author last).
-
-    Uses conservative wrap counts for 6×9 body width (~4.5"). If ``used`` is
-    underestimated, ``space_before`` is too large and Word moves the By line
-    to the next page.
+    Space before the 'By' paragraph so title + subtitle + By + author + two lines
+    below the author fit on page 1. Uses the same font sizes as the cover runs.
     """
-    sec = doc.sections[0]
-    usable = float(
-        sec.page_height.pt - sec.top_margin.pt - sec.bottom_margin.pt
-    )
-
-    # ~4.5" printable @ 36 pt bold → ~20–24 chars/line (40 is far too optimistic)
-    chars_per_main_line = 22
-    # Subtitle 20 pt → slightly more chars per line
-    chars_per_sub_line = 36
-
-    # Height used by title block from top of body
-    used = 28.0  # cover title space_before
-    n_main = max(1, (len(main_title) + chars_per_main_line - 1) // chars_per_main_line)
-    used += n_main * (_COVER_MAIN_PT * 1.2)
-
-    sub = (subtitle_line or "").strip()
-    if sub:
-        n_sub = max(1, (len(sub) + chars_per_sub_line - 1) // chars_per_sub_line)
-        used += 6.0 + n_sub * (_COVER_SUB_PT * 1.15)
-
-    # Style / rounding fudge so we do not exceed remaining space on page 1
-    used += 16.0
-
-    # Two lines at 24 pt + gap between By and author + bottom breathing room
-    reserve_for_by_author = _COVER_BY_PT * 2.4 + 4.0 + 8.0
-
-    gap = usable - used - reserve_for_by_author
-    return max(12.0, gap)
+    usable = _section_body_usable_height_pt(doc)
+    used = _estimate_cover_title_block_pt(main_title, subtitle_line, main_pt, sub_pt)
+    reserve = _cover_footer_reserve_pt()
+    gap = usable - used - reserve
+    return max(6.0, gap)
 
 
 def _set_body_style(doc: Document) -> None:
@@ -146,7 +207,7 @@ def _set_body_style(doc: Document) -> None:
 
 def _add_body_paragraph(doc: Document, text: str, is_last_in_chapter: bool = False) -> None:
     """
-    Add one body paragraph: Times NR 11 pt, justified, 0.29" side indents,
+    Add one body paragraph: Times NR 11 pt, justified, 0.75 cm first-line indent,
     1.15× line spacing, 25.7 pt before, 8 pt after (16 pt after last para).
     """
     bp = doc.add_paragraph()
@@ -155,8 +216,7 @@ def _add_body_paragraph(doc: Document, text: str, is_last_in_chapter: bool = Fal
     r.font.size = Pt(_BODY_PT)
     bp.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     fmt = bp.paragraph_format
-    fmt.left_indent  = Inches(_BODY_INDENT_INCHES)
-    fmt.right_indent = Inches(_BODY_INDENT_INCHES)
+    fmt.first_line_indent = _BODY_FIRST_LINE_INDENT
     fmt.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
     fmt.line_spacing      = _BODY_LINE_MULT
     fmt.space_before      = Pt(_BODY_BEFORE_PT)
@@ -194,20 +254,73 @@ def _add_two_line_chapter_heading(
     r2.font.size = Pt(_CHAPTER_PT)
 
 
+def _set_table_borderless(table: Any) -> None:
+    """Remove visible borders from a table (copyright layout helper)."""
+    tbl = table._tbl
+    tbl_pr = tbl.tblPr
+    if tbl_pr is None:
+        tbl_pr = OxmlElement("w:tblPr")
+        tbl.insert(0, tbl_pr)
+    borders = OxmlElement("w:tblBorders")
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        node = OxmlElement(f"w:{edge}")
+        node.set(qn("w:val"), "nil")
+        node.set(qn("w:sz"), "0")
+        node.set(qn("w:space"), "0")
+        node.set(qn("w:color"), "auto")
+        borders.append(node)
+    old = tbl_pr.find(qn("w:tblBorders"))
+    if old is not None:
+        tbl_pr.remove(old)
+    tbl_pr.append(borders)
+
+
 def _add_copyright_page(doc: Document, author_name: str | None) -> None:
-    """Copyright © 2025 by … and All rights reserved, 12 pt centred."""
+    """
+    Copyright page: two lines, 12 pt, centred horizontally and vertically within
+    the printable page using a full-height single-cell table (second page).
+    """
     name = (author_name or "").strip() or "Umer Naeem"
-    lines = (f"Copyright © 2025 by {name}", "All rights reserved")
-    for i, text in enumerate(lines):
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r = p.add_run(text)
-        r.font.name = _FONT_BODY
-        r.font.size = Pt(_COPYRIGHT_PT)
-        r.font.bold = False
-        if i == len(lines) - 1:
-            # Page break on this paragraph — avoids an extra empty para (blank page in Word)
-            p.add_run().add_break(WD_BREAK.PAGE)
+    sec = doc.sections[0]
+    usable_pt = _section_body_usable_height_pt(doc)
+    content_w = sec.page_width - sec.left_margin - sec.right_margin
+
+    tbl = doc.add_table(rows=1, cols=1)
+    tbl.autofit = False
+    _set_table_borderless(tbl)
+    try:
+        tbl.columns[0].width = content_w
+    except (ValueError, AttributeError):
+        pass
+
+    row = tbl.rows[0]
+    row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
+    row.height = Pt(int(usable_pt))
+
+    cell = tbl.cell(0, 0)
+    cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+
+    p1 = cell.paragraphs[0]
+    p1.clear()
+    p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p1.paragraph_format.space_before = Pt(0)
+    p1.paragraph_format.space_after = Pt(0)
+    p1.paragraph_format.first_line_indent = Pt(0)
+    r1 = p1.add_run(f"Copyright © 2025 by {name}")
+    r1.font.name = _FONT_BODY
+    r1.font.size = Pt(_COPYRIGHT_PT)
+    r1.font.bold = False
+
+    p2 = cell.add_paragraph()
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p2.paragraph_format.space_before = Pt(0)
+    p2.paragraph_format.space_after = Pt(0)
+    p2.paragraph_format.first_line_indent = Pt(0)
+    r2 = p2.add_run("All rights reserved")
+    r2.font.name = _FONT_BODY
+    r2.font.size = Pt(_COPYRIGHT_PT)
+    r2.font.bold = False
+    p2.add_run().add_break(WD_BREAK.PAGE)
 
 
 # ---------------------------------------------------------------------------
@@ -254,40 +367,47 @@ def build_manuscript_docx_bytes(
     auth       = (author_name or "").strip()[:300]
 
     # ------------------------------------------------------------------
-    # Cover page — title top; By / author bottom (By = second-to-last line)
+    # Cover page — title/subtitle (auto-fit); By then author; two lines below author
     # ------------------------------------------------------------------
+    cover_main_pt, cover_sub_pt = _cover_fit_font_sizes(
+        doc, main_title, sub_line, require_by_footer=bool(auth)
+    )
+
     p_main = doc.add_paragraph()
     p_main.paragraph_format.space_before = Pt(28)
     p_main.paragraph_format.space_after = Pt(0) if auth else Pt(8)
-    p_main.paragraph_format.keep_together = True
     p_main.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_main = p_main.add_run(main_title)
     r_main.font.name = _FONT_COVER
     r_main.font.bold = True
-    r_main.font.size = Pt(_COVER_MAIN_PT)
+    r_main.font.size = Pt(cover_main_pt)
     r_main.font.color.rgb = cover_rgb
 
     if sub_line:
         p_sub = doc.add_paragraph()
         p_sub.paragraph_format.space_before = Pt(0)
         p_sub.paragraph_format.space_after = Pt(0)
-        p_sub.paragraph_format.keep_together = True
         p_sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
         r_sub = p_sub.add_run(sub_line)
         r_sub.font.name = _FONT_COVER
         r_sub.font.bold = True
-        r_sub.font.size = Pt(_COVER_SUB_PT)
+        r_sub.font.size = Pt(cover_sub_pt)
         r_sub.font.color.rgb = cover_rgb
 
     if auth:
         p_by = doc.add_paragraph()
         p_by.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_by.paragraph_format.space_before = Pt(
-            _cover_space_before_by_pt(doc, main_title, subtitle_line=sub_line)
+            _cover_space_before_by_pt(
+                doc,
+                main_title,
+                subtitle_line=sub_line,
+                main_pt=cover_main_pt,
+                sub_pt=cover_sub_pt,
+            )
         )
         p_by.paragraph_format.space_after = Pt(0)
         p_by.paragraph_format.keep_with_next = True
-        p_by.paragraph_format.keep_together = True
         r_by = p_by.add_run("By")
         r_by.font.name = _FONT_BY_LINE
         r_by.font.bold = True
@@ -296,8 +416,8 @@ def build_manuscript_docx_bytes(
 
         p_auth = doc.add_paragraph()
         p_auth.paragraph_format.space_before = Pt(4)
-        p_auth.paragraph_format.space_after = Pt(0)
-        p_auth.paragraph_format.keep_together = True
+        # Two blank lines (same leading as By block) below author on page 1
+        p_auth.paragraph_format.space_after = Pt(2 * _COVER_BY_PT * 1.15)
         p_auth.alignment = WD_ALIGN_PARAGRAPH.CENTER
         r_auth = p_auth.add_run(auth)
         r_auth.font.name = _FONT_AUTHOR
@@ -418,19 +538,24 @@ def build_manuscript_docx_bytes(
     r_toc.font.bold = True
     r_toc.font.size = Pt(_TOC_HEADING_PT)
 
+    tab_pos = _toc_right_tab_position(doc)
     last_toc_para = None
     for label, page_str in toc:
         p_line = doc.add_paragraph()
+        p_line.alignment = WD_ALIGN_PARAGRAPH.LEFT
         p_line.paragraph_format.space_after = Pt(2)
         p_line.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
         p_line.paragraph_format.line_spacing = 1.2
         p_line.paragraph_format.tab_stops.add_tab_stop(
-            _TOC_TAB_POS, WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS
+            tab_pos, WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS
         )
-        r_line = p_line.add_run(f"{label}\t{page_str}")
-        r_line.font.name = _FONT_BODY
-        r_line.font.size = Pt(_TOC_LINE_PT)
-        r_line.font.bold = False
+        disp_label = _toc_display_label(label)
+        page_clean = _toc_clean_page_disp(page_str)
+        for chunk in (disp_label, "\t", page_clean):
+            r = p_line.add_run(chunk)
+            r.font.name = _FONT_BODY
+            r.font.size = Pt(_TOC_LINE_PT)
+            r.font.bold = False
         last_toc_para = p_line
 
     # Page break on last TOC paragraph so Chapter 1 starts on the next page (no empty para)

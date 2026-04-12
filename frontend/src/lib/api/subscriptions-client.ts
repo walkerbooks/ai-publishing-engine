@@ -28,6 +28,22 @@ export type SubscriptionEntitlement = {
   multi_book_cooldown_seconds: number;
 };
 
+const _ZERO_UUID = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * Distinguishes "never bought a plan" from "had credits, used them" for UI copy.
+ * Same `has_entitlement: false` is returned in both cases; use this for messaging only.
+ */
+export function isLikelyNeverPurchasedEntitlement(
+  ent: SubscriptionEntitlement,
+): boolean {
+  const sid = (ent.subscription_public_id ?? "").trim();
+  const pl = (ent.plan ?? "").trim();
+  if (!pl) return true;
+  if (!sid || sid === _ZERO_UUID) return true;
+  return false;
+}
+
 const SUBSCRIPTIONS_BASE = `${GO_API_PREFIX}/v1/subscriptions`;
 
 export function packageTierToSubscriptionPlan(
