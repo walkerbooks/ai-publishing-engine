@@ -13,17 +13,30 @@ import { ensureGuestSessionWithServer } from "@/lib/api/guest-client";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { ChatWorkspace } from "@/components/chat/chat-workspace";
 import { ChatShell } from "@/components/chat/shell/chat-shell";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { FullBookPricingDialog } from "@/components/paypal/full-book-pricing-dialog";
 import type { FullBookPackageTier } from "@/lib/paypal/full-book-packages";
 import type { ChatMessage } from "@/lib/types/chat";
 import {
   checkFullGenerationEntitlement,
   fetchSubscriptionEntitlement,
+  formatNextFullGenerationSlot,
 } from "@/lib/api/subscriptions-client";
 import { useFullBookChatFlow } from "@/hooks/use-full-book-chat-flow";
+import { threadPastBookKickoff } from "@/lib/chat/book-kickoff";
 import { getUnifiedAssistantPlaceholder } from "@/lib/chat/unified-chat/placeholders";
 
 const KICKOFF_ASSISTANT_LOADER_MS = 550;
+
+const FULL_BOOK_COOLDOWN_POPUP_FALLBACK =
+  "You still have a full book on your plan. The next generation opens when your plan's cooldown ends.";
 
 function scheduleKickoffAssistantReveal(
   id: string,
@@ -86,6 +99,8 @@ export function ChatPageClient() {
   const messages = usePublishingStore((s) => s.chatMessages);
   const awaitingGate = usePublishingStore((s) => s.awaitingGate);
   const bookOutline = usePublishingStore((s) => s.bookOutline);
+  const previewContent = usePublishingStore((s) => s.previewContent);
+  const composerStep = usePublishingStore((s) => s.composerStep);
   const conversationCount = useChatDirectoryStore((s) => s.conversations.length);
   const listLoaded = useChatDirectoryStore((s) => s.listLoaded);
 
@@ -126,8 +141,14 @@ export function ChatPageClient() {
   const [payPalGateErr, setPayPalGateErr] = useState<string | null>(null);
   const [fullBookPricingOpen, setFullBookPricingOpen] = useState(false);
   const [fullBookGateMode, setFullBookGateMode] = useState<
-    "loading" | "generate" | "paypal"
+    "loading" | "generate" | "cooldown" | "paypal"
   >("paypal");
+  const [fullBookCooldownSummary, setFullBookCooldownSummary] = useState<
+    string | null
+  >(null);
+  const [fullBookCooldownPopupDismissed, setFullBookCooldownPopupDismissed] =
+    useState(false);
+  const lastCooldownPopupSummaryRef = useRef("");
   const [generateFullBusy, setGenerateFullBusy] = useState(false);
   const [bookKickoffStage, setBookKickoffStage] = useState<BookKickoffStage>("choice");
   const [bookKickoffTitle, setBookKickoffTitle] = useState("");
@@ -146,27 +167,63 @@ export function ChatPageClient() {
     const token = getAccessToken();
     if (!isAuthenticated || !token) {
       setFullBookGateMode("paypal");
+      setFullBookCooldownSummary(null);
       return;
     }
     let cancelled = false;
     setFullBookGateMode("loading");
+    setFullBookCooldownSummary(null);
     void (async () => {
       try {
         const ent = await fetchSubscriptionEntitlement(token);
         if (cancelled) return;
-        setFullBookGateMode(
-          ent.has_entitlement && ent.can_start_full_generation
-            ? "generate"
-            : "paypal",
-        );
+        if (ent.has_entitlement && ent.can_start_full_generation) {
+          setFullBookGateMode("generate");
+          setFullBookCooldownSummary(null);
+        } else if (ent.has_entitlement && !ent.can_start_full_generation) {
+          setFullBookGateMode("cooldown");
+          const when = formatNextFullGenerationSlot(ent.next_full_generation_after);
+          const creditLine =
+            ent.books_remaining > 0
+              ? ent.books_remaining === 1
+                ? "You have 1 full book credit left. "
+                : `You have ${ent.books_remaining} full book credits left. `
+              : "";
+          setFullBookCooldownSummary(
+            `${creditLine}Your plan allows one full book every 24 hours. Next slot: ${when}.`,
+          );
+        } else {
+          setFullBookGateMode("paypal");
+          setFullBookCooldownSummary(null);
+        }
       } catch {
-        if (!cancelled) setFullBookGateMode("paypal");
+        if (!cancelled) {
+          setFullBookGateMode("paypal");
+          setFullBookCooldownSummary(null);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [awaitingGate, isAuthenticated]);
+
+  useEffect(() => {
+    if (awaitingGate !== "full") {
+      setFullBookCooldownPopupDismissed(false);
+      lastCooldownPopupSummaryRef.current = "";
+    }
+  }, [awaitingGate]);
+
+  useEffect(() => {
+    if (fullBookGateMode !== "cooldown") return;
+    const t = (fullBookCooldownSummary ?? "").trim();
+    if (!t) return;
+    if (t !== lastCooldownPopupSummaryRef.current) {
+      lastCooldownPopupSummaryRef.current = t;
+      setFullBookCooldownPopupDismissed(false);
+    }
+  }, [fullBookGateMode, fullBookCooldownSummary]);
 
   /** Guests and first-time signed-in users use the YouTube welcome path; returning signed-in users get the title/summary kickoff. */
   useEffect(() => {
@@ -181,6 +238,31 @@ export function ChatPageClient() {
       setBookKickoffStage("choice");
     }
   }, [listLoaded, isAuthenticated, conversationCount, messages.length]);
+
+  /** Re-opened threads default kickoff stage to "choice" — snap to done once outline/preview exists. */
+  useEffect(() => {
+    if (!listLoaded || !isAuthenticated) return;
+    if (
+      !threadPastBookKickoff({
+        awaitingGate,
+        bookOutline,
+        previewContent,
+        composerStep,
+        messages,
+      })
+    ) {
+      return;
+    }
+    setBookKickoffStage((stage) => (stage !== "done" ? "done" : stage));
+  }, [
+    listLoaded,
+    isAuthenticated,
+    messages,
+    awaitingGate,
+    bookOutline,
+    previewContent,
+    composerStep,
+  ]);
 
   useEffect(() => {
     if (messages.length) return;
@@ -341,7 +423,31 @@ export function ChatPageClient() {
       const gate = await checkFullGenerationEntitlement(token);
       if (!gate.ok) {
         setPayPalGateErr(gate.message);
-        setFullBookGateMode("paypal");
+        try {
+          const ent = await fetchSubscriptionEntitlement(token);
+          if (ent.has_entitlement && ent.can_start_full_generation) {
+            setFullBookGateMode("generate");
+            setFullBookCooldownSummary(null);
+          } else if (ent.has_entitlement && !ent.can_start_full_generation) {
+            setFullBookGateMode("cooldown");
+            const when = formatNextFullGenerationSlot(ent.next_full_generation_after);
+            const creditLine =
+              ent.books_remaining > 0
+                ? ent.books_remaining === 1
+                  ? "You have 1 full book credit left. "
+                  : `You have ${ent.books_remaining} full book credits left. `
+                : "";
+            setFullBookCooldownSummary(
+              `${creditLine}Your plan allows one full book every 24 hours. Next slot: ${when}.`,
+            );
+          } else {
+            setFullBookGateMode("paypal");
+            setFullBookCooldownSummary(null);
+          }
+        } catch {
+          setFullBookGateMode("paypal");
+          setFullBookCooldownSummary(null);
+        }
         return;
       }
       usePublishingStore.getState().setSubscriptionFullGenUnlocked(true);
@@ -375,8 +481,39 @@ export function ChatPageClient() {
     void handleSend(`I'd like to change something: ${text}`);
   };
 
+  const fullBookCooldownPopupBody =
+    fullBookCooldownSummary?.trim() || FULL_BOOK_COOLDOWN_POPUP_FALLBACK;
+  const showFullBookCooldownDialog =
+    awaitingGate === "full" &&
+    fullBookGateMode === "cooldown" &&
+    Boolean(fullBookCooldownSummary?.trim()) &&
+    !fullBookCooldownPopupDismissed;
+
   return (
     <>
+      <Dialog
+        open={showFullBookCooldownDialog}
+        onOpenChange={(open) => {
+          if (!open) setFullBookCooldownPopupDismissed(true);
+        }}
+      >
+        <DialogContent className="border-border dark:border-white/10 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>When you can generate your full book</DialogTitle>
+            <DialogDescription className="text-left text-sm leading-relaxed text-foreground dark:text-zinc-200">
+              {fullBookCooldownPopupBody}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              onClick={() => setFullBookCooldownPopupDismissed(true)}
+            >
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <FullBookPricingDialog
         open={fullBookPricingOpen}
         onOpenChange={(open) => {

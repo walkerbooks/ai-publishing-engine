@@ -16,6 +16,7 @@ import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { usePublishingStore } from "@/stores/publishing-store";
 import { shouldDisableDockComposerForGuestInlineCapture } from "@/lib/chat/welcome-flow";
 import { shouldShowCollaborativeFeedback } from "@/lib/chat/collaborative-feedback";
+import { threadPastBookKickoff } from "@/lib/chat/book-kickoff";
 import { isTerminalFullBookPdfComplete } from "@/lib/chat/terminal-full-book";
 
 type GateHandlers = {
@@ -26,7 +27,7 @@ type GateHandlers = {
   payForFullBook: () => void;
   generateFullWithSubscription: () => void;
   changePreview: () => void;
-  fullBookGateMode?: "loading" | "generate" | "paypal";
+  fullBookGateMode?: "loading" | "generate" | "cooldown" | "paypal";
   generateFullBusy?: boolean;
   payPalLoading?: boolean;
   payPalError?: string | null;
@@ -97,11 +98,24 @@ export function ChatWorkspace({
   const intakeCollaborative = usePublishingStore((s) => s.intakeCollaborative);
   const intakeComplete = usePublishingStore((s) => s.intakeComplete);
   const composerStep = usePublishingStore((s) => s.composerStep);
+  const previewContent = usePublishingStore((s) => s.previewContent);
   const [collaborativeChangeOpen, setCollaborativeChangeOpen] = useState(false);
 
   const terminalFullBookPdfDone = useMemo(
     () => isTerminalFullBookPdfComplete(messages),
     [messages],
+  );
+
+  const hideBookKickoffForProgress = useMemo(
+    () =>
+      threadPastBookKickoff({
+        awaitingGate,
+        bookOutline,
+        previewContent,
+        composerStep,
+        messages,
+      }),
+    [awaitingGate, bookOutline, previewContent, composerStep, messages],
   );
 
   const showCollaborativeFeedback = useMemo(
@@ -142,11 +156,13 @@ export function ChatWorkspace({
     messages.at(-1)!.content.trim().startsWith("[");
   const showBookKickoffChoices =
     !terminalFullBookPdfDone &&
+    !hideBookKickoffForProgress &&
     bookKickoffStage === "choice" &&
     messages.at(-1)?.role === "assistant" &&
     !assistantKickoffLoader;
   const showBookKickoffInput =
     !terminalFullBookPdfDone &&
+    !hideBookKickoffForProgress &&
     (bookKickoffStage === "title" ||
       bookKickoffStage === "subtitle" ||
       bookKickoffStage === "summary" ||
