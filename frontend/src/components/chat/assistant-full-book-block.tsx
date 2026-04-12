@@ -146,8 +146,8 @@ export function AssistantFullBookBlock({
                   <span className="font-medium text-walker-teal">&ldquo;{bookTitle}&rdquo;</span>
                 </>
               ) : null}
-              . Preview it below, and we&rsquo;ve sent a copy to your email. If you&rsquo;d like
-              changes, say so here.
+              . Preview it below, and we&rsquo;ve sent a copy to your email. For a new revision,
+              start <span className="font-medium">New book chat</span> from the sidebar.
             </p>
           </div>
           {pdfLoadError ? (
