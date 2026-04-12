@@ -54,7 +54,6 @@ export type ChatMessage = {
   /** kind === "full" — in-chat manuscript + export */
   fullGenPhase?: FullBookGenPhase;
   fullGenStatusText?: string;
-  fullChapterMarkdown?: string;
   fullPdfUrl?: string | null;
   fullBookTitle?: string | null;
   /** Display name for export filename "Author - Title.pdf" (e.g. account first name). */

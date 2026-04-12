@@ -8,7 +8,11 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from api.config import get_settings
-from api.services.generation_internal import run_full_generation, run_preview_generation
+from api.services.generation_internal import (
+    run_full_generation,
+    run_manuscript_export_for_book,
+    run_preview_generation,
+)
 
 router = APIRouter(tags=["internal"])
 
@@ -16,6 +20,10 @@ router = APIRouter(tags=["internal"])
 class GenerateBody(BaseModel):
     book_id: int = Field(..., ge=1)
     kind: Literal["preview_generation", "full_generation"]
+
+
+class BuildExportBody(BaseModel):
+    book_id: int = Field(..., ge=1)
 
 
 def _verify_internal_bearer(authorization: str | None) -> None:
@@ -45,3 +53,18 @@ def internal_generate(
         return Response(status_code=202)
     run_preview_generation(payload.book_id)
     return Response(status_code=200)
+
+
+@router.post("/internal/build-export")
+def internal_build_export(
+    payload: BuildExportBody,
+    background_tasks: BackgroundTasks,
+    authorization: Annotated[str | None, Header()] = None,
+) -> Response:
+    """
+    Go calls this after POST /v1/exports/request (or to heal a stuck queued row).
+    Runs ``chapters_pdf`` + ``chapters_docx`` and POSTs export + status to Go.
+    """
+    _verify_internal_bearer(authorization)
+    background_tasks.add_task(run_manuscript_export_for_book, payload.book_id)
+    return Response(status_code=202)

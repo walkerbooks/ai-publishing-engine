@@ -70,7 +70,6 @@ export function ChatMessageRow({
           <AssistantFullBookBlock
             phase={message.fullGenPhase ?? "generating"}
             statusLine={message.fullGenStatusText ?? "…"}
-            firstChapterMarkdown={message.fullChapterMarkdown}
             bookTitle={message.fullBookTitle}
             authorName={message.fullBookAuthorName}
             pdfUrl={message.fullPdfUrl}
