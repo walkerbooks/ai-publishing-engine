@@ -17,7 +17,8 @@ export function AuthHydrate() {
       if (
         e.key === "ai_pub_access_token" ||
         e.key === "ai_pub_user_email" ||
-        e.key === "ai_pub_user_first_name"
+        e.key === "ai_pub_user_first_name" ||
+        e.key === "ai_pub_user_role"
       ) {
         hydrate();
       }

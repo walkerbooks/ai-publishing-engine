@@ -5,7 +5,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { authWithGoogle, login } from "@/lib/api/auth-client";
 import { authErrorFromUnknown } from "@/lib/auth/auth-messages";
-import { completeAuthNavigation } from "@/lib/auth/post-auth-navigation";
+import {
+  completeAuthNavigation,
+  resolvePostAuthRedirectPath,
+} from "@/lib/auth/post-auth-navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthFormShell } from "@/components/auth/auth-form-shell";
 import { GoogleAuthButton } from "@/components/auth/google-auth-button";
@@ -16,6 +19,11 @@ export type LoginFormProps = {
   variant?: "page" | "dialog";
   /** Post-login navigation (dialog defaults to /chat). */
   redirectAfterLogin?: string;
+  /**
+   * When true (full-page login with no `?next=`), admins are sent to `/admin` instead of `/chat`.
+   * Dialog logins should leave this false.
+   */
+  defaultConsumerLanding?: boolean;
   onAuthenticated?: () => void;
   onSwitchToSignup?: () => void;
 };
@@ -23,14 +31,20 @@ export type LoginFormProps = {
 export function LoginFormWithNextFromUrl() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
+  const hasExplicitNext = Boolean(next && next.startsWith("/"));
   return (
-    <LoginForm redirectAfterLogin={next && next.startsWith("/") ? next : "/chat"} variant="page" />
+    <LoginForm
+      redirectAfterLogin={hasExplicitNext ? next! : "/chat"}
+      defaultConsumerLanding={!hasExplicitNext}
+      variant="page"
+    />
   );
 }
 
 export function LoginForm({
   variant = "page",
   redirectAfterLogin = "/chat",
+  defaultConsumerLanding = false,
   onAuthenticated,
   onSwitchToSignup,
 }: LoginFormProps) {
@@ -48,10 +62,14 @@ export function LoginForm({
     setLoading(true);
     try {
       const { access_token, user } = await login(email, password);
-      setSession(access_token, user.email, user.first_name);
+      setSession(access_token, user.email, user.first_name, user.role);
+      const redirectPath = resolvePostAuthRedirectPath(redirectAfterLogin, user.role, {
+        variant,
+        defaultConsumerLanding,
+      });
       completeAuthNavigation(router, {
         variant,
-        redirectPath: redirectAfterLogin,
+        redirectPath,
         onAuthenticated,
       });
     } catch (e) {
@@ -66,10 +84,14 @@ export function LoginForm({
     setLoading(true);
     try {
       const { access_token, user } = await authWithGoogle(idToken);
-      setSession(access_token, user.email, user.first_name);
+      setSession(access_token, user.email, user.first_name, user.role);
+      const redirectPath = resolvePostAuthRedirectPath(redirectAfterLogin, user.role, {
+        variant,
+        defaultConsumerLanding,
+      });
       completeAuthNavigation(router, {
         variant,
-        redirectPath: redirectAfterLogin,
+        redirectPath,
         onAuthenticated,
       });
     } catch (e) {
