@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # OpenAI (when llm_provider=openai)
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
+    openai_image_model: str = "gpt-image-1"
 
     # Groq (when llm_provider=groq)
     groq_api_key: str | None = None
@@ -68,6 +69,12 @@ class Settings(BaseSettings):
     pdf_export_storage_dir: str = Field(
         default=str(_REPO_ROOT / "var" / "pdf_exports"),
         validation_alias="PDF_EXPORT_STORAGE_DIR",
+    )
+
+    # Directory where generated cover images are written.
+    cover_image_storage_dir: str = Field(
+        default=str(_REPO_ROOT / "var" / "cover_images"),
+        validation_alias="COVER_IMAGE_STORAGE_DIR",
     )
 
     # Browser-openable prefix before `/exports/pdf/{book_public_id}`.
