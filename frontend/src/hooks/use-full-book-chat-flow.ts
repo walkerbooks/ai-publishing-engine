@@ -148,9 +148,36 @@ export function useFullBookChatFlow() {
       const msgId = messageIdRef.current ?? findOrCreateMessageId();
 
       const existing = usePublishingStore.getState().chatMessages.find((m) => m.id === msgId);
+      /* Snapshot restore can show "PDF ready" while Go export row is still queued — re-verify. */
       if (existing?.fullGenPhase === "complete") {
-        stopPoll();
-        return;
+        if (!existing.fullPdfUrl?.trim()) {
+          stopPoll();
+          return;
+        }
+        try {
+          const ex = await getExportStatus(activeBookId, "pdf", token);
+          const st = (ex?.status || "").toLowerCase();
+          const url = ex ? exportFileUrl(ex) : undefined;
+          const exportReady =
+            Boolean(url) &&
+            (st === "ready" ||
+              st === "complete" ||
+              st === "completed" ||
+              st === "success");
+          if (exportReady) {
+            stopPoll();
+            return;
+          }
+          patchChatMessage(msgId, {
+            fullGenPhase: "finishing",
+            fullPdfUrl: null,
+            fullGenStatusText: "Typesetting your PDF…",
+            fullGenError: null,
+          });
+          exportRequestedRef.current = true;
+        } catch {
+          /* Transient errors: leave UI as-is; next tick retries verification. */
+        }
       }
 
       if (!payloadSyncedRef.current) {
@@ -224,16 +251,29 @@ export function useFullBookChatFlow() {
 
       patchChatMessage(msgId, {
         fullGenPhase: phase,
-        fullChapterMarkdown: firstMd,
         fullBookTitle: book.Title || null,
       });
 
       if (allWritten && !exportRequestedRef.current) {
         exportRequestedRef.current = true;
-        void requestBookExport(activeBookId, "pdf", token).catch((e) => {
-          log.warning("requestBookExport failed", e);
+        try {
+          const current = await getExportStatus(activeBookId, "pdf", token);
+          const curUrl = current ? exportFileUrl(current) : undefined;
+          const curSt = (current?.status || "").toLowerCase();
+          const alreadyServed =
+            Boolean(curUrl) &&
+            ["ready", "complete", "completed", "success"].includes(curSt);
+          const pipelinePending =
+            curSt === "queued" || curSt === "processing";
+          /* POST /exports/request resets the row to queued and clears file_url — never call when:
+           * PDF is already done (alreadyServed), or a worker is already building it (queued/processing). */
+          if (!alreadyServed && !pipelinePending) {
+            await requestBookExport(activeBookId, "pdf", token);
+          }
+        } catch (e) {
+          log.warning("export kickoff failed", e);
           exportRequestedRef.current = false;
-        });
+        }
       }
 
       if (allWritten && exportRequestedRef.current) {
@@ -245,35 +285,20 @@ export function useFullBookChatFlow() {
           }
           const st = (ex.status || "").toLowerCase();
           const url = exportFileUrl(ex);
+          /* Require explicit success status + file_url — do not infer from “not queued”. */
           const looksReady =
-            st === "ready" ||
-            st === "complete" ||
-            st === "completed" ||
-            st === "success" ||
-            (Boolean(url) &&
-              st !== "failed" &&
-              st !== "queued" &&
-              st !== "processing" &&
-              st !== "pending" &&
-              st !== "running");
+            Boolean(url) &&
+            (st === "ready" ||
+              st === "complete" ||
+              st === "completed" ||
+              st === "success");
           if (looksReady) {
-            if (url) {
-              patchChatMessage(msgId, {
-                fullGenPhase: "complete",
-                fullPdfUrl: exportPreviewUrl(activeBookId, "pdf"),
-                fullGenStatusText: "",
-                fullBookTitle: book.Title || null,
-                fullBookAuthorName: getUserFirstName()?.trim() || null,
-                fullGenError: null,
-              });
-              stopPoll();
-              return;
-            }
             patchChatMessage(msgId, {
               fullGenPhase: "complete",
-              fullPdfUrl: null,
+              fullPdfUrl: exportPreviewUrl(activeBookId, "pdf"),
               fullGenStatusText: "",
               fullBookTitle: book.Title || null,
+              fullBookAuthorName: getUserFirstName()?.trim() || null,
               fullGenError: null,
             });
             stopPoll();

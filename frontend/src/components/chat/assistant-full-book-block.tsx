@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MarkdownBody } from "@/components/preview/markdown-body";
 import { goAuthHeaders } from "@/lib/api/go-api";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { buildExportPdfFilename } from "@/lib/book/export-pdf-filename";
@@ -12,7 +11,6 @@ import type { FullBookGenPhase } from "@/lib/types/chat";
 type Props = {
   phase: FullBookGenPhase;
   statusLine: string;
-  firstChapterMarkdown?: string;
   bookTitle?: string | null;
   /** Preferred for download filename; falls back to signed-in first name. */
   authorName?: string | null;
@@ -24,7 +22,6 @@ type Props = {
 export function AssistantFullBookBlock({
   phase,
   statusLine,
-  firstChapterMarkdown,
   bookTitle,
   authorName,
   pdfUrl,
@@ -138,17 +135,6 @@ export function AssistantFullBookBlock({
         </div>
       ) : null}
 
-      {firstChapterMarkdown?.trim() ? (
-        <div className="space-y-2 border-t border-border/60 pt-3 dark:border-white/10">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            First chapter
-          </p>
-          <div className="max-h-[50vh] overflow-y-auto rounded-md border border-border/50 bg-slate-50/80 p-3 dark:border-white/10 dark:bg-walker-night/80">
-            <MarkdownBody markdown={firstChapterMarkdown} />
-          </div>
-        </div>
-      ) : null}
-
       {phase === "complete" && pdfUrl ? (
         <div className="space-y-2 border-t border-border/60 pt-3 dark:border-white/10">
           <div className="space-y-1.5 text-sm leading-relaxed text-foreground">
@@ -160,8 +146,8 @@ export function AssistantFullBookBlock({
                   <span className="font-medium text-walker-teal">&ldquo;{bookTitle}&rdquo;</span>
                 </>
               ) : null}
-              . Preview it below, and we&rsquo;ve sent a copy to your email. If you&rsquo;d like
-              changes, say so here.
+              . Preview it below, and we&rsquo;ve sent a copy to your email. For a new revision,
+              start <span className="font-medium">New book chat</span> from the sidebar.
             </p>
           </div>
           {pdfLoadError ? (

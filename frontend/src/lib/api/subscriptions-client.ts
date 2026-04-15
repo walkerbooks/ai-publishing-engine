@@ -28,6 +28,119 @@ export type SubscriptionEntitlement = {
   multi_book_cooldown_seconds: number;
 };
 
+const _ZERO_UUID = "00000000-0000-0000-0000-000000000000";
+
+function _pick(raw: Record<string, unknown>, ...keys: string[]): unknown {
+  for (const k of keys) {
+    if (k in raw && raw[k] !== undefined && raw[k] !== null) return raw[k];
+  }
+  return undefined;
+}
+
+function _asBool(v: unknown): boolean | undefined {
+  if (v === true || v === false) return v;
+  if (v === "true") return true;
+  if (v === "false") return false;
+  return undefined;
+}
+
+function _asInt(v: unknown): number | undefined {
+  if (typeof v === "number" && Number.isFinite(v)) return Math.trunc(v);
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return Math.trunc(n);
+  }
+  return undefined;
+}
+
+/**
+ * Go may emit JSON with PascalCase keys; normalize to the snake_case shape the UI expects.
+ * If ``books_remaining`` &gt; 0 but ``has_entitlement`` is missing/false, treat as entitled
+ * (some API versions only expose the counter reliably).
+ */
+export function normalizeSubscriptionEntitlement(raw: unknown): SubscriptionEntitlement {
+  if (!raw || typeof raw !== "object") {
+    return {
+      has_entitlement: false,
+      can_start_full_generation: false,
+      books_remaining: 0,
+      plan: "",
+      subscription_public_id: "",
+      next_full_generation_after: null,
+      multi_book_cooldown_seconds: 0,
+    };
+  }
+  const r = raw as Record<string, unknown>;
+  let has_entitlement =
+    _asBool(
+      _pick(r, "has_entitlement", "HasEntitlement", "hasEntitlement"),
+    ) ?? false;
+  const can_start_full_generation =
+    _asBool(
+      _pick(
+        r,
+        "can_start_full_generation",
+        "CanStartFullGeneration",
+        "canStartFullGeneration",
+      ),
+    ) ?? false;
+  const books_remaining =
+    _asInt(_pick(r, "books_remaining", "BooksRemaining", "booksRemaining")) ?? 0;
+  if (!has_entitlement && books_remaining > 0) {
+    has_entitlement = true;
+  }
+  const plan = String(_pick(r, "plan", "Plan") ?? "");
+  const subscription_public_id = String(
+    _pick(
+      r,
+      "subscription_public_id",
+      "SubscriptionPublicId",
+      "subscriptionPublicId",
+    ) ?? "",
+  );
+  const next_raw = _pick(
+    r,
+    "next_full_generation_after",
+    "NextFullGenerationAfter",
+    "nextFullGenerationAfter",
+  );
+  const next_full_generation_after =
+    next_raw == null || next_raw === "" ? null : String(next_raw);
+  const multi_book_cooldown_seconds =
+    _asInt(
+      _pick(
+        r,
+        "multi_book_cooldown_seconds",
+        "MultiBookCooldownSeconds",
+        "multiBookCooldownSeconds",
+      ),
+    ) ?? 0;
+
+  return {
+    has_entitlement,
+    can_start_full_generation,
+    books_remaining,
+    plan,
+    subscription_public_id,
+    next_full_generation_after,
+    multi_book_cooldown_seconds,
+  };
+}
+
+/**
+ * Distinguishes "never bought a plan" from "had credits, used them" for UI copy.
+ * Same `has_entitlement: false` is returned in both cases; use this for messaging only.
+ */
+export function isLikelyNeverPurchasedEntitlement(
+  ent: SubscriptionEntitlement,
+): boolean {
+  const sid = (ent.subscription_public_id ?? "").trim();
+  const pl = (ent.plan ?? "").trim();
+  if (!pl) return true;
+  if (!sid || sid === _ZERO_UUID) return true;
+  return false;
+}
+
 const SUBSCRIPTIONS_BASE = `${GO_API_PREFIX}/v1/subscriptions`;
 
 export function packageTierToSubscriptionPlan(
@@ -152,5 +265,6 @@ export async function fetchSubscriptionEntitlement(
     log.warning(`entitlement failed: HTTP ${res.status}`);
     await throwIfGoResponseFailed(res);
   }
-  return res.json() as Promise<SubscriptionEntitlement>;
+  const raw: unknown = await res.json();
+  return normalizeSubscriptionEntitlement(raw);
 }

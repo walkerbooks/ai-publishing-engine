@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 
-type FullGateMode = "loading" | "generate" | "paypal";
+type FullGateMode = "loading" | "generate" | "cooldown" | "paypal";
 
 type Props = {
   awaitingGate: null | "outline" | "preview" | "full";
@@ -98,6 +98,25 @@ export function ChatGatePanel({
             >
               {generateFullBusy ? "Starting…" : "Generate full book"}
             </Button>
+          ) : fullBookGateMode === "cooldown" ? (
+            <>
+              <Button
+                type="button"
+                onClick={onGenerateFullWithSubscription}
+                className={cn(btnPrimary)}
+                disabled={generateFullBusy}
+              >
+                {generateFullBusy ? "Starting…" : "Generate full book"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={onPayForFullBook}
+                className={cn(btnGhost)}
+                disabled={payPalLoading || generateFullBusy}
+              >
+                {payPalLoading ? "Opening PayPal…" : "Buy more books"}
+              </Button>
+            </>
           ) : (
             <Button
               onClick={onPayForFullBook}

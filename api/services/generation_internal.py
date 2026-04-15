@@ -8,6 +8,10 @@ and a Word file (``api.services.chapters_docx``), write them under
 ``GET /api/exports/docx/{book_public_id}`` (same prefix). Set
 ``STUB_PDF_EXPORT_FAILED_AFTER_FULL_BOOK=true`` to skip PDF generation and mark the export
 failed.
+
+Go has no PDF worker: ``POST /v1/exports/request`` only inserts ``queued``. The same
+``chapters_pdf`` / ``chapters_docx`` build runs on demand via ``POST /internal/build-export``
+(book_id), which Go calls so the row moves to ``ready`` with a browser-openable URL (not S3).
 """
 
 from __future__ import annotations
@@ -282,6 +286,17 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
         }
 
     post_ai_callback(body)
+
+
+def run_manuscript_export_for_book(book_id: int) -> None:
+    """
+    Rebuild PDF + DOCX from chapters in Go and POST export status to Go.
+    Used at end of full generation and when Go triggers ``POST /internal/build-export``.
+    """
+    book = fetch_book_by_internal_id(book_id)
+    public_id = str(book["public_id"])
+    book_title = str(book.get("Title") or book.get("title") or "Manuscript").strip() or "Manuscript"
+    _complete_book_callback(book_id, public_id, book_title)
 
 
 def _reconcile_summaries_from_db(

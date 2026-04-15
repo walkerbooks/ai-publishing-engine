@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import {
   fetchSubscriptionEntitlement,
   formatNextFullGenerationSlot,
+  isLikelyNeverPurchasedEntitlement,
 } from "@/lib/api/subscriptions-client";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { useAuthStore } from "@/stores/auth-store";
@@ -17,7 +18,8 @@ const DISMISS_COOLDOWN = "ai_pub_subscription_notice_cooldown_dismissed";
 type BannerMode = "hidden" | "no_credits" | "cooldown";
 
 /**
- * Uses GET /subscriptions/entitlement: no credits vs 24h cooldown for multi-book plans.
+ * Uses GET /subscriptions/entitlement: depleted credits vs 24h cooldown; skips the
+   * no-credits strip when the user likely never purchased (same API flag as exhausted).
  * Dismissal is per-notice kind, tab session only (sessionStorage).
  */
 export function SubscriptionInactiveBanner() {
@@ -49,6 +51,12 @@ export function SubscriptionInactiveBanner() {
     try {
       const ent = await fetchSubscriptionEntitlement(token);
       if (!ent.has_entitlement) {
+        // New sign-ins have no plan yet — same flag as "credits used"; do not imply they "used" a plan.
+        if (isLikelyNeverPurchasedEntitlement(ent)) {
+          setMode("hidden");
+          setCooldownWhen(null);
+          return;
+        }
         setMode("no_credits");
         setCooldownWhen(null);
         return;
@@ -106,7 +114,7 @@ export function SubscriptionInactiveBanner() {
 
   const body = showCooldown
     ? `Your plan allows one full book every 24 hours. Next slot: ${formatNextFullGenerationSlot(cooldownWhen)}.`
-    : "You have used your subscription plan.";
+    : "You have used all full-book credits on your plan. Purchase a plan to generate another manuscript.";
 
   return (
     <div

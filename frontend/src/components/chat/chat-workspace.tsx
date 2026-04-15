@@ -16,6 +16,8 @@ import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { usePublishingStore } from "@/stores/publishing-store";
 import { shouldDisableDockComposerForGuestInlineCapture } from "@/lib/chat/welcome-flow";
 import { shouldShowCollaborativeFeedback } from "@/lib/chat/collaborative-feedback";
+import { threadPastBookKickoff } from "@/lib/chat/book-kickoff";
+import { isTerminalFullBookPdfComplete } from "@/lib/chat/terminal-full-book";
 
 type GateHandlers = {
   proceedToOutline: () => void;
@@ -25,7 +27,7 @@ type GateHandlers = {
   payForFullBook: () => void;
   generateFullWithSubscription: () => void;
   changePreview: () => void;
-  fullBookGateMode?: "loading" | "generate" | "paypal";
+  fullBookGateMode?: "loading" | "generate" | "cooldown" | "paypal";
   generateFullBusy?: boolean;
   payPalLoading?: boolean;
   payPalError?: string | null;
@@ -96,7 +98,25 @@ export function ChatWorkspace({
   const intakeCollaborative = usePublishingStore((s) => s.intakeCollaborative);
   const intakeComplete = usePublishingStore((s) => s.intakeComplete);
   const composerStep = usePublishingStore((s) => s.composerStep);
+  const previewContent = usePublishingStore((s) => s.previewContent);
   const [collaborativeChangeOpen, setCollaborativeChangeOpen] = useState(false);
+
+  const terminalFullBookPdfDone = useMemo(
+    () => isTerminalFullBookPdfComplete(messages),
+    [messages],
+  );
+
+  const hideBookKickoffForProgress = useMemo(
+    () =>
+      threadPastBookKickoff({
+        awaitingGate,
+        bookOutline,
+        previewContent,
+        composerStep,
+        messages,
+      }),
+    [awaitingGate, bookOutline, previewContent, composerStep, messages],
+  );
 
   const showCollaborativeFeedback = useMemo(
     () =>
@@ -108,9 +128,10 @@ export function ChatWorkspace({
         composerStep,
         bookKickoffStage: bookKickoffStage ?? "done",
         isAuthenticated,
-      }),
+      }) && !terminalFullBookPdfDone,
     [
       messages,
+      terminalFullBookPdfDone,
       intakeCollaborative,
       intakeComplete,
       busy,
@@ -134,10 +155,14 @@ export function ChatWorkspace({
     messages.at(-1)?.role === "assistant" &&
     messages.at(-1)!.content.trim().startsWith("[");
   const showBookKickoffChoices =
+    !terminalFullBookPdfDone &&
+    !hideBookKickoffForProgress &&
     bookKickoffStage === "choice" &&
     messages.at(-1)?.role === "assistant" &&
     !assistantKickoffLoader;
   const showBookKickoffInput =
+    !terminalFullBookPdfDone &&
+    !hideBookKickoffForProgress &&
     (bookKickoffStage === "title" ||
       bookKickoffStage === "subtitle" ||
       bookKickoffStage === "summary" ||
@@ -223,7 +248,14 @@ export function ChatWorkspace({
           </div>
         </div>
       ) : (
-        <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
+        <div
+          className={cn(
+            "grid min-h-0 min-w-0 flex-1 overflow-hidden",
+            terminalFullBookPdfDone
+              ? "grid-rows-[minmax(0,1fr)]"
+              : "grid-rows-[minmax(0,1fr)_auto]",
+          )}
+        >
           {/* Row 1: desktop outline is absolute inset-y-0 so height = grid row, not outline content min-height */}
           <div className="relative min-h-0 min-w-0 overflow-hidden">
             <div
@@ -303,45 +335,47 @@ export function ChatWorkspace({
             ) : null}
           </div>
 
-          {/* Row 2: composer — grid auto row, always under thread */}
-          <div className="chat-dock-enter shrink-0 border-t border-slate-200/90 bg-background/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md dark:border-white/10 dark:bg-walker-night sm:px-4 sm:py-4">
-            <div
-              className={cn(
-                "mx-auto w-full max-w-3xl",
-                showOutlineColumn && "lg:max-w-none xl:max-w-4xl",
-              )}
-            >
-              {awaitingGate ? (
-                <ChatGatePanel
-                  awaitingGate={awaitingGate}
-                  onProceedToOutline={proceedToOutline}
-                  onChangeRequirements={changeRequirements}
-                  onProceedToPreview={proceedToPreview}
-                  onChangeOutline={changeOutline}
-                  onPayForFullBook={payForFullBook}
-                  onGenerateFullWithSubscription={generateFullWithSubscription}
-                  onChangePreview={changePreview}
-                  fullBookGateMode={fullBookGateMode}
-                  payPalLoading={payPalLoading}
-                  generateFullBusy={generateFullBusy}
-                  payPalError={payPalError}
-                />
-              ) : (
-                <ChatComposer
-                  disabled={
-                    busy ||
-                    guestInlineCaptureBlocksDock ||
-                    showBookKickoffChoices ||
-                    showBookKickoffInput ||
-                    showCollaborativeFeedback ||
-                    assistantKickoffLoader
-                  }
-                  onSend={(t) => (clearErr(), onSend(t))}
-                  variant="dock"
-                />
-              )}
+          {/* Row 2: composer — hidden when the thread ends on a delivered PDF */}
+          {!terminalFullBookPdfDone ? (
+            <div className="chat-dock-enter shrink-0 border-t border-slate-200/90 bg-background/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md dark:border-white/10 dark:bg-walker-night sm:px-4 sm:py-4">
+              <div
+                className={cn(
+                  "mx-auto w-full max-w-3xl",
+                  showOutlineColumn && "lg:max-w-none xl:max-w-4xl",
+                )}
+              >
+                {awaitingGate ? (
+                  <ChatGatePanel
+                    awaitingGate={awaitingGate}
+                    onProceedToOutline={proceedToOutline}
+                    onChangeRequirements={changeRequirements}
+                    onProceedToPreview={proceedToPreview}
+                    onChangeOutline={changeOutline}
+                    onPayForFullBook={payForFullBook}
+                    onGenerateFullWithSubscription={generateFullWithSubscription}
+                    onChangePreview={changePreview}
+                    fullBookGateMode={fullBookGateMode}
+                    payPalLoading={payPalLoading}
+                    generateFullBusy={generateFullBusy}
+                    payPalError={payPalError}
+                  />
+                ) : (
+                  <ChatComposer
+                    disabled={
+                      busy ||
+                      guestInlineCaptureBlocksDock ||
+                      showBookKickoffChoices ||
+                      showBookKickoffInput ||
+                      showCollaborativeFeedback ||
+                      assistantKickoffLoader
+                    }
+                    onSend={(t) => (clearErr(), onSend(t))}
+                    variant="dock"
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       )}
     </div>
