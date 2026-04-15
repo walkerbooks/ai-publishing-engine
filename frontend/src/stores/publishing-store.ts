@@ -103,6 +103,7 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           activeBookId: nextActive,
           bookPreviewRowSynced: sameBook ? s.bookPreviewRowSynced : false,
           subscriptionFullGenUnlocked: sameBook ? s.subscriptionFullGenUnlocked : false,
+          intakeCollaborative: intakeComplete ? false : s.intakeCollaborative,
         };
       }),
     setActiveBookId: (activeBookId) =>
@@ -126,6 +127,7 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
       set({ subscriptionFullGenUnlocked }),
     setUserName: (userName) => set({ userName }),
     setGuestEmail: (guestEmail) => set({ guestEmail }),
+    setIntakeCollaborative: (intakeCollaborative) => set({ intakeCollaborative }),
     patchChatMessage: (messageId, patch) =>
       set((s) => ({
         chatMessages: s.chatMessages.map((m) =>

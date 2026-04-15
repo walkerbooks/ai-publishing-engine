@@ -4,6 +4,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
+from api.config import get_settings
 from api.agents.prompts.intake import build_intake_system
 from api.llm.factory import get_llm
 from api.llm.rate_limit_retry import invoke_with_rate_limit_retry
@@ -28,6 +29,8 @@ def run_intake(
     history: list[dict[str, Any]],
     provider: str | None = None,
     known_display_name: str | None = None,
+    collaborative: bool = False,
+    default_target_pages: int | None = None,
 ) -> dict[str, Any]:
     """
     Run one intake turn: user message + history → reply and optional BSO.
@@ -36,8 +39,12 @@ def run_intake(
     llm = get_llm(provider)
     structured_llm = llm.with_structured_output(IntakeResponse)
 
+    pages = default_target_pages
+    if pages is None:
+        pages = get_settings().default_target_length_pages
+
     messages: list[BaseMessage] = [
-        SystemMessage(content=build_intake_system(known_display_name)),
+        SystemMessage(content=build_intake_system(known_display_name, collaborative, pages)),
     ]
     messages.extend(_history_to_messages(history))
     messages.append(HumanMessage(content=message))
@@ -68,4 +75,5 @@ def run_intake(
         "content": response.reply,
         "book_spec": book_spec,
         "intake_complete": intake_complete,
+        "offer_collaborative_feedback": bool(response.offer_collaborative_feedback),
     }

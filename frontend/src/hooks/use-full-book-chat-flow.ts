@@ -11,11 +11,12 @@ import {
 import { getBookConversationLinkForApi } from "@/lib/api/sync-server-book";
 import {
   exportFileUrl,
+  exportPreviewUrl,
   getExportStatus,
   requestBookExport,
 } from "@/lib/api/exports-client";
 import { checkFullGenerationEntitlement } from "@/lib/api/subscriptions-client";
-import { getAccessToken } from "@/lib/auth/access-token";
+import { getAccessToken, getUserFirstName } from "@/lib/auth/access-token";
 import { randomFullBookQuip } from "@/lib/chat/full-book-quips";
 import type { FullBookGenPhase } from "@/lib/types/chat";
 import { getLogger } from "@/lib/log";
@@ -259,9 +260,10 @@ export function useFullBookChatFlow() {
             if (url) {
               patchChatMessage(msgId, {
                 fullGenPhase: "complete",
-                fullPdfUrl: url,
+                fullPdfUrl: exportPreviewUrl(activeBookId, "pdf"),
                 fullGenStatusText: "",
                 fullBookTitle: book.Title || null,
+                fullBookAuthorName: getUserFirstName()?.trim() || null,
                 fullGenError: null,
               });
               stopPoll();

@@ -32,6 +32,7 @@ from api.services.chapters_pdf import (
     _COVER_TEXT_RGB,
     _format_subtitle_line,
     _markdownish_to_plain,
+    _smart_double_quotes,
     _split_paragraphs,
     _strip_leading_chapter_prefix,
     strip_leading_chapter_heading_from_markdown,
@@ -324,7 +325,7 @@ def build_manuscript_docx_bytes(
         raw_body = strip_leading_chapter_heading_from_markdown(
             str(row.get("content") or ""), num
         )
-        body = _markdownish_to_plain(raw_body)
+        body = _smart_double_quotes(_markdownish_to_plain(raw_body))
         if body.strip() or raw_title.strip():
             chapter_entries.append((num, raw_title, body))
 

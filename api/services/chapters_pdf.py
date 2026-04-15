@@ -192,6 +192,21 @@ def _markdownish_to_plain(text: str) -> str:
     return t.strip()
 
 
+def _smart_double_quotes(s: str) -> str:
+    """
+    Replace ASCII double quotes with typographic quotes (“ U+201C / ” U+201D).
+    Alternating open/close works for normal dialogue and quoted phrases like "the price".
+    """
+    if '"' not in s:
+        return s
+    parts = s.split('"')
+    out: list[str] = [parts[0]]
+    for i, part in enumerate(parts[1:], start=1):
+        out.append("\u201c" if (i % 2 == 1) else "\u201d")
+        out.append(part)
+    return "".join(out)
+
+
 def _unicode_ttf_path() -> Path | None:
     try:
         if _BUNDLED_DEJAVU.is_file():
@@ -492,7 +507,7 @@ def build_manuscript_pdf_bytes(
         raw_body  = strip_leading_chapter_heading_from_markdown(
             str(row.get("content") or ""), num
         )
-        body    = txt(_markdownish_to_plain(raw_body))
+        body    = txt(_smart_double_quotes(_markdownish_to_plain(raw_body)))
         heading = txt(format_manuscript_chapter_heading(num, raw_title))
         if body or raw_title.strip():
             chapter_entries.append((heading, heading, body))

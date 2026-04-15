@@ -12,17 +12,15 @@ from typing import Any, Iterator, Literal
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
 
 from api.agents.intake_agent import run_intake
+from api.services.bso_validator import validate_bso
 from api.agents.outline_agent import (
     merge_target_pages_from_revision_into_spec,
     run_outline,
 )
 from api.agents.preview_agent import run_preview
-from api.agents.prompts.intake import build_intake_reply_system
 from api.config import get_settings
-from api.llm.factory import get_llm
 
 router = APIRouter(prefix="/api", tags=["chat-unified"])
 
@@ -44,18 +42,14 @@ class UnifiedChatStepRequest(BaseModel):
         default=None,
         description="Logged-in user's greeting name; skips name onboarding",
     )
-
-
-def _history_to_messages(history: list[dict[str, Any]]) -> list[BaseMessage]:
-    out: list[BaseMessage] = []
-    for m in history:
-        role = m.get("role", "user")
-        content = m.get("content", "")
-        if role == "user":
-            out.append(HumanMessage(content=content))
-        else:
-            out.append(AIMessage(content=content))
-    return out
+    intake_collaborative: bool = Field(
+        default=False,
+        description="User chose 'build together'; AI infers BSO and leads with proposals",
+    )
+    intake_collaborative_ack: bool = Field(
+        default=False,
+        description="User confirmed collaborative brief (Sounds good); finalize intake + gate",
+    )
 
 
 def _sse(event: str, data: dict[str, Any] | None = None) -> str:
@@ -81,11 +75,99 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
     def event_stream() -> Iterator[str]:
         try:
             if step == "intake":
+                known_name = (payload.user_display_name or "").strip() or None
+                collab = bool(payload.intake_collaborative)
+                default_pages = settings.default_target_length_pages
+
+                # User tapped "Sounds good" after a deferred collaborative brief — no second LLM.
+                if payload.intake_collaborative_ack:
+                    if not collab:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="intake_collaborative_ack requires intake_collaborative",
+                        )
+                    if not payload.book_spec:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="book_spec is required for collaborative ack",
+                        )
+                    spec_raw = dict(payload.book_spec)
+                    valid, v_err = validate_bso(spec_raw)
+                    if not valid:
+                        yield _sse(
+                            "error",
+                            {"message": "Invalid book_spec: " + "; ".join(v_err)},
+                        )
+                        yield _sse("done", {})
+                        return
+
+                    ack_text = (
+                        "Perfect — your book brief is set. When you're ready, use **Proceed to outline** below."
+                    )
+                    yield _sse(
+                        "message_start",
+                        {
+                            "messageId": intake_message_id,
+                            "role": "assistant",
+                            "kind": "intake",
+                        },
+                    )
+                    chunk_size = 64
+                    for i in range(0, len(ack_text), chunk_size):
+                        yield _sse(
+                            "message_delta",
+                            {
+                                "messageId": intake_message_id,
+                                "delta": ack_text[i : i + chunk_size],
+                            },
+                        )
+                    yield _sse("message_end", {"messageId": intake_message_id})
+
+                    yield _sse(
+                        "book_spec_ready",
+                        {
+                            "messageId": intake_message_id,
+                            "intakeComplete": True,
+                            "bookSpec": spec_raw,
+                            "offerCollaborativeFeedback": False,
+                        },
+                    )
+
+                    gate_text = (
+                        "Your book brief is complete. Generate the structured outline next, "
+                        "or tell me what to change about your requirements."
+                    )
+                    yield _sse(
+                        "message_start",
+                        {
+                            "messageId": gate_message_id,
+                            "role": "assistant",
+                            "kind": "gate",
+                            "content": gate_text,
+                            "gateStage": "outline",
+                        },
+                    )
+                    yield _sse("message_end", {"messageId": gate_message_id})
+                    yield _sse("done", {})
+                    return
+
                 if not message:
                     raise HTTPException(status_code=400, detail="message is required for intake")
 
-                known_name = (payload.user_display_name or "").strip() or None
-                intake_reply_system = build_intake_reply_system(known_name)
+                # Single structured intake call — reply + BSO + intake_complete must agree.
+                result = run_intake(
+                    message=message,
+                    history=history,
+                    provider=None,
+                    known_display_name=known_name,
+                    collaborative=collab,
+                    default_target_pages=default_pages,
+                )
+                book_spec = result.get("book_spec")
+                intake_complete = bool(result.get("intake_complete"))
+                reply_text = (result.get("content") or "").strip() or "…"
+
+                defer_collab_confirm = collab and intake_complete and bool(book_spec)
 
                 yield _sse(
                     "message_start",
@@ -96,56 +178,33 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                     },
                 )
 
-                # Stream intake reply text.
-                if str(provider).lower() == "openai":
-                    llm = get_llm(provider=None, streaming=True)
-                    messages: list[BaseMessage] = [
-                        SystemMessage(content=intake_reply_system),
-                        *_history_to_messages(history),
-                        HumanMessage(content=message),
-                    ]
-                    for chunk in llm.stream(messages):
-                        delta = getattr(chunk, "content", None) or ""
-                        if delta:
-                            yield _sse(
-                                "message_delta",
-                                {"messageId": intake_message_id, "delta": delta},
-                            )
-                else:
-                    llm = get_llm(provider=None, streaming=False)
-                    messages = [
-                        SystemMessage(content=intake_reply_system),
-                        *_history_to_messages(history),
-                        HumanMessage(content=message),
-                    ]
-                    res = llm.invoke(messages)
-                    full = getattr(res, "content", None) or str(res)
+                chunk_size = 64
+                for i in range(0, len(reply_text), chunk_size):
                     yield _sse(
                         "message_delta",
-                        {"messageId": intake_message_id, "delta": full},
+                        {
+                            "messageId": intake_message_id,
+                            "delta": reply_text[i : i + chunk_size],
+                        },
                     )
 
                 yield _sse("message_end", {"messageId": intake_message_id})
 
-                result = run_intake(
-                    message=message,
-                    history=history,
-                    provider=None,
-                    known_display_name=known_name,
-                )
-                book_spec = result.get("book_spec")
-                intake_complete = bool(result.get("intake_complete"))
+                offer_cf = bool(result.get("offer_collaborative_feedback")) if collab else False
+                if defer_collab_confirm:
+                    offer_cf = True
 
                 yield _sse(
                     "book_spec_ready",
                     {
                         "messageId": intake_message_id,
-                        "intakeComplete": intake_complete,
+                        "intakeComplete": intake_complete and not defer_collab_confirm,
                         "bookSpec": book_spec,
+                        "offerCollaborativeFeedback": offer_cf,
                     },
                 )
 
-                if intake_complete and book_spec:
+                if intake_complete and book_spec and not defer_collab_confirm:
                     gate_text = (
                         "Your book brief is complete. Generate the structured outline next, "
                         "or tell me what to change about your requirements."

@@ -25,6 +25,11 @@ export type PublishingState = {
   userName: string | null;
   /** Guest onboarding: collected after name (email for updates). */
   guestEmail: string | null;
+  /**
+   * User chose "Let's build it together" — AI should infer BSO and lead with proposals.
+   * Cleared when intake completes or explicitly reset.
+   */
+  intakeCollaborative: boolean;
 };
 
 export type PublishingActions = {
@@ -66,6 +71,7 @@ export type PublishingActions = {
   setSubscriptionFullGenUnlocked: (v: boolean) => void;
   setUserName: (n: string | null) => void;
   setGuestEmail: (email: string | null) => void;
+  setIntakeCollaborative: (v: boolean) => void;
   patchChatMessage: (
     messageId: string,
     patch: Partial<import("@/lib/types/chat").ChatMessage>,
@@ -92,5 +98,6 @@ export function createInitialPublishingState(): PublishingState {
     pendingPrompt: null,
     userName: null,
     guestEmail: null,
+    intakeCollaborative: false,
   };
 }

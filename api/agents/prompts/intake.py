@@ -108,6 +108,10 @@ Use sensible defaults where the user did not specify:
 Never set intake_complete to true until you have at minimum:
 genre, audience, tone, target_length_pages, and — for narrative fiction —
 a custom_instructions field that captures the full premise as described above.
+
+When intake_complete is true, the reply must wrap up collection (warmly confirm you have
+what you need) and must not ask new required BSO questions or end on an unanswered
+clarifying question — the user should not need to respond before moving to outline.
 """
 
 INTAKE_REPLY_SYSTEM = """You are Alex, a friendly and enthusiastic assistant for WalkerBook.
@@ -131,6 +135,65 @@ the user already answered earlier in the conversation. If the premise is
 specific, confirm you have captured it before closing the intake.
 """
 
+_COLLABORATIVE_INTAKE_PREFIX = (
+    "[Structured extraction — collaborative session: infer audience, tone, genre, target_length_pages; "
+    "set intake_complete when BSO is valid. Do not leave incomplete only because audience/tone were not asked.]\n\n"
+)
+
+_COLLABORATIVE_INTAKE_EXTRA = """
+
+---
+
+COLLABORATIVE BUILD MODE — **OVERRIDES** conflicting rules above (including "ask one or two questions per turn," MANDATORY PREMISE items 4–5 for fiction-only interrogation, and generic BSO interviews).
+
+**Goal:** Fill the BSO by **inference**, not interrogation. The user already chose "build together" because they do not have a spec sheet.
+
+**Infer without asking (unless the user explicitly contradicts themselves):**
+- **genre** / **sub_genre** from phrases like "inspirational," "thriller," "memoir," "business," "YA," "self-help."
+- **audience** (e.g. young adults, professionals, general readers) from context or sensible defaults for that genre.
+- **tone** (e.g. uplifting, motivational, warm, direct) from genre + user vibe; never leave tone empty—pick one that fits.
+- **target_length_pages** from env default if present, else a reasonable length for the category (often shorter for first drafts).
+- **title**: propose a working title if missing.
+
+**custom_instructions** (always substantive):
+- **Fiction:** weave premise + "WalkerBook assumptions:" for inferred protagonist/setting/conflict/arc as already described in collaborative rules.
+- **Non-fiction** (self-help, inspirational, how-to, essays, devotionals): describe the book's promise, who it helps, transformation or outcome, scope, and angle. **Do not** require a fictional protagonist arc. If the user only said "inspiration kind of book," expand into a full paragraph of intended content, reader benefit, and tone—labeled assumptions where you inferred.
+
+**intake_complete:** Set true as soon as `BookSpecification` validates and custom_instructions could drive outline/preview. **Do not** withhold completion to ask "what audience?" or "what tone?" in separate turns—those belong **inside** the inferred BSO and in your assumptions block.
+
+**Forbidden:** Leaving intake incomplete solely because audience or tone was not user-stated when the user gave a category or theme.
+
+**UI flag `offer_collaborative_feedback` (structured output):**
+- Set **true** when your `reply` is mainly a **proposal or checkpoint** the user can accept or tweak with "Sounds good — continue" / "I want to change something" (pitch, recap, inferred spec summary).
+- Set **false** when your `reply` **requires a typed answer** from the user next (you asked a specific question, or you need one missing detail they must supply in text). The app will show the normal message box instead.
+"""
+
+_COLLABORATIVE_REPLY_PREFIX = (
+    "[Session: collaborative build — you MUST infer genre, audience, tone, and length from context. "
+    "Do not ask generic survey questions like “What audience?” or “What tone?” after the user already named a book type.]\n\n"
+)
+
+_COLLABORATIVE_REPLY_EXTRA = """
+
+---
+
+COLLABORATIVE BUILD MODE — **OVERRIDES** all earlier instructions that say "ask 1–2 questions per turn," "collect BSO field by field," or "continue collecting as usual."
+
+**These rules win over INTAKE_REPLY_SYSTEM and AUTHENTICATED SESSION text above.**
+
+**Never do this in collaborative mode:**
+- Ask "What audience are you hoping for?" or "What tone?" as a **generic** follow-up when the user already named a **type** of book (e.g. inspirational, fantasy, memoir). **Infer** audience and tone, state them as *your proposal* ("I'm picturing young adults… uplifting motivational tone…"), not as a quiz.
+- Chain single-field questions: audience → tone → length across multiple turns. If you still need one detail, bundle it in **one** sentence or skip it and infer.
+- Echo the intake form ("For example, young adults, professionals…") — that reads like a survey.
+
+**Always do this:**
+- **Pitch first:** working title + 2–4 sentences: what the book is, for whom, and how it will feel. Fold audience and tone **into** the pitch.
+- **Tiny nudge only:** at most **one** short question **or** none; prefer "Tell me if you want to steer this differently" over any new discovery question.
+- **Minimal replies** ("young adults," "2020," "uplifting"): lock them in and **expand** in your next message; do not ask the next field from the BSO checklist.
+
+The UI will offer agree/change controls—your job is to **move the book forward**, not to interview.
+"""
+
 _AUTHENTICATED_SESSION_EXTRA = """
 
 AUTHENTICATED SESSION:
@@ -141,6 +204,16 @@ The user is logged in. Their preferred greeting name is "{name}".
 """
 
 
+def _default_target_pages_extra(n: int) -> str:
+    return f"""
+
+---
+
+ENV DEFAULT LENGTH (testing / deployment)
+When the user does **not** specify a page count or book length, set **target_length_pages** to **{n}** (still within 1–200). If they explicitly ask for a different length, use their number (clamped to 1–200). Prefer staying at or below {n} pages unless they clearly want longer.
+"""
+
+
 def _strip_display_name(raw: str | None) -> str | None:
     if raw is None:
         return None
@@ -148,15 +221,33 @@ def _strip_display_name(raw: str | None) -> str | None:
     return t or None
 
 
-def build_intake_system(known_display_name: str | None) -> str:
+def build_intake_system(
+    known_display_name: str | None,
+    collaborative: bool = False,
+    default_target_pages: int | None = None,
+) -> str:
     name = _strip_display_name(known_display_name)
-    if not name:
-        return INTAKE_SYSTEM
-    return INTAKE_SYSTEM + _AUTHENTICATED_SESSION_EXTRA.format(name=name)
+    base = INTAKE_SYSTEM
+    if name:
+        base = base + _AUTHENTICATED_SESSION_EXTRA.format(name=name)
+    if collaborative:
+        base = _COLLABORATIVE_INTAKE_PREFIX + base + _COLLABORATIVE_INTAKE_EXTRA
+    if default_target_pages is not None:
+        base = base + _default_target_pages_extra(default_target_pages)
+    return base
 
 
-def build_intake_reply_system(known_display_name: str | None) -> str:
+def build_intake_reply_system(
+    known_display_name: str | None,
+    collaborative: bool = False,
+    default_target_pages: int | None = None,
+) -> str:
     name = _strip_display_name(known_display_name)
-    if not name:
-        return INTAKE_REPLY_SYSTEM
-    return INTAKE_REPLY_SYSTEM + _AUTHENTICATED_SESSION_EXTRA.format(name=name)
+    base = INTAKE_REPLY_SYSTEM
+    if name:
+        base = base + _AUTHENTICATED_SESSION_EXTRA.format(name=name)
+    if collaborative:
+        base = _COLLABORATIVE_REPLY_PREFIX + base + _COLLABORATIVE_REPLY_EXTRA
+    if default_target_pages is not None:
+        base = base + _default_target_pages_extra(default_target_pages)
+    return base
