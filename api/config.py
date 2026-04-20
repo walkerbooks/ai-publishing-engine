@@ -27,7 +27,10 @@ class Settings(BaseSettings):
     # OpenAI (when llm_provider=openai)
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
-    openai_image_model: str = "gpt-image-1"
+    openai_image_model: str = Field(
+        default="gpt-image-1",
+        validation_alias="OPENAI_IMAGE_MODEL",
+    )
 
     # Groq (when llm_provider=groq)
     groq_api_key: str | None = None

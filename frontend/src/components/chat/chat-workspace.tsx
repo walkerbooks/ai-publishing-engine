@@ -24,6 +24,11 @@ type GateHandlers = {
   changeRequirements: () => void;
   proceedToPreview: () => void;
   changeOutline: () => void;
+  payForCoverPage: () => void;
+  continueToFullBookFromPostPreview: () => void;
+  coverGenBusy?: boolean;
+  coverVariantUrls?: string[] | null;
+  onPickCoverVariant?: (index: number) => void;
   payForFullBook: () => void;
   generateFullWithSubscription: () => void;
   changePreview: () => void;
@@ -45,7 +50,7 @@ type Props = {
   busy: boolean;
   messages: ChatMessage[];
   bookOutline: Record<string, unknown> | null;
-  awaitingGate: null | "outline" | "preview" | "full";
+  awaitingGate: null | "outline" | "preview" | "post_preview" | "full";
   isAuthenticated: boolean;
   onSend: (text: string) => void;
   clearErr: () => void;
@@ -71,6 +76,11 @@ export function ChatWorkspace({
   changeRequirements,
   proceedToPreview,
   changeOutline,
+  payForCoverPage,
+  continueToFullBookFromPostPreview,
+  coverGenBusy,
+  coverVariantUrls,
+  onPickCoverVariant,
   payForFullBook,
   generateFullWithSubscription,
   changePreview,
@@ -351,6 +361,13 @@ export function ChatWorkspace({
                     onChangeRequirements={changeRequirements}
                     onProceedToPreview={proceedToPreview}
                     onChangeOutline={changeOutline}
+                    onPayForCoverPage={payForCoverPage}
+                    onContinueToFullBookFromPostPreview={
+                      continueToFullBookFromPostPreview
+                    }
+                    coverGenBusy={coverGenBusy}
+                    coverVariantUrls={coverVariantUrls}
+                    onPickCoverVariant={onPickCoverVariant}
                     onPayForFullBook={payForFullBook}
                     onGenerateFullWithSubscription={generateFullWithSubscription}
                     onChangePreview={changePreview}

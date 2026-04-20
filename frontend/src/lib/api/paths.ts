@@ -5,4 +5,6 @@ export const AI_PROXY = {
   outline: "/api/ai/outline",
   preview: "/api/ai/preview",
   videos: "/api/ai/videos",
+  coverGenerate: "/api/ai/cover/generate-cover-image",
+  coverGenerateVariants: "/api/ai/cover/generate-cover-variants",
 } as const;

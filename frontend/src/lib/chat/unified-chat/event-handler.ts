@@ -10,7 +10,7 @@ type Handlers = {
     spec: Record<string, unknown> | null,
     bookId: string | null,
   ) => void;
-  setAwaitingGate: (g: null | "outline" | "preview" | "full") => void;
+  setAwaitingGate: (g: null | "outline" | "preview" | "post_preview" | "full") => void;
   setAssistantOutline: (messageId: string, outline: any) => void;
   setBookOutline: (outline: Record<string, unknown> | null) => void;
   setAssistantPreview: (
@@ -38,7 +38,12 @@ export function handleUnifiedChatSseEvent(
     });
     if (kind === "gate") {
       handlers.setAwaitingGate(
-        (data.gateStage as "outline" | "preview" | "full" | undefined) ?? null,
+        (data.gateStage as
+          | "outline"
+          | "preview"
+          | "post_preview"
+          | "full"
+          | undefined) ?? null,
       );
     }
     return;

@@ -1,16 +1,25 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 
 type FullGateMode = "loading" | "generate" | "cooldown" | "paypal";
 
 type Props = {
-  awaitingGate: null | "outline" | "preview" | "full";
+  awaitingGate: null | "outline" | "preview" | "post_preview" | "full";
   onProceedToOutline: () => void;
   onChangeRequirements: () => void;
   onProceedToPreview: () => void;
   onChangeOutline: () => void;
+  /** After preview: optional paid cover generation ($1 when checkout is enabled). */
+  onPayForCoverPage: () => void;
+  /** After preview: move to full-book payment / subscription gate. */
+  onContinueToFullBookFromPostPreview: () => void;
+  coverGenBusy?: boolean;
+  /** When set (length 3), user picks one cover before continuing. */
+  coverVariantUrls?: string[] | null;
+  onPickCoverVariant?: (index: number) => void;
   /** Opens PayPal / pricing when user must pay. */
   onPayForFullBook: () => void;
   /** Uses subscription credits; skips pricing when entitlement allows. */
@@ -29,6 +38,11 @@ export function ChatGatePanel({
   onChangeRequirements,
   onProceedToPreview,
   onChangeOutline,
+  onPayForCoverPage,
+  onContinueToFullBookFromPostPreview,
+  coverGenBusy = false,
+  coverVariantUrls = null,
+  onPickCoverVariant,
   onPayForFullBook,
   onGenerateFullWithSubscription,
   onChangePreview,
@@ -76,6 +90,104 @@ export function ChatGatePanel({
           >
             Change outline
           </Button>
+        </div>
+      ) : null}
+
+      {awaitingGate === "post_preview" ? (
+        <div className="space-y-4">
+          {coverVariantUrls?.length === 3 ? (
+            <>
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
+                Here are three cover directions. Tap your favorite — it will appear in the chat
+                above, then you can unlock the full book.
+              </p>
+              <div
+                className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+                role="group"
+                aria-label="Cover options"
+              >
+                {coverVariantUrls.map((url, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => onPickCoverVariant?.(i)}
+                    className={cn(
+                      "group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:border-white/15 dark:bg-walker-nightPanel dark:hover:border-white/30 dark:focus-visible:ring-zinc-500",
+                    )}
+                  >
+                    <Image
+                      src={url}
+                      alt={`Cover option ${i + 1} of 3`}
+                      width={512}
+                      height={768}
+                      unoptimized
+                      className="aspect-[2/3] w-full object-cover"
+                    />
+                    <span className="px-2 py-2 text-center text-xs font-medium text-slate-700 dark:text-zinc-200">
+                      Option {i + 1}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button
+                  type="button"
+                  onClick={onPayForCoverPage}
+                  className={cn(btnGhost)}
+                  disabled={coverGenBusy}
+                >
+                  {coverGenBusy ? "Regenerating…" : "Generate 3 new options"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onContinueToFullBookFromPostPreview}
+                  className={cn(btnGhost)}
+                  disabled={coverGenBusy}
+                >
+                  Skip cover · continue to full book
+                </Button>
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={onChangePreview}
+                  className={cn(btnGhost)}
+                  disabled={coverGenBusy}
+                >
+                  Change preview
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <Button
+                type="button"
+                onClick={onPayForCoverPage}
+                className={cn(btnPrimary)}
+                disabled={coverGenBusy}
+              >
+                {coverGenBusy ? "Generating 3 covers…" : "Pay $1 for cover page (3 options)"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onContinueToFullBookFromPostPreview}
+                className={cn(btnGhost)}
+                disabled={coverGenBusy}
+              >
+                Continue to full book
+              </Button>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={onChangePreview}
+                className={cn(btnGhost)}
+                disabled={coverGenBusy}
+              >
+                Change preview
+              </Button>
+            </div>
+          )}
         </div>
       ) : null}
 

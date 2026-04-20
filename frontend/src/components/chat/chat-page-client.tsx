@@ -31,9 +31,19 @@ import {
 } from "@/lib/api/subscriptions-client";
 import { useFullBookChatFlow } from "@/hooks/use-full-book-chat-flow";
 import { threadPastBookKickoff } from "@/lib/chat/book-kickoff";
+import {
+  buildBookCoverPrompt,
+  COVER_VARIANT_COUNT,
+} from "@/lib/chat/cover-prompt";
+import { persistChatMessageIfAuthenticated } from "@/lib/chat/conversation-sync";
 import { getUnifiedAssistantPlaceholder } from "@/lib/chat/unified-chat/placeholders";
+import { generateCoverVariantsForChat } from "@/lib/api/cover-client";
 
 const KICKOFF_ASSISTANT_LOADER_MS = 550;
+
+/** When true, cover generates without a $1 PayPal checkout (local/testing). Production: wire checkout then set false. */
+const COVER_PAYMENT_BYPASS =
+  process.env.NEXT_PUBLIC_COVER_PAYMENT_BYPASS === "true";
 
 const FULL_BOOK_COOLDOWN_POPUP_FALLBACK =
   "You still have a full book on your plan. The next generation opens when your plan's cooldown ends.";
@@ -101,6 +111,10 @@ export function ChatPageClient() {
     usePublishingStore.setState(createInitialPublishingState());
   }, [searchParams, isAuthenticated]);
   const { send, busy, err, clearErr } = useUnifiedChatSend();
+  const [coverErr, setCoverErr] = useState<string | null>(null);
+  const [coverGenBusy, setCoverGenBusy] = useState(false);
+  const [coverPaymentBlockedOpen, setCoverPaymentBlockedOpen] = useState(false);
+  const [coverVariantUrls, setCoverVariantUrls] = useState<string[] | null>(null);
   const refreshProfile = useAuthStore((s) => s.refreshProfile);
   const hydrateConversationListFromServer = useChatDirectoryStore(
     (s) => s.hydrateConversationListFromServer,
@@ -473,10 +487,108 @@ export function ChatPageClient() {
     setFullBookPricingOpen(false);
     void startCheckout(id, "/chat", tier);
   };
-  const changePreview = () =>
-    (usePublishingStore.getState().setAwaitingGate(null),
-    usePublishingStore.getState().setComposerStep("preview"),
-    usePublishingStore.getState().setComposerAction("revise"));
+  const changePreview = () => {
+    setCoverVariantUrls(null);
+    usePublishingStore.getState().setAwaitingGate(null);
+    usePublishingStore.getState().setComposerStep("preview");
+    usePublishingStore.getState().setComposerAction("revise");
+  };
+
+  const continueToFullBookFromPostPreview = () => {
+    setCoverErr(null);
+    setCoverVariantUrls(null);
+    usePublishingStore.getState().setAwaitingGate("full");
+  };
+
+  const runCoverImageGeneration = async () => {
+    const pub = usePublishingStore.getState();
+    const spec = pub.bookSpec;
+    const outline = pub.bookOutline;
+    const bookId = pub.activeBookId;
+    if (!spec || !outline) {
+      setCoverErr("Book outline or specification is missing. Try regenerating the preview.");
+      return;
+    }
+    setCoverGenBusy(true);
+    setCoverErr(null);
+    clearErr();
+    setCoverVariantUrls(null);
+    try {
+      const prompt = buildBookCoverPrompt(spec, outline);
+      const basename = bookId ? `cover-${bookId.replace(/[^a-zA-Z0-9_-]+/g, "").slice(0, 40)}` : null;
+      const res = await generateCoverVariantsForChat(
+        prompt,
+        basename,
+        COVER_VARIANT_COUNT,
+      );
+      const dataUrls: string[] = [];
+      for (let i = 0; i < res.images.length; i++) {
+        const b64 = res.images[i]?.image_base64?.trim();
+        if (!b64) {
+          throw new Error(`Cover option ${i + 1} returned no image data.`);
+        }
+        dataUrls.push(`data:image/png;base64,${b64}`);
+      }
+      if (dataUrls.length !== COVER_VARIANT_COUNT) {
+        throw new Error(
+          `Expected ${COVER_VARIANT_COUNT} cover options, got ${dataUrls.length}.`,
+        );
+      }
+      setCoverVariantUrls(dataUrls);
+    } catch (e) {
+      setCoverErr(e instanceof Error ? e.message : "Cover generation failed.");
+    } finally {
+      setCoverGenBusy(false);
+      setCoverPaymentBlockedOpen(false);
+    }
+  };
+
+  const pickCoverVariant = (index: number) => {
+    const urls = coverVariantUrls;
+    if (!urls || urls.length !== COVER_VARIANT_COUNT) return;
+    if (index < 0 || index >= urls.length) return;
+    const chosen = urls[index];
+    if (!chosen) return;
+    setCoverVariantUrls(null);
+    const pub = usePublishingStore.getState();
+    const msg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      kind: "cover",
+      content: `Here's your book cover (option ${index + 1} of ${COVER_VARIANT_COUNT}).`,
+      coverImageDataUrl: chosen,
+      coverVariantIndex: index + 1,
+    };
+    pub.pushAssistantMessage(msg);
+    pub.setAwaitingGate("full");
+    void persistChatMessageIfAuthenticated(msg);
+  };
+
+  const payForCoverPage = () => {
+    clearErr();
+    setCoverErr(null);
+    clearPayPalErr();
+    setPayPalGateErr(null);
+    if (!getAccessToken()) {
+      useAuthDialogRequestStore.getState().requestLogin();
+      setPayPalGateErr(
+        "Please sign in to purchase a cover, then try again.",
+      );
+      return;
+    }
+    const pub = usePublishingStore.getState();
+    if (!pub.bookSpec || !pub.bookOutline) {
+      setCoverErr(
+        "Book details are missing. Regenerate the preview, then try again.",
+      );
+      return;
+    }
+    if (!COVER_PAYMENT_BYPASS) {
+      setCoverPaymentBlockedOpen(true);
+      return;
+    }
+    void runCoverImageGeneration();
+  };
 
   const handleCollaborativeAgree = () => {
     void send("Yes — that works for me. Please continue.", {
@@ -498,8 +610,36 @@ export function ChatPageClient() {
     Boolean(fullBookCooldownSummary?.trim()) &&
     !fullBookCooldownPopupDismissed;
 
+  const threadErr = err ?? coverErr;
+
   return (
     <>
+      <Dialog
+        open={coverPaymentBlockedOpen}
+        onOpenChange={(open) => {
+          setCoverPaymentBlockedOpen(open);
+        }}
+      >
+        <DialogContent className="border-border dark:border-white/10 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cover art ($1)</DialogTitle>
+            <DialogDescription className="text-left text-sm leading-relaxed text-foreground dark:text-zinc-200">
+              PayPal checkout for cover-only purchases is not enabled in this build yet.
+              To test cover generation locally, set{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                NEXT_PUBLIC_COVER_PAYMENT_BYPASS=true
+              </code>{" "}
+              in your frontend environment. You can still continue to the full book or change your
+              preview using the other actions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" onClick={() => setCoverPaymentBlockedOpen(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={showFullBookCooldownDialog}
         onOpenChange={(open) => {
@@ -541,7 +681,7 @@ export function ChatPageClient() {
       >
         <ChatWorkspace
           hasThread={hasThread}
-          err={err}
+          err={threadErr}
           busy={busy}
           messages={messages}
           bookOutline={bookOutline}
@@ -550,11 +690,19 @@ export function ChatPageClient() {
           outlineMobileOpen={outlineMobileOpen}
           onCloseOutlineMobile={() => setOutlineMobileOpen(false)}
           onSend={handleSend}
-          clearErr={clearErr}
+          clearErr={() => {
+            clearErr();
+            setCoverErr(null);
+          }}
           proceedToOutline={proceedToOutline}
           changeRequirements={changeRequirements}
           proceedToPreview={proceedToPreview}
           changeOutline={changeOutline}
+          payForCoverPage={payForCoverPage}
+          continueToFullBookFromPostPreview={continueToFullBookFromPostPreview}
+          coverGenBusy={coverGenBusy}
+          coverVariantUrls={coverVariantUrls}
+          onPickCoverVariant={pickCoverVariant}
           payForFullBook={payForFullBook}
           generateFullWithSubscription={() => void generateFullWithSubscription()}
           fullBookGateMode={fullBookGateMode}

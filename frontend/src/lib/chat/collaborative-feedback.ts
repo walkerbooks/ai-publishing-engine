@@ -8,7 +8,7 @@ export type CollaborativeFeedbackOpts = {
   intakeCollaborative: boolean;
   intakeComplete: boolean;
   busy: boolean;
-  awaitingGate: null | "outline" | "preview" | "full";
+  awaitingGate: null | "outline" | "preview" | "post_preview" | "full";
   composerStep: "intake" | "outline" | "preview";
   /** Kickoff inline flow must finish before collaborative feedback applies */
   bookKickoffStage: "choice" | "title" | "subtitle" | "summary" | "general_idea" | "done";

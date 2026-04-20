@@ -87,13 +87,18 @@ export async function promoteActiveGuestConversationToServer(): Promise<void> {
     usePublishingStore.setState({ sessionId: newId });
 
     for (const msg of pub.chatMessages) {
-      const body = chatMessageToAppendBody(msg);
+      const body = chatMessageToAppendBody(
+        msg,
+        msg.kind === "cover" ? pub.activeBookId : null,
+      );
       const text = body.content?.trim() ?? "";
       const hasPayload =
         text.length > 0 ||
         Boolean(body.outline_json) ||
         Boolean(body.videos_json) ||
-        Boolean(body.preview_markdown);
+        Boolean(body.preview_markdown) ||
+        Boolean(body.book_spec_json) ||
+        Boolean(body.cover_image_png);
       if (!hasPayload) continue;
       await appendConversationMessage(token, newId, body);
     }
@@ -176,7 +181,9 @@ export async function persistChatMessageIfAuthenticated(msg: ChatMessage): Promi
     return;
   }
   try {
-    await appendConversationMessage(token, publicId, chatMessageToAppendBody(msg));
+    const linkBook =
+      msg.kind === "cover" ? usePublishingStore.getState().activeBookId : null;
+    await appendConversationMessage(token, publicId, chatMessageToAppendBody(msg, linkBook));
   } catch (e) {
     log.warning("persistChatMessageIfAuthenticated failed", e);
   }

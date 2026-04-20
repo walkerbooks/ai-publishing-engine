@@ -9,6 +9,8 @@ export type ChatBlockKind =
   | "outline"
   | "preview"
   | "gate"
+  /** AI-generated cover image (OpenAI Images API) */
+  | "cover"
   /** Full manuscript: progress, first chapter, then PDF when export is ready */
   | "full";
 
@@ -43,14 +45,15 @@ export type ChatMessage = {
   outline?: BookOutlineLite;
   /** Persisted on intake row as book_spec_json — restores BSO when reopening a thread. */
   bookSpec?: Record<string, unknown> | null;
-  /** From book_spec_ready SSE — whether to show Sounds good / change (collaborative intake). */
-  offerCollaborativeFeedback?: boolean | null;
   /**
-   * Collaborative intake: server says whether to show agree/change vs dock composer.
-   * Undefined when not sent (client may fall back to heuristics).
+   * Collaborative intake: whether to show agree/change vs dock composer (from book_spec_ready or heuristics).
    */
-  offerCollaborativeFeedback?: boolean;
+  offerCollaborativeFeedback?: boolean | null;
   previewMarkdown?: string;
+  /** kind === "cover" — data URL or absolute URL for generated cover art */
+  coverImageDataUrl?: string | null;
+  /** 1-based variant when kind === "cover" (persisted as cover_variant_index). */
+  coverVariantIndex?: number | null;
   /** kind === "full" — in-chat manuscript + export */
   fullGenPhase?: FullBookGenPhase;
   fullGenStatusText?: string;

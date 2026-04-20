@@ -292,8 +292,8 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                 yield _sse("message_end", {"messageId": preview_message_id})
 
                 gate_text = (
-                    "Preview is ready. Would you like to unlock the full book, "
-                    "or change anything in the preview?"
+                    "Your preview is ready. You can pay $1 for an AI-generated book cover, "
+                    "unlock the full book, or tell us what to change in the preview."
                 )
                 yield _sse(
                     "message_start",
@@ -302,7 +302,7 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                         "role": "assistant",
                         "kind": "gate",
                         "content": gate_text,
-                        "gateStage": "full",
+                        "gateStage": "post_preview",
                     },
                 )
                 yield _sse("message_end", {"messageId": gate_message_id})

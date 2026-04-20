@@ -66,6 +66,20 @@ export function ChatMessageRow({
           )
         ) : null}
 
+        {message.role === "assistant" && kind === "cover" ? (
+          <div className="space-y-2">
+            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+            {message.coverImageDataUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={message.coverImageDataUrl}
+                alt="Generated book cover"
+                className="max-h-[min(85vh,720px)] w-auto max-w-full rounded-lg border border-slate-200/80 object-contain shadow-md dark:border-white/10"
+              />
+            ) : null}
+          </div>
+        ) : null}
+
         {message.role === "assistant" && kind === "full" ? (
           <AssistantFullBookBlock
             phase={message.fullGenPhase ?? "generating"}

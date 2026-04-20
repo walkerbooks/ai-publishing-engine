@@ -7,7 +7,7 @@ export type PublishingState = {
   bookPreviewRowSynced: boolean;
   chatMessages: ChatMessage[];
   intakeComplete: boolean;
-  awaitingGate: null | "outline" | "preview" | "full";
+  awaitingGate: null | "outline" | "preview" | "post_preview" | "full";
   composerStep: "intake" | "outline" | "preview";
   composerAction: "proceed" | "revise";
   bookSpec: Record<string, unknown> | null;
@@ -51,7 +51,7 @@ export type PublishingActions = {
     previewMarkdown: string,
   ) => void;
   setPendingPrompt: (p: string | null) => void;
-  setAwaitingGate: (g: null | "outline" | "preview" | "full") => void;
+  setAwaitingGate: (g: null | "outline" | "preview" | "post_preview" | "full") => void;
   setComposerStep: (s: "intake" | "outline" | "preview") => void;
   setComposerAction: (a: "proceed" | "revise") => void;
   resetFlow: () => void;

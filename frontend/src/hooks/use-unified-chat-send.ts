@@ -86,11 +86,12 @@ export function useUnifiedChatSend() {
         st.composerStep === "intake" &&
         st.intakeCollaborative;
       const ackSpec = tryAck ? st.bookSpec : null;
-      const useCollaborativeAck =
+      const useCollaborativeAck = Boolean(
         tryAck &&
-        ackSpec &&
-        typeof ackSpec === "object" &&
-        Object.keys(ackSpec).length > 0;
+          ackSpec &&
+          typeof ackSpec === "object" &&
+          Object.keys(ackSpec).length > 0,
+      );
 
       await streamUnifiedChat(
         {
