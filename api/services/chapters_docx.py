@@ -2,6 +2,8 @@
 
 Layout:
   - 6×9 trade paperback, margins: top 1.03" / left+right 0.75" / bottom 0.19"
+  - Optional illustrated cover (PNG/JPEG): first page, scaled to fill the physical page
+    (crop to page aspect), when bytes provided
   - Cover: title + subtitle auto-fit so By/author stay on page 1; By then author on the
     next line (24 pt bold centred), then two blank lines below the author
   - Copyright page (second page): 12 pt; © line + all rights reserved, centred
@@ -19,6 +21,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from api.services.illustrated_cover_bytes import image_pixel_dimensions
 from docx import Document
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE
 from docx.enum.text import (
@@ -327,6 +330,39 @@ def _add_copyright_page(doc: Document, author_name: str | None) -> None:
 # Main builder
 # ---------------------------------------------------------------------------
 
+def _add_illustrated_cover_docx_page(doc: Document, image_bytes: bytes) -> None:
+    """Insert a full-page illustrated cover and a trailing page break."""
+    sec = doc.sections[0]
+    pw_in = sec.page_width.inches
+    ph_in = sec.page_height.inches
+    dims = image_pixel_dimensions(image_bytes)
+    w_in: float
+    h_in: float
+    if dims:
+        iw, ih = dims
+        if iw > 0 and ih > 0:
+            ri = iw / ih
+            rp = pw_in / ph_in
+            if ri >= rp:
+                h_in = ph_in
+                w_in = ph_in * ri
+            else:
+                w_in = pw_in
+                h_in = pw_in / ri
+        else:
+            w_in, h_in = pw_in, ph_in
+    else:
+        w_in, h_in = pw_in, ph_in
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(0)
+    run = p.add_run()
+    run.add_picture(BytesIO(image_bytes), width=Inches(w_in), height=Inches(h_in))
+    p.add_run().add_break(WD_BREAK.PAGE)
+
+
 def build_manuscript_docx_bytes(
     chapters: list[dict[str, Any]],
     book_title: str,
@@ -335,12 +371,13 @@ def build_manuscript_docx_bytes(
     author_name: str | None = None,
     dedication: str | None = None,
     toc_lines: list[tuple[str, str]] | None = None,
+    illustrated_cover_image: bytes | None = None,
 ) -> bytes:
     """
     Concatenate chapters (sorted by chapter_number) into one .docx.
 
-    Front order: cover → copyright → acknowledgment → about the author →
-    optional dedication → table of contents → chapters.
+    Front order: optional illustrated cover → cover (title page) → copyright →
+    acknowledgment → about the author → optional dedication → table of contents → chapters.
 
     Parameters
     ----------
@@ -358,6 +395,9 @@ def build_manuscript_docx_bytes(
     doc = Document()
     _set_trade_page_layout(doc)
     _set_body_style(doc)
+
+    if illustrated_cover_image:
+        _add_illustrated_cover_docx_page(doc, illustrated_cover_image)
 
     cover_rgb = RGBColor(*_COVER_TEXT_RGB)
 
@@ -460,6 +500,7 @@ def build_manuscript_docx_bytes(
             author_name=auth or None,
             dedication=dedication,
             toc_lines_out=toc,
+            illustrated_cover_image=illustrated_cover_image,
         )
 
     # ------------------------------------------------------------------

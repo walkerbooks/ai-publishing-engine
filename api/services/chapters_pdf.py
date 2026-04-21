@@ -3,6 +3,7 @@
 Formatting matched to the reference .docx (analysed from XML):
   - 6×9 trade paperback
   - Margins: top 1.03" (26.14 mm) / left+right 0.75" (19.05 mm) / bottom 0.19" (4.94 mm)
+  - Optional illustrated cover (PNG/JPEG): first page, full-bleed (crop to page aspect), when bytes provided
   - Cover: Times New Roman bold, colour #231F20; title 36 pt / subtitle 20 pt; By + author 24 pt
     anchored to the bottom of the page (By second-to-last line, author last)
   - Copyright page (after cover): 12 pt, centred vertically; © line + All rights reserved
@@ -20,8 +21,11 @@ import json
 import logging
 import os
 import re
+from io import BytesIO
 from pathlib import Path
 from typing import Any
+
+from api.services.illustrated_cover_bytes import image_pixel_dimensions
 
 log = logging.getLogger(__name__)
 
@@ -395,6 +399,44 @@ def _pdf_draw_toc_row(
 # Main PDF builder
 # ---------------------------------------------------------------------------
 
+def _add_illustrated_cover_bleed_page(pdf: Any, image_bytes: bytes) -> None:
+    """One physical page, image scaled with object-fit *cover* (centered crop)."""
+    pw_mm = float(pdf.w)
+    ph_mm = float(pdf.h)
+    dims = image_pixel_dimensions(image_bytes)
+    if not dims:
+        log.warning(
+            "illustrated cover: could not read PNG/JPEG dimensions; embedding full-page (stretched)"
+        )
+        pdf.add_page()
+        try:
+            pdf.image(BytesIO(image_bytes), x=0.0, y=0.0, w=pw_mm, h=ph_mm)
+        except Exception:
+            log.exception("failed to embed illustrated cover in PDF (fallback stretch)")
+        return
+
+    iw, ih = dims
+    if iw <= 0 or ih <= 0:
+        return
+    ri = iw / ih
+    rp = pw_mm / ph_mm
+    if ri >= rp:
+        h = ph_mm
+        w = ph_mm * ri
+        x = (pw_mm - w) / 2.0
+        y = 0.0
+    else:
+        w = pw_mm
+        h = pw_mm / ri
+        x = 0.0
+        y = (ph_mm - h) / 2.0
+    pdf.add_page()
+    try:
+        pdf.image(BytesIO(image_bytes), x=x, y=y, w=w, h=h)
+    except Exception:
+        log.exception("failed to embed illustrated cover in PDF; skipping that page")
+
+
 def build_manuscript_pdf_bytes(
     chapters: list[dict[str, Any]],
     book_title: str,
@@ -403,6 +445,7 @@ def build_manuscript_pdf_bytes(
     author_name: str | None = None,
     dedication: str | None = None,
     toc_lines_out: list[tuple[str, str]] | None = None,
+    illustrated_cover_image: bytes | None = None,
 ) -> bytes:
     """
     Concatenate chapters (sorted by chapter_number) into one PDF.
@@ -411,6 +454,7 @@ def build_manuscript_pdf_bytes(
       - 6×9, top 1.03" / sides 0.75" / bottom 0.19"
       - Times New Roman throughout; 11 pt body; 0.75 cm first-line indent; 1.15× leading;
         8 pt after each para
+      - Optional illustrated cover as the first page (full bleed), then typeset cover page
       - Cover, copyright page, front matter, TOC, then chapters (TOC Roman labels for
         pre-chapter sections). Chapter bodies use the same two-line heading as DOCX;
         outline/TOC labels remain ``CHAPTER N TITLE`` (caps).
@@ -430,6 +474,9 @@ def build_manuscript_pdf_bytes(
     # Asymmetric margins matching reference XML
     pdf.set_margins(_MARGIN_SIDE_MM, _MARGIN_TOP_MM, _MARGIN_SIDE_MM)
     pdf.set_auto_page_break(auto=True, margin=_MARGIN_BOTTOM_MM)
+
+    if illustrated_cover_image:
+        _add_illustrated_cover_bleed_page(pdf, illustrated_cover_image)
 
     title_fam, body_fam, use_unicode, body_has_bold, title_has_bold = (
         _register_manuscript_fonts(pdf)

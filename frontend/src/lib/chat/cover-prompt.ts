@@ -22,9 +22,36 @@ function chapterTitles(outline: Record<string, unknown> | null, max = 6): string
   return titles.length ? `Chapter themes: ${titles.join("; ")}.` : "";
 }
 
+/** Pen name / credited author from BSO or outline when present. */
+function authorFromBookPayload(
+  bookSpec: Record<string, unknown> | null,
+  bookOutline: Record<string, unknown> | null,
+): string {
+  const keys = [
+    "author_name",
+    "authorName",
+    "AuthorName",
+    "author",
+    "writer_name",
+    "WriterName",
+  ] as const;
+  for (const src of [bookSpec, bookOutline]) {
+    if (!src || typeof src !== "object") continue;
+    for (const k of keys) {
+      const v = str((src as Record<string, unknown>)[k], 200);
+      if (v) return v;
+    }
+  }
+  return "";
+}
+
 export function buildBookCoverPrompt(
   bookSpec: Record<string, unknown> | null,
   bookOutline: Record<string, unknown> | null,
+  /** Intake / account name when not stored on spec (e.g. chat-collected name). */
+  sessionAuthorFallback?: string | null,
+  /** User's reply to "How do you want to sign your book?" — wins for the cover byline. */
+  coverSigningNameFromUser?: string | null,
 ): string {
   const title =
     str(bookOutline?.book_title, 200) ||
@@ -37,17 +64,30 @@ export function buildBookCoverPrompt(
   const premise = str(bookSpec?.custom_instructions, 2500);
   const dedication = str(bookOutline?.dedication, 400);
   const chapters = chapterTitles(bookOutline);
+  const author =
+    str(coverSigningNameFromUser, 200) ||
+    authorFromBookPayload(bookSpec, bookOutline) ||
+    str(sessionAuthorFallback, 200);
 
   const subtitleLine = subtitle ? ` Subtitle: "${subtitle}".` : "";
+  const titleBlock = subtitle
+    ? `Primary title (hero typography, large and crisp): "${title}".${subtitleLine}`
+    : `Primary title (hero typography, large and crisp): "${title}".`;
+  const authorLine = author
+    ? `Author byline at the bottom of the cover (legible typography, smaller than the title, centered or balanced with the layout): "${author}". Leave comfortable margin above the bottom edge.`
+    : "";
 
   return [
     `Professional book cover illustration, portrait 2:3 aspect suitable for print and ebook.`,
-    `Title on cover (legible typography): "${title}".${subtitleLine}`,
+    titleBlock,
+    `Expressive artwork: let the main illustration boldly interpret the meaning, stakes, and emotional tone suggested by the title${subtitle ? " and subtitle" : ""}—use metaphor, symbolic objects, setting, color story, or a strong central figure so the image unmistakably belongs to this book, not a generic template.`,
+    `Avoid unrelated stock scenery; composition should draw the eye toward the title and reinforce what the words promise.`,
+    authorLine,
     `Genre: ${genre}. Tone: ${tone}. Intended readers: ${audience}.`,
     premise ? `Story / subject: ${premise}` : "",
     dedication ? `Dedication mood (subtle, not as text on cover unless minimal): ${dedication}` : "",
     chapters,
-    `Cinematic lighting, cohesive palette, strong focal point, high production value,`,
+    `Cinematic lighting, cohesive palette, dramatic depth, strong focal point, high production value,`,
     `no cluttered collage, no watermark, no QR codes, no price stickers.`,
   ]
     .filter(Boolean)

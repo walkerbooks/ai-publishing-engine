@@ -30,6 +30,13 @@ export type PublishingState = {
    * Cleared when intake completes or explicitly reset.
    */
   intakeCollaborative: boolean;
+  /**
+   * After the assistant asks how to sign the cover, the next user message is stored here
+   * and used as the cover byline in the image prompt.
+   */
+  coverSigningName: string | null;
+  /** True after "Pay for cover" until the user sends their signing name from the composer. */
+  awaitingCoverSigningReply: boolean;
 };
 
 export type PublishingActions = {
@@ -72,6 +79,8 @@ export type PublishingActions = {
   setUserName: (n: string | null) => void;
   setGuestEmail: (email: string | null) => void;
   setIntakeCollaborative: (v: boolean) => void;
+  setCoverSigningName: (name: string | null) => void;
+  setAwaitingCoverSigningReply: (v: boolean) => void;
   patchChatMessage: (
     messageId: string,
     patch: Partial<import("@/lib/types/chat").ChatMessage>,
@@ -99,5 +108,7 @@ export function createInitialPublishingState(): PublishingState {
     userName: null,
     guestEmail: null,
     intakeCollaborative: false,
+    coverSigningName: null,
+    awaitingCoverSigningReply: false,
   };
 }

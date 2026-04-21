@@ -12,6 +12,11 @@ failed.
 Go has no PDF worker: ``POST /v1/exports/request`` only inserts ``queued``. The same
 ``chapters_pdf`` / ``chapters_docx`` build runs on demand via ``POST /internal/build-export``
 (book_id), which Go calls so the row moves to ``ready`` with a browser-openable URL (not S3).
+
+Illustrated cover: ``fetch_book_by_internal_id`` must return ``cover_image_png`` (base64
+string) when the book row has a linked cover; see ``api.services.illustrated_cover_bytes``.
+Export logs distinguish “embedded N bytes” (wire OK) from “no illustrated cover bytes”
+(missing field or empty row — re-run export after cover is persisted).
 """
 
 from __future__ import annotations
@@ -32,6 +37,7 @@ from api.services.chapters_pdf import (
     write_pdf_export_metadata,
     write_pdf_to_path,
 )
+from api.services.illustrated_cover_bytes import extract_illustrated_cover_bytes
 from api.services.go_backend import (
     fetch_book_by_internal_id,
     fetch_internal_chapters,
@@ -238,6 +244,19 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
         chapters = fetch_internal_chapters(book_id)
         main_title, subtitle, author_name = _pdf_title_metadata_from_book(book, book_title)
         dedication = _outline_dedication_from_book(book)
+        cover_bytes = extract_illustrated_cover_bytes(book)
+        if cover_bytes:
+            log.info(
+                "Export %s: illustrated cover embedded (%d bytes)",
+                public_id,
+                len(cover_bytes),
+            )
+        else:
+            log.info(
+                "Export %s: no illustrated cover bytes from internal book payload "
+                "(expected base64 in cover_image_png when a cover exists on the book row)",
+                public_id,
+            )
         toc_lines: list[tuple[str, str]] = []
         pdf_bytes = build_manuscript_pdf_bytes(
             chapters,
@@ -246,6 +265,7 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
             author_name=author_name,
             dedication=dedication,
             toc_lines_out=toc_lines,
+            illustrated_cover_image=cover_bytes,
         )
         out = Path(settings.pdf_export_storage_dir) / f"{public_id}.pdf"
         write_pdf_to_path(out, pdf_bytes)
@@ -258,6 +278,7 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
                 author_name=author_name,
                 dedication=dedication,
                 toc_lines=toc_lines,
+                illustrated_cover_image=cover_bytes,
             )
             docx_out = Path(settings.pdf_export_storage_dir) / f"{public_id}.docx"
             write_docx_to_path(docx_out, docx_bytes)

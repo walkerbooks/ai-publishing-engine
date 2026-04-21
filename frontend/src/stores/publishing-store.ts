@@ -128,6 +128,9 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
     setUserName: (userName) => set({ userName }),
     setGuestEmail: (guestEmail) => set({ guestEmail }),
     setIntakeCollaborative: (intakeCollaborative) => set({ intakeCollaborative }),
+    setCoverSigningName: (coverSigningName) => set({ coverSigningName }),
+    setAwaitingCoverSigningReply: (awaitingCoverSigningReply) =>
+      set({ awaitingCoverSigningReply }),
     patchChatMessage: (messageId, patch) =>
       set((s) => ({
         chatMessages: s.chatMessages.map((m) =>

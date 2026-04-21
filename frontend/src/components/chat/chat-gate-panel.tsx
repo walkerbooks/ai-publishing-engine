@@ -30,6 +30,8 @@ type Props = {
   payPalLoading?: boolean;
   generateFullBusy?: boolean;
   payPalError?: string | null;
+  /** Post-preview: waiting for user to type cover signing name in composer below. */
+  awaitingCoverSigningReply?: boolean;
 };
 
 export function ChatGatePanel({
@@ -50,6 +52,7 @@ export function ChatGatePanel({
   payPalLoading,
   generateFullBusy = false,
   payPalError,
+  awaitingCoverSigningReply = false,
 }: Props) {
   if (!awaitingGate) return null;
 
@@ -95,6 +98,11 @@ export function ChatGatePanel({
 
       {awaitingGate === "post_preview" ? (
         <div className="space-y-4">
+          {awaitingCoverSigningReply ? (
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
+              Use the text box below to enter how you want to sign your book, then press Send.
+            </p>
+          ) : null}
           {coverVariantUrls?.length === 3 ? (
             <>
               <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
@@ -164,7 +172,7 @@ export function ChatGatePanel({
                 type="button"
                 onClick={onPayForCoverPage}
                 className={cn(btnPrimary)}
-                disabled={coverGenBusy}
+                disabled={coverGenBusy || awaitingCoverSigningReply}
               >
                 {coverGenBusy ? "Generating 3 covers…" : "Pay $1 for cover page (3 options)"}
               </Button>

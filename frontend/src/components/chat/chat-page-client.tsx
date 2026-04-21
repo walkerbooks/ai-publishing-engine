@@ -341,10 +341,75 @@ export function ChatPageClient() {
     setBookKickoffStage("general_idea");
   };
 
+  async function runCoverImageGeneration() {
+    const pub = usePublishingStore.getState();
+    const spec = pub.bookSpec;
+    const outline = pub.bookOutline;
+    const bookId = pub.activeBookId;
+    if (!spec || !outline) {
+      setCoverErr("Book outline or specification is missing. Try regenerating the preview.");
+      return;
+    }
+    setCoverGenBusy(true);
+    setCoverErr(null);
+    clearErr();
+    setCoverVariantUrls(null);
+    try {
+      const st = usePublishingStore.getState();
+      const intakeName = st.userName?.trim() ?? "";
+      const authFirst = useAuthStore.getState().firstName?.trim() ?? "";
+      const sessionAuthor = intakeName || authFirst || null;
+      const sign = st.coverSigningName?.trim() || null;
+      const prompt = buildBookCoverPrompt(spec, outline, sessionAuthor, sign);
+      const basename = bookId ? `cover-${bookId.replace(/[^a-zA-Z0-9_-]+/g, "").slice(0, 40)}` : null;
+      const res = await generateCoverVariantsForChat(
+        prompt,
+        basename,
+        COVER_VARIANT_COUNT,
+      );
+      const dataUrls: string[] = [];
+      for (let i = 0; i < res.images.length; i++) {
+        const b64 = res.images[i]?.image_base64?.trim();
+        if (!b64) {
+          throw new Error(`Cover option ${i + 1} returned no image data.`);
+        }
+        dataUrls.push(`data:image/png;base64,${b64}`);
+      }
+      if (dataUrls.length !== COVER_VARIANT_COUNT) {
+        throw new Error(
+          `Expected ${COVER_VARIANT_COUNT} cover options, got ${dataUrls.length}.`,
+        );
+      }
+      setCoverVariantUrls(dataUrls);
+    } catch (e) {
+      setCoverErr(e instanceof Error ? e.message : "Cover generation failed.");
+    } finally {
+      setCoverGenBusy(false);
+      setCoverPaymentBlockedOpen(false);
+    }
+  }
+
   const handleSend = (text: string) => {
     const value = text.trim();
     if (!value) return;
     const pub = usePublishingStore.getState();
+    if (pub.awaitingCoverSigningReply) {
+      pub.pushUserMessage(value);
+      pub.setCoverSigningName(value);
+      pub.setAwaitingCoverSigningReply(false);
+      const u = usePublishingStore.getState().chatMessages.at(-1);
+      if (u?.role === "user") void persistChatMessageIfAuthenticated(u);
+      const ack: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        kind: "gate",
+        content: "Thanks — generating three cover directions now.",
+      };
+      pub.pushAssistantMessage(ack);
+      void persistChatMessageIfAuthenticated(ack);
+      void runCoverImageGeneration();
+      return;
+    }
     if (bookKickoffStage === "title") {
       pub.pushUserMessage(value);
       setBookKickoffTitle(value);
@@ -489,58 +554,21 @@ export function ChatPageClient() {
   };
   const changePreview = () => {
     setCoverVariantUrls(null);
-    usePublishingStore.getState().setAwaitingGate(null);
-    usePublishingStore.getState().setComposerStep("preview");
-    usePublishingStore.getState().setComposerAction("revise");
+    const p = usePublishingStore.getState();
+    p.setAwaitingGate(null);
+    p.setComposerStep("preview");
+    p.setComposerAction("revise");
+    p.setCoverSigningName(null);
+    p.setAwaitingCoverSigningReply(false);
   };
 
   const continueToFullBookFromPostPreview = () => {
     setCoverErr(null);
     setCoverVariantUrls(null);
-    usePublishingStore.getState().setAwaitingGate("full");
-  };
-
-  const runCoverImageGeneration = async () => {
-    const pub = usePublishingStore.getState();
-    const spec = pub.bookSpec;
-    const outline = pub.bookOutline;
-    const bookId = pub.activeBookId;
-    if (!spec || !outline) {
-      setCoverErr("Book outline or specification is missing. Try regenerating the preview.");
-      return;
-    }
-    setCoverGenBusy(true);
-    setCoverErr(null);
-    clearErr();
-    setCoverVariantUrls(null);
-    try {
-      const prompt = buildBookCoverPrompt(spec, outline);
-      const basename = bookId ? `cover-${bookId.replace(/[^a-zA-Z0-9_-]+/g, "").slice(0, 40)}` : null;
-      const res = await generateCoverVariantsForChat(
-        prompt,
-        basename,
-        COVER_VARIANT_COUNT,
-      );
-      const dataUrls: string[] = [];
-      for (let i = 0; i < res.images.length; i++) {
-        const b64 = res.images[i]?.image_base64?.trim();
-        if (!b64) {
-          throw new Error(`Cover option ${i + 1} returned no image data.`);
-        }
-        dataUrls.push(`data:image/png;base64,${b64}`);
-      }
-      if (dataUrls.length !== COVER_VARIANT_COUNT) {
-        throw new Error(
-          `Expected ${COVER_VARIANT_COUNT} cover options, got ${dataUrls.length}.`,
-        );
-      }
-      setCoverVariantUrls(dataUrls);
-    } catch (e) {
-      setCoverErr(e instanceof Error ? e.message : "Cover generation failed.");
-    } finally {
-      setCoverGenBusy(false);
-      setCoverPaymentBlockedOpen(false);
-    }
+    const p = usePublishingStore.getState();
+    p.setCoverSigningName(null);
+    p.setAwaitingCoverSigningReply(false);
+    p.setAwaitingGate("full");
   };
 
   const pickCoverVariant = (index: number) => {
@@ -585,6 +613,21 @@ export function ChatPageClient() {
     }
     if (!COVER_PAYMENT_BYPASS) {
       setCoverPaymentBlockedOpen(true);
+      return;
+    }
+    if (!pub.coverSigningName?.trim()) {
+      if (!pub.awaitingCoverSigningReply) {
+        const ask: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          kind: "gate",
+          content:
+            "How do you want to sign your book? Type the name exactly as it should appear on the bottom of the cover, then press Send.",
+        };
+        pub.pushAssistantMessage(ask);
+        pub.setAwaitingCoverSigningReply(true);
+        void persistChatMessageIfAuthenticated(ask);
+      }
       return;
     }
     void runCoverImageGeneration();

@@ -31,7 +31,7 @@ def _headers() -> dict[str, str]:
 
 
 def fetch_book_by_internal_id(book_id: int) -> dict[str, Any]:
-    """GET /api/v1/internal/books/{id} — service-to-service."""
+    """GET /api/v1/internal/books/{id} — service-to-service. ``book_id`` is the numeric internal id."""
     url = f"{_base_url()}/api/v1/internal/books/{book_id}"
     with httpx.Client(timeout=60.0) as client:
         r = client.get(url, headers=_headers())

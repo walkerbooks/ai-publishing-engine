@@ -109,6 +109,7 @@ export function ChatWorkspace({
   const intakeComplete = usePublishingStore((s) => s.intakeComplete);
   const composerStep = usePublishingStore((s) => s.composerStep);
   const previewContent = usePublishingStore((s) => s.previewContent);
+  const awaitingCoverSigningReply = usePublishingStore((s) => s.awaitingCoverSigningReply);
   const [collaborativeChangeOpen, setCollaborativeChangeOpen] = useState(false);
 
   const terminalFullBookPdfDone = useMemo(
@@ -355,27 +356,44 @@ export function ChatWorkspace({
                 )}
               >
                 {awaitingGate ? (
-                  <ChatGatePanel
-                    awaitingGate={awaitingGate}
-                    onProceedToOutline={proceedToOutline}
-                    onChangeRequirements={changeRequirements}
-                    onProceedToPreview={proceedToPreview}
-                    onChangeOutline={changeOutline}
-                    onPayForCoverPage={payForCoverPage}
-                    onContinueToFullBookFromPostPreview={
-                      continueToFullBookFromPostPreview
-                    }
-                    coverGenBusy={coverGenBusy}
-                    coverVariantUrls={coverVariantUrls}
-                    onPickCoverVariant={onPickCoverVariant}
-                    onPayForFullBook={payForFullBook}
-                    onGenerateFullWithSubscription={generateFullWithSubscription}
-                    onChangePreview={changePreview}
-                    fullBookGateMode={fullBookGateMode}
-                    payPalLoading={payPalLoading}
-                    generateFullBusy={generateFullBusy}
-                    payPalError={payPalError}
-                  />
+                  <div className="space-y-3">
+                    <ChatGatePanel
+                      awaitingGate={awaitingGate}
+                      onProceedToOutline={proceedToOutline}
+                      onChangeRequirements={changeRequirements}
+                      onProceedToPreview={proceedToPreview}
+                      onChangeOutline={changeOutline}
+                      onPayForCoverPage={payForCoverPage}
+                      onContinueToFullBookFromPostPreview={
+                        continueToFullBookFromPostPreview
+                      }
+                      coverGenBusy={coverGenBusy}
+                      coverVariantUrls={coverVariantUrls}
+                      onPickCoverVariant={onPickCoverVariant}
+                      onPayForFullBook={payForFullBook}
+                      onGenerateFullWithSubscription={generateFullWithSubscription}
+                      onChangePreview={changePreview}
+                      fullBookGateMode={fullBookGateMode}
+                      payPalLoading={payPalLoading}
+                      generateFullBusy={generateFullBusy}
+                      payPalError={payPalError}
+                      awaitingCoverSigningReply={awaitingCoverSigningReply}
+                    />
+                    {awaitingGate === "post_preview" && awaitingCoverSigningReply ? (
+                      <ChatComposer
+                        disabled={
+                          busy ||
+                          guestInlineCaptureBlocksDock ||
+                          showBookKickoffChoices ||
+                          showBookKickoffInput ||
+                          showCollaborativeFeedback ||
+                          assistantKickoffLoader
+                        }
+                        onSend={(t) => (clearErr(), onSend(t))}
+                        variant="dock"
+                      />
+                    ) : null}
+                  </div>
                 ) : (
                   <ChatComposer
                     disabled={
