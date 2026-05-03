@@ -3,8 +3,10 @@
 **Go internal book contract** (``GET /api/v1/internal/books/{bookID}`` — use the book’s
 numeric internal id, not ``public_id``; service-to-service auth only, never from the browser):
 
-- ``cover_image_png`` — JSON string, standard base64 of the stored image (Go’s encoding for
-  ``[]byte``). Omitted or empty when no cover is on the row.
+- ``cover_image_fetch_url`` — optional HTTPS URL (e.g. Cloudflare R2 presigned GET from Go when
+  ``cover_image_storage_key`` is set). **Preferred** when present; fetched first.
+- ``cover_image_png`` — JSON string, standard base64 of the stored image (legacy ``BYTEA`` on the
+  book row). Omitted when the cover lives only in R2.
 - ``cover_image_mime`` — e.g. ``image/png`` or ``image/jpeg`` (metadata; we still detect format
   from magic bytes after decode).
 - Optional metadata only: ``cover_variant_chosen``, ``cover_image_source_message_id``,
@@ -25,10 +27,16 @@ from __future__ import annotations
 
 import base64
 import binascii
+import logging
 import re
 from typing import Any
 
+import httpx
+
 _MAX_B64_CHARS = 40_000_000  # ~30 MB decoded upper bound for base64 text
+_MAX_FETCH_BYTES = 25 << 20  # cap HTTP body when resolving presigned R2 URLs
+
+log = logging.getLogger(__name__)
 
 _DATA_URL_PREFIX = re.compile(r"^data:image/(?:png|jpeg|jpg);base64,", re.I)
 
@@ -103,6 +111,40 @@ def _try_value_as_image_bytes(val: Any) -> bytes | None:
     return None
 
 
+def _cover_fetch_url_candidates(book: dict[str, Any]) -> list[str | None]:
+    return [
+        _coalesce_str(book.get("cover_image_fetch_url")),
+        _coalesce_str(book.get("coverImageFetchUrl")),
+    ]
+
+
+def _fetch_cover_bytes_from_url(url: str) -> bytes | None:
+    """GET presigned object URL (no auth headers). Returns PNG/JPEG bytes or None."""
+    u = url.strip()
+    if not u or not u.lower().startswith(("http://", "https://")):
+        return None
+    try:
+        with httpx.Client(timeout=120.0, follow_redirects=True) as client:
+            r = client.get(u)
+        if r.status_code >= 400:
+            log.warning(
+                "cover fetch URL returned HTTP %s (body len %s)",
+                r.status_code,
+                len(r.content or b""),
+            )
+            return None
+        raw = r.content
+        if len(raw) > _MAX_FETCH_BYTES:
+            log.warning("cover fetch URL body exceeds max (%s bytes)", len(raw))
+            return None
+        if _is_png(raw) or _is_jpeg(raw):
+            return raw
+        return None
+    except Exception as e:
+        log.warning("cover fetch URL failed: %s", e)
+        return None
+
+
 def _image_field_candidates(book: dict[str, Any]) -> list[str | None]:
     """Collect possible base64 string fields from book and nested sync_state."""
     out: list[str | None] = []
@@ -139,6 +181,13 @@ def extract_illustrated_cover_bytes(book: dict[str, Any]) -> bytes | None:
     ``None`` if missing, empty, or not a valid PNG/JPEG after decode."""
     if not isinstance(book, dict):
         return None
+    for cand in _cover_fetch_url_candidates(book):
+        if not cand:
+            continue
+        fetched = _fetch_cover_bytes_from_url(cand)
+        if fetched:
+            return fetched
+
     raw_keys = (
         "cover_image_png",
         "CoverImagePng",

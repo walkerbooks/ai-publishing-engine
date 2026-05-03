@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from api.agents.prompts.sync_state import SYNC_STATE_UPDATE_SYSTEM
 from api.llm.factory import get_llm
@@ -36,13 +36,21 @@ def _character_arc_to_str(value: Any) -> str:
 
 
 class SyncStateFields(BaseModel):
+    """Structured LLM output merged into book sync_state after each chapter."""
+
+    model_config = ConfigDict(extra="forbid")
+
     narrative_arc: str = ""
     key_facts: list[str] = Field(default_factory=list)
     open_threads: list[str] = Field(default_factory=list)
     last_chapter_beat: str = ""
     tone_anchors: str = ""
-    # Groq/tooling may emit a structured object; accept both so validation matches the model.
-    character_arc: str | dict[str, Any] = ""
+    character_arc: str = ""
+
+    @field_validator("character_arc", mode="before")
+    @classmethod
+    def _coerce_character_arc(cls, v: Any) -> str:
+        return _character_arc_to_str(v)
 
 
 def run_sync_state_update(
@@ -85,5 +93,5 @@ def run_sync_state_update(
         "open_threads": out.open_threads[:12],
         "last_chapter_beat": out.last_chapter_beat,
         "tone_anchors": out.tone_anchors,
-        "character_arc": _character_arc_to_str(out.character_arc),
+        "character_arc": out.character_arc,
     }

@@ -24,10 +24,14 @@ export type ConversationMessageDto = {
   videos_json?: unknown;
   preview_markdown?: unknown;
   client_message_id?: string | null;
-  /** Base64 PNG from Go `[]byte` JSON. */
+  /** Base64 PNG from Go `[]byte` JSON (legacy when row has no R2 key). */
   cover_image_png?: string | null;
   cover_image_mime?: string | null;
   cover_variant_index?: number | null;
+  /** R2 object key when the cover is stored in object storage. */
+  cover_image_storage_key?: string | null;
+  /** Presigned HTTPS URL to fetch the cover (preferred over base64). */
+  cover_image_fetch_url?: string | null;
   created_at: string;
 };
 

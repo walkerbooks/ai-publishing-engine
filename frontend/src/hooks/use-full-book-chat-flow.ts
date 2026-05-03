@@ -141,7 +141,14 @@ export function useFullBookChatFlow() {
         PAID_LIKE.has(statusNorm) ||
         mockPaymentConfirmed ||
         subscriptionFullGenUnlocked;
-      if (!paid) return;
+      if (!paid) {
+        /* Avoid GET /books/{id} every 4s while still on preview (user hasn't paid / unlocked).
+         * Keep polling only when a payment may flip the row to `paid` (webhook). */
+        if (statusNorm !== "awaiting_payment") {
+          stopPoll();
+        }
+        return;
+      }
 
       setAwaitingGate(null);
 
@@ -215,8 +222,16 @@ export function useFullBookChatFlow() {
           }
           patchChatMessage(msgId, { fullGenError: null });
           genRequestedRef.current = true;
-          void requestFullGeneration(activeBookId, token).catch(() => {
+          void requestFullGeneration(activeBookId, token).catch((e: unknown) => {
             genRequestedRef.current = false;
+            const msg =
+              e instanceof Error
+                ? e.message
+                : "Full book generation could not be started.";
+            patchChatMessage(msgId, {
+              fullGenError: msg,
+              fullGenStatusText: "",
+            });
           });
         } else {
           genRequestedRef.current = true;

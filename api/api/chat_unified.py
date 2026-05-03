@@ -62,8 +62,6 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
     message = (payload.message or "").strip()
     history = payload.history or []
     settings = get_settings()
-    provider = settings.llm_provider
-    print(f"Provider: {provider}")
     step = payload.step
     action = payload.action
 

@@ -60,12 +60,20 @@ export function apiMessageToChatMessage(m: ConversationMessageDto): ChatMessage 
   const specRaw = decodeApiBlob(m.book_spec_json ?? undefined);
   const bookSpec = parseJson<Record<string, unknown>>(specRaw ?? undefined);
   let coverImageDataUrl: string | null | undefined;
-  if (kind === "cover" && typeof m.cover_image_png === "string" && m.cover_image_png.trim()) {
-    const mime =
-      typeof m.cover_image_mime === "string" && m.cover_image_mime.trim()
-        ? m.cover_image_mime.trim()
-        : "image/png";
-    coverImageDataUrl = `data:${mime};base64,${m.cover_image_png.trim()}`;
+  if (kind === "cover") {
+    const fetchUrl =
+      typeof m.cover_image_fetch_url === "string" && m.cover_image_fetch_url.trim()
+        ? m.cover_image_fetch_url.trim()
+        : "";
+    if (fetchUrl) {
+      coverImageDataUrl = fetchUrl;
+    } else if (typeof m.cover_image_png === "string" && m.cover_image_png.trim()) {
+      const mime =
+        typeof m.cover_image_mime === "string" && m.cover_image_mime.trim()
+          ? m.cover_image_mime.trim()
+          : "image/png";
+      coverImageDataUrl = `data:${mime};base64,${m.cover_image_png.trim()}`;
+    }
   }
   return {
     id: m.client_message_id || m.id,

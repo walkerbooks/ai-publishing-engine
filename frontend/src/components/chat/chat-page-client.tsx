@@ -577,6 +577,13 @@ export function ChatPageClient() {
     if (index < 0 || index >= urls.length) return;
     const chosen = urls[index];
     if (!chosen) return;
+    const bookId = usePublishingStore.getState().activeBookId?.trim();
+    if (!bookId) {
+      setCoverErr(
+        "No book is linked to this chat, so your chosen cover cannot be saved on the book for the PDF. Continue from your book or restore the preview flow, then pick a cover again.",
+      );
+      return;
+    }
     setCoverVariantUrls(null);
     const pub = usePublishingStore.getState();
     const msg: ChatMessage = {

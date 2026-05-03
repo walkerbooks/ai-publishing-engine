@@ -13,10 +13,10 @@ Go has no PDF worker: ``POST /v1/exports/request`` only inserts ``queued``. The 
 ``chapters_pdf`` / ``chapters_docx`` build runs on demand via ``POST /internal/build-export``
 (book_id), which Go calls so the row moves to ``ready`` with a browser-openable URL (not S3).
 
-Illustrated cover: ``fetch_book_by_internal_id`` must return ``cover_image_png`` (base64
-string) when the book row has a linked cover; see ``api.services.illustrated_cover_bytes``.
-Export logs distinguish “embedded N bytes” (wire OK) from “no illustrated cover bytes”
-(missing field or empty row — re-run export after cover is persisted).
+Illustrated cover: ``fetch_book_by_internal_id`` should include ``cover_image_fetch_url``
+(presigned R2 GET) when Go stores the cover in Cloudflare R2, or legacy ``cover_image_png``
+(base64) when bytes remain on the book row; see ``api.services.illustrated_cover_bytes``.
+Export logs distinguish “embedded N bytes” (wire OK) from “no illustrated cover bytes”.
 """
 
 from __future__ import annotations
@@ -254,7 +254,8 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
         else:
             log.info(
                 "Export %s: no illustrated cover bytes from internal book payload "
-                "(expected base64 in cover_image_png when a cover exists on the book row)",
+                "(set cover on the book via chat with link_book_public_id, or ensure "
+                "cover_image_fetch_url / cover_image_png from GET internal/books/{id})",
                 public_id,
             )
         toc_lines: list[tuple[str, str]] = []

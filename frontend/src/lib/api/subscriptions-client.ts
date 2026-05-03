@@ -5,6 +5,10 @@ import { getLogger } from "@/lib/log";
 
 const log = getLogger("subscriptions-client");
 
+/** When true, UI + preflight ignore 24h cooldown if the user still has subscription credits. Go may still enforce on POST /full-book/request. */
+const FULL_BOOK_COOLDOWN_BYPASS =
+  process.env.NEXT_PUBLIC_FULL_BOOK_COOLDOWN_BYPASS === "true";
+
 export type SubscriptionPlan = "single_book" | "double_book" | "triple_book";
 
 export type SubscriptionRow = {
@@ -75,7 +79,7 @@ export function normalizeSubscriptionEntitlement(raw: unknown): SubscriptionEnti
     _asBool(
       _pick(r, "has_entitlement", "HasEntitlement", "hasEntitlement"),
     ) ?? false;
-  const can_start_full_generation =
+  let can_start_full_generation =
     _asBool(
       _pick(
         r,
@@ -88,6 +92,13 @@ export function normalizeSubscriptionEntitlement(raw: unknown): SubscriptionEnti
     _asInt(_pick(r, "books_remaining", "BooksRemaining", "booksRemaining")) ?? 0;
   if (!has_entitlement && books_remaining > 0) {
     has_entitlement = true;
+  }
+  if (
+    FULL_BOOK_COOLDOWN_BYPASS &&
+    has_entitlement &&
+    !can_start_full_generation
+  ) {
+    can_start_full_generation = true;
   }
   const plan = String(_pick(r, "plan", "Plan") ?? "");
   const subscription_public_id = String(

@@ -67,7 +67,7 @@ class BookSpecification(BaseModel):
 class IntakeBookSpecification(BaseModel):
     """
     Partial BSO for LLM structured output. All fields optional so the model
-    can return null for missing info; Groq validates the tool payload strictly.
+    can return null for missing info; structured-output providers validate payloads strictly.
     """
 
     genre: Optional[str] = Field(None, description="Primary genre")

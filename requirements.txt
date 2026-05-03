@@ -8,9 +8,11 @@ psycopg2-binary>=2.9.9
 httpx>=0.27.0
 fpdf2>=2.8.0
 python-docx>=1.1.0
-langchain-core>=0.3.0
-langchain-openai>=0.2.0
-langchain-groq>=0.2.0
+# Align on langchain-core 1.x. Core 1.x removed langchain_core.pydantic_v1 (old langchain-groq<1 breaks).
+# Cap core below 1.3: 1.3+ pulls langchain-protocol which uses TypedDict(extra_items=...) (Python 3.13+ only).
+langchain-core>=1.0.0,<1.3.0
+langchain-openai>=1.0.0,<3.0.0
+langchain-groq>=1.0.0,<3.0.0
 langgraph>=0.2.0
 langsmith>=0.2.0
 google-api-python-client>=2.100.0
