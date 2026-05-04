@@ -29,6 +29,7 @@ import {
   fetchSubscriptionEntitlement,
   formatNextFullGenerationSlot,
 } from "@/lib/api/subscriptions-client";
+import { persistBookDescriptionToGo } from "@/lib/book/book-description-payload";
 import { useFullBookChatFlow } from "@/hooks/use-full-book-chat-flow";
 import { threadPastBookKickoff } from "@/lib/chat/book-kickoff";
 import {
@@ -480,14 +481,23 @@ export function ChatPageClient() {
       );
       return;
     }
-    if (!getAccessToken()) {
+    const token = getAccessToken();
+    if (!token) {
       useAuthDialogRequestStore.getState().requestLogin();
       setPayPalGateErr(
         "Please sign in or create an account to pay with PayPal, then tap the button again.",
       );
       return;
     }
-    setFullBookPricingOpen(true);
+    void (async () => {
+      try {
+        await persistBookDescriptionToGo(id, token);
+      } catch {
+        setPayPalGateErr("Could not save your book details. Check your connection and try again.");
+        return;
+      }
+      setFullBookPricingOpen(true);
+    })();
   };
 
   const generateFullWithSubscription = async () => {
@@ -538,6 +548,12 @@ export function ChatPageClient() {
         }
         return;
       }
+      try {
+        await persistBookDescriptionToGo(id, token);
+      } catch {
+        setPayPalGateErr("Could not save your book details. Check your connection and try again.");
+        return;
+      }
       usePublishingStore.getState().setSubscriptionFullGenUnlocked(true);
       usePublishingStore.getState().setAwaitingGate(null);
     } finally {
@@ -549,8 +565,22 @@ export function ChatPageClient() {
     clearPayPalErr();
     const id = usePublishingStore.getState().activeBookId;
     if (!id) return;
+    const token = getAccessToken();
+    if (!token) {
+      useAuthDialogRequestStore.getState().requestLogin();
+      return;
+    }
     setFullBookPricingOpen(false);
-    void startCheckout(id, "/chat", tier);
+    void (async () => {
+      try {
+        await persistBookDescriptionToGo(id, token);
+      } catch {
+        setPayPalGateErr("Could not save your book details. Check your connection and try again.");
+        setFullBookPricingOpen(true);
+        return;
+      }
+      void startCheckout(id, "/chat", tier);
+    })();
   };
   const changePreview = () => {
     setCoverVariantUrls(null);
@@ -560,6 +590,10 @@ export function ChatPageClient() {
     p.setComposerAction("revise");
     p.setCoverSigningName(null);
     p.setAwaitingCoverSigningReply(false);
+    p.setFullBookIncludeAboutAuthor(false);
+    p.setFullBookIncludeAcknowledgement(false);
+    p.setFullBookAboutAuthorText("");
+    p.setFullBookAcknowledgementText("");
   };
 
   const continueToFullBookFromPostPreview = () => {

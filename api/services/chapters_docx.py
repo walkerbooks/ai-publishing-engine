@@ -38,12 +38,15 @@ from docx.shared import Cm, Inches, Pt, RGBColor, Twips
 from api.services.chapters_pdf import (
     _COVER_TEXT_RGB,
     _format_subtitle_line,
+    ManuscriptFrontMatter,
     _markdownish_to_plain,
     _smart_double_quotes,
     _split_paragraphs,
     _strip_leading_chapter_prefix,
     _toc_clean_page_disp,
     _toc_display_label,
+    build_manuscript_pdf_bytes,
+    legacy_manuscript_front_matter,
     strip_leading_chapter_heading_from_markdown,
 )
 
@@ -370,6 +373,7 @@ def build_manuscript_docx_bytes(
     subtitle: str | None = None,
     author_name: str | None = None,
     dedication: str | None = None,
+    front_matter: ManuscriptFrontMatter | None = None,
     toc_lines: list[tuple[str, str]] | None = None,
     illustrated_cover_image: bytes | None = None,
 ) -> bytes:
@@ -405,6 +409,7 @@ def build_manuscript_docx_bytes(
     sub        = (subtitle or "").strip()
     sub_line   = _format_subtitle_line(sub) if sub else ""
     auth       = (author_name or "").strip()[:300]
+    fm = front_matter or legacy_manuscript_front_matter(auth or None)
 
     # ------------------------------------------------------------------
     # Cover page — title/subtitle (auto-fit); By then author; two lines below author
@@ -491,61 +496,58 @@ def build_manuscript_docx_bytes(
 
     toc: list[tuple[str, str]] = list(toc_lines) if toc_lines else []
     if not toc:
-        from api.services.chapters_pdf import build_manuscript_pdf_bytes
-
         build_manuscript_pdf_bytes(
             sorted_rows,
             main_title,
             subtitle=sub or None,
             author_name=auth or None,
             dedication=dedication,
+            front_matter=fm,
             toc_lines_out=toc,
             illustrated_cover_image=illustrated_cover_image,
         )
 
     # ------------------------------------------------------------------
-    # Acknowledgment
+    # Acknowledgment (optional)
     # ------------------------------------------------------------------
-    p_ack = doc.add_paragraph()
-    p_ack.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_ack.paragraph_format.space_before = Pt(_CHAPTER_BEFORE_PT)
-    p_ack.paragraph_format.space_after  = Pt(_CHAPTER_AFTER_PT)
-    r_ack = p_ack.add_run("ACKNOWLEDGMENT")
-    r_ack.font.name = _FONT_BODY
-    r_ack.font.bold = True
-    r_ack.font.size = Pt(_CHAPTER_PT)
+    if fm.acknowledgement_body is not None:
+        p_ack = doc.add_paragraph()
+        p_ack.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_ack.paragraph_format.space_before = Pt(_CHAPTER_BEFORE_PT)
+        p_ack.paragraph_format.space_after = Pt(_CHAPTER_AFTER_PT)
+        r_ack = p_ack.add_run("ACKNOWLEDGMENT")
+        r_ack.font.name = _FONT_BODY
+        r_ack.font.bold = True
+        r_ack.font.size = Pt(_CHAPTER_PT)
 
-    _add_body_paragraph(
-        doc,
-        "The author wishes to thank everyone who supported the creation of this book.",
-        is_last_in_chapter=True,
-    )
+        ack_plain = _smart_double_quotes(_markdownish_to_plain(fm.acknowledgement_body))
+        ack_paras = _split_paragraphs(ack_plain)
+        for i, para in enumerate(ack_paras):
+            _add_body_paragraph(
+                doc, para, is_last_in_chapter=(i == len(ack_paras) - 1)
+            )
 
-    doc.add_page_break()
+        doc.add_page_break()
 
     # ------------------------------------------------------------------
-    # About the Author
+    # About the Author (optional)
     # ------------------------------------------------------------------
-    p_abt = doc.add_paragraph()
-    p_abt.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_abt.paragraph_format.space_before = Pt(_CHAPTER_BEFORE_PT)
-    p_abt.paragraph_format.space_after  = Pt(_CHAPTER_AFTER_PT)
-    r_abt = p_abt.add_run("ABOUT THE AUTHOR")
-    r_abt.font.name = _FONT_BODY
-    r_abt.font.bold = True
-    r_abt.font.size = Pt(_CHAPTER_PT)
+    if fm.about_the_author_body is not None:
+        p_abt = doc.add_paragraph()
+        p_abt.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_abt.paragraph_format.space_before = Pt(_CHAPTER_BEFORE_PT)
+        p_abt.paragraph_format.space_after = Pt(_CHAPTER_AFTER_PT)
+        r_abt = p_abt.add_run("ABOUT THE AUTHOR")
+        r_abt.font.name = _FONT_BODY
+        r_abt.font.bold = True
+        r_abt.font.size = Pt(_CHAPTER_PT)
 
-    about_parts = []
-    if auth:
-        about_parts.append(auth)
-    about_parts.append(
-        "This author writes with the goal of connecting with readers through honest, vivid storytelling."
-    )
-    about_paras = _split_paragraphs("\n\n".join(about_parts))
-    for i, para in enumerate(about_paras):
-        _add_body_paragraph(doc, para, is_last_in_chapter=(i == len(about_paras) - 1))
+        about_plain = _smart_double_quotes(_markdownish_to_plain(fm.about_the_author_body))
+        about_paras = _split_paragraphs(about_plain)
+        for i, para in enumerate(about_paras):
+            _add_body_paragraph(doc, para, is_last_in_chapter=(i == len(about_paras) - 1))
 
-    doc.add_page_break()
+        doc.add_page_break()
 
     # ------------------------------------------------------------------
     # Dedication (optional, before TOC)

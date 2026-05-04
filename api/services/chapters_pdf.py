@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,32 @@ from typing import Any
 from api.services.illustrated_cover_bytes import image_pixel_dimensions
 
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ManuscriptFrontMatter:
+    """``None`` body = omit that front-matter page. Non-empty strings are rendered as body text."""
+
+    acknowledgement_body: str | None
+    about_the_author_body: str | None
+
+
+def legacy_manuscript_front_matter(author_display: str | None) -> ManuscriptFrontMatter:
+    """Placeholder acknowledgment + about text used when description has no ``front_matter``."""
+    auth = (author_display or "").strip()
+    ack = "The author wishes to thank everyone who supported the creation of this book."
+    about_parts: list[str] = []
+    if auth:
+        about_parts.append(auth)
+    about_parts.append(
+        "This author writes with the goal of connecting with readers through "
+        "honest, vivid storytelling."
+    )
+    return ManuscriptFrontMatter(
+        acknowledgement_body=ack,
+        about_the_author_body="\n\n".join(about_parts),
+    )
+
 
 # Optional bundled DejaVu fonts (avoid Windows Fonts charmap decode errors).
 _BUNDLED_DEJAVU = (
@@ -444,6 +471,7 @@ def build_manuscript_pdf_bytes(
     subtitle: str | None = None,
     author_name: str | None = None,
     dedication: str | None = None,
+    front_matter: ManuscriptFrontMatter | None = None,
     toc_lines_out: list[tuple[str, str]] | None = None,
     illustrated_cover_image: bytes | None = None,
 ) -> bytes:
@@ -469,6 +497,8 @@ def build_manuscript_pdf_bytes(
     )
     if not sorted_rows:
         raise ValueError("no chapters to render")
+
+    fm = front_matter or legacy_manuscript_front_matter(author_name)
 
     pdf = FPDF(format=(_PAGE_W_MM, _PAGE_H_MM), unit="mm")
     # Asymmetric margins matching reference XML
@@ -725,24 +755,23 @@ def build_manuscript_pdf_bytes(
     # ------------------------------------------------------------------
     # Front matter (matches DOCX order: copyright page already added after cover)
     # ------------------------------------------------------------------
-    pdf.add_page()
-    pdf.start_section("ACKNOWLEDGMENT", level=0)
-    _render_section_heading("ACKNOWLEDGMENT")
-    _render_body_paragraphs(
-        txt("The author wishes to thank everyone who supported the creation of this book.")
-    )
+    if fm.acknowledgement_body is not None:
+        pdf.add_page()
+        pdf.start_section("ACKNOWLEDGMENT", level=0)
+        _render_section_heading("ACKNOWLEDGMENT")
+        ack_plain = txt(
+            _smart_double_quotes(_markdownish_to_plain(fm.acknowledgement_body))
+        )
+        _render_body_paragraphs(ack_plain)
 
-    pdf.add_page()
-    pdf.start_section("ABOUT THE AUTHOR", level=0)
-    _render_section_heading("ABOUT THE AUTHOR")
-    about_lines = []
-    if auth_line:
-        about_lines.append(auth_line)
-    about_lines.append(
-        txt("This author writes with the goal of connecting with readers through "
-            "honest, vivid storytelling.")
-    )
-    _render_body_paragraphs("\n\n".join(about_lines))
+    if fm.about_the_author_body is not None:
+        pdf.add_page()
+        pdf.start_section("ABOUT THE AUTHOR", level=0)
+        _render_section_heading("ABOUT THE AUTHOR")
+        about_plain = txt(
+            _smart_double_quotes(_markdownish_to_plain(fm.about_the_author_body))
+        )
+        _render_body_paragraphs(about_plain)
 
     if ded_raw:
         pdf.add_page()

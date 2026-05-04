@@ -131,6 +131,14 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
     setCoverSigningName: (coverSigningName) => set({ coverSigningName }),
     setAwaitingCoverSigningReply: (awaitingCoverSigningReply) =>
       set({ awaitingCoverSigningReply }),
+    setFullBookIncludeAboutAuthor: (fullBookIncludeAboutAuthor) =>
+      set({ fullBookIncludeAboutAuthor }),
+    setFullBookIncludeAcknowledgement: (fullBookIncludeAcknowledgement) =>
+      set({ fullBookIncludeAcknowledgement }),
+    setFullBookAboutAuthorText: (fullBookAboutAuthorText) =>
+      set({ fullBookAboutAuthorText }),
+    setFullBookAcknowledgementText: (fullBookAcknowledgementText) =>
+      set({ fullBookAcknowledgementText }),
     patchChatMessage: (messageId, patch) =>
       set((s) => ({
         chatMessages: s.chatMessages.map((m) =>

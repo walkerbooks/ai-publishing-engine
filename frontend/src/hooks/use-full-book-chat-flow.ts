@@ -19,6 +19,7 @@ import { checkFullGenerationEntitlement } from "@/lib/api/subscriptions-client";
 import { getAccessToken, getUserFirstName } from "@/lib/auth/access-token";
 import { randomFullBookQuip } from "@/lib/chat/full-book-quips";
 import type { FullBookGenPhase } from "@/lib/types/chat";
+import { buildBookDescriptionJson } from "@/lib/book/book-description-payload";
 import { getLogger } from "@/lib/log";
 import { usePublishingStore } from "@/stores/publishing-store";
 
@@ -190,11 +191,7 @@ export function useFullBookChatFlow() {
       if (!payloadSyncedRef.current) {
         payloadSyncedRef.current = true;
         void patchBook(activeBookId, token, {
-          description: JSON.stringify({
-            book_spec: bookSpec,
-            book_outline: bookOutline,
-            preview_markdown: previewContent,
-          }),
+          description: buildBookDescriptionJson(),
           ...getBookConversationLinkForApi(),
         }).catch(() => {
           payloadSyncedRef.current = false;

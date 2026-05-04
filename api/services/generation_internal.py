@@ -33,7 +33,9 @@ from api.agents.sync_state_agent import run_sync_state_update
 from api.config import get_settings
 from api.services.chapters_docx import build_manuscript_docx_bytes, write_docx_to_path
 from api.services.chapters_pdf import (
+    ManuscriptFrontMatter,
     build_manuscript_pdf_bytes,
+    legacy_manuscript_front_matter,
     write_pdf_export_metadata,
     write_pdf_to_path,
 )
@@ -221,6 +223,37 @@ def _pdf_title_metadata_from_book(book: dict[str, Any], fallback_title: str) -> 
     return (main, subtitle, author_name)
 
 
+def _manuscript_front_matter_for_book(book: dict[str, Any]) -> ManuscriptFrontMatter:
+    """
+    Reads optional ``front_matter`` from description JSON (set by the chat UI before pay/generate).
+    When absent, returns legacy placeholder acknowledgment + about pages.
+    """
+    desc = str(book.get("description") or "").strip()
+    _main, _sub, author_from_meta = _pdf_title_metadata_from_book(book, "")
+    author_display = (author_from_meta or "").strip() or None
+    try:
+        data = json.loads(desc)
+        fm = data.get("front_matter")
+        if isinstance(fm, dict):
+            ack_on = bool(fm.get("include_acknowledgement"))
+            ack_txt = str(fm.get("acknowledgement_text") or "").strip()
+            ab_on = bool(fm.get("include_about_author"))
+            ab_txt = str(fm.get("about_author_text") or "").strip()
+            ack_body: str | None = None
+            if ack_on:
+                ack_body = ack_txt if ack_txt else " "
+            ab_body: str | None = None
+            if ab_on:
+                ab_body = ab_txt if ab_txt else (author_display or "The author")
+            return ManuscriptFrontMatter(
+                acknowledgement_body=ack_body,
+                about_the_author_body=ab_body,
+            )
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return legacy_manuscript_front_matter(author_display)
+
+
 def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> None:
     """Tell Go the manuscript is done and attach a generated PDF URL (or export failed)."""
     settings = get_settings()
@@ -244,6 +277,7 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
         chapters = fetch_internal_chapters(book_id)
         main_title, subtitle, author_name = _pdf_title_metadata_from_book(book, book_title)
         dedication = _outline_dedication_from_book(book)
+        front_matter = _manuscript_front_matter_for_book(book)
         cover_bytes = extract_illustrated_cover_bytes(book)
         if cover_bytes:
             log.info(
@@ -265,6 +299,7 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
             subtitle=subtitle,
             author_name=author_name,
             dedication=dedication,
+            front_matter=front_matter,
             toc_lines_out=toc_lines,
             illustrated_cover_image=cover_bytes,
         )
@@ -278,6 +313,7 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
                 subtitle=subtitle,
                 author_name=author_name,
                 dedication=dedication,
+                front_matter=front_matter,
                 toc_lines=toc_lines,
                 illustrated_cover_image=cover_bytes,
             )
