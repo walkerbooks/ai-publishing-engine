@@ -76,9 +76,11 @@ def run_chapter(
     provider: str | None = None,
 ) -> str:
     """Returns markdown for one chapter. Uses persisted `sync_state` for continuity."""
+    # OpenAI models used here reject completion max_tokens above 16384.
+    provider_max_completion_tokens = 16000
     wt = int(chapter_plan.get("word_target", 2000))
     # Allow long chapters without output truncation (provider caps may still apply).
-    max_tokens = min(65536, max(2048, int(wt * 2.5)))
+    max_tokens = min(provider_max_completion_tokens, max(2048, int(wt * 2.5)))
     llm = get_llm(provider).bind(max_tokens=max_tokens)
     target_pages = book_spec.get("target_length_pages")
     if not isinstance(target_pages, int):
@@ -162,7 +164,7 @@ def run_chapter(
     floor = int(wt * 0.88)
     if wc < floor and wt >= 800 and text:
         llm_expand = get_llm(provider).bind(
-            max_tokens=min(65536, max(4096, int(wt * 3)))
+            max_tokens=min(provider_max_completion_tokens, max(4096, int(wt * 3)))
         )
         messages2 = messages + [
             AIMessage(content=text),
