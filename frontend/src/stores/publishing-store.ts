@@ -103,7 +103,7 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           activeBookId: nextActive,
           bookPreviewRowSynced: sameBook ? s.bookPreviewRowSynced : false,
           subscriptionFullGenUnlocked: sameBook ? s.subscriptionFullGenUnlocked : false,
-          intakeCollaborative: intakeComplete ? false : s.intakeCollaborative,
+          intakeCollaborative: s.intakeCollaborative,
         };
       }),
     setActiveBookId: (activeBookId) =>
