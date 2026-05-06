@@ -37,10 +37,22 @@ import {
   COVER_VARIANT_COUNT,
 } from "@/lib/chat/cover-prompt";
 import { persistChatMessageIfAuthenticated } from "@/lib/chat/conversation-sync";
+import { syncGuestPromotionLead } from "@/lib/api/promotion-client";
+import {
+  isWelcomeVideosSettledForMessage,
+  shouldShowGuestEmailCapture,
+  syncGuestOnboardingFromMessages,
+} from "@/lib/chat/welcome-flow";
 import { getUnifiedAssistantPlaceholder } from "@/lib/chat/unified-chat/placeholders";
 import { generateCoverVariantsForChat } from "@/lib/api/cover-client";
 
 const KICKOFF_ASSISTANT_LOADER_MS = 550;
+
+/** Stable id for the title/subtitle/summary kickoff bubble (logged-in empty thread + post-welcome paths). */
+const BOOK_KICKOFF_CHOICE_MESSAGE_ID = "book-kickoff-choice";
+
+const BOOK_KICKOFF_CHOICE_COPY =
+  "Hi! I'm glad you're here.\n\nBefore we dive in, do you already have a working title, subtitle, and a short summary in mind?";
 
 /** When true, cover generates without a $1 PayPal checkout (local/testing). Production: wire checkout then set false. */
 const COVER_PAYMENT_BYPASS =
@@ -70,6 +82,7 @@ function scheduleKickoffAssistantReveal(
 }
 
 type BookKickoffStage =
+  | "before_choice"
   | "choice"
   | "title"
   | "subtitle"
@@ -201,10 +214,12 @@ export function ChatPageClient() {
     useState(false);
   const lastCooldownPopupSummaryRef = useRef("");
   const [generateFullBusy, setGenerateFullBusy] = useState(false);
-  const [bookKickoffStage, setBookKickoffStage] = useState<BookKickoffStage>("choice");
+  const [bookKickoffStage, setBookKickoffStage] = useState<BookKickoffStage>("before_choice");
   const [bookKickoffTitle, setBookKickoffTitle] = useState("");
   const [bookKickoffSubtitle, setBookKickoffSubtitle] = useState("");
   const kickoffLoaderTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  /** Logged-in first message: inject kickoff once after welcome videos settle on the first assistant reply. */
+  const loggedInPostWelcomeKickoffRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -276,23 +291,59 @@ export function ChatPageClient() {
     }
   }, [fullBookGateMode, fullBookCooldownSummary]);
 
-  /** Guests and first-time signed-in users use the YouTube welcome path; returning signed-in users get the title/summary kickoff. */
+  /**
+   * Kickoff stage baseline: guests stay in `before_choice` until name/email/videos complete, then we
+   * move to `choice`. First-time signed-in users use `before_choice` until after welcome videos on
+   * the first assistant reply; returning users with an empty thread jump straight to `choice`.
+   */
   useEffect(() => {
     if (!listLoaded) return;
     if (!isAuthenticated) {
-      setBookKickoffStage("done");
+      if (messages.length === 0) {
+        setBookKickoffStage("before_choice");
+      }
       return;
     }
     if (conversationCount === 0) {
-      setBookKickoffStage("done");
-    } else if (messages.length === 0) {
+      if (messages.length === 0) {
+        setBookKickoffStage("before_choice");
+      }
+      return;
+    }
+    if (messages.length === 0) {
       setBookKickoffStage("choice");
     }
   }, [listLoaded, isAuthenticated, conversationCount, messages.length]);
 
-  /** Re-opened threads default kickoff stage to "choice" — snap to done once outline/preview exists. */
+  useEffect(() => {
+    if (bookKickoffStage === "before_choice" && messages.length < 2) {
+      loggedInPostWelcomeKickoffRef.current = false;
+    }
+  }, [bookKickoffStage, messages.length]);
+
+  /** After first assistant reply + welcome videos (logged-in, `before_choice`), insert title/summary kickoff. */
   useEffect(() => {
     if (!listLoaded || !isAuthenticated) return;
+    if (bookKickoffStage !== "before_choice") return;
+    if (loggedInPostWelcomeKickoffRef.current) return;
+    const msgs = usePublishingStore.getState().chatMessages;
+    if (msgs.length < 2) return;
+    const last = msgs[msgs.length - 1];
+    if (last.role !== "assistant") return;
+    if (!isWelcomeVideosSettledForMessage(last)) return;
+    if (msgs.some((m) => m.id === BOOK_KICKOFF_CHOICE_MESSAGE_ID)) return;
+    loggedInPostWelcomeKickoffRef.current = true;
+    setBookKickoffStage("choice");
+    scheduleKickoffAssistantReveal(
+      BOOK_KICKOFF_CHOICE_MESSAGE_ID,
+      BOOK_KICKOFF_CHOICE_COPY,
+      kickoffLoaderTimersRef.current,
+    );
+  }, [listLoaded, isAuthenticated, bookKickoffStage, messages]);
+
+  /** Snap to done once outline/preview exists (guest or authed). */
+  useEffect(() => {
+    if (!listLoaded) return;
     if (
       !threadPastBookKickoff({
         awaitingGate,
@@ -307,7 +358,6 @@ export function ChatPageClient() {
     setBookKickoffStage((stage) => (stage !== "done" ? "done" : stage));
   }, [
     listLoaded,
-    isAuthenticated,
     messages,
     awaitingGate,
     bookOutline,
@@ -315,16 +365,18 @@ export function ChatPageClient() {
     composerStep,
   ]);
 
+  /** Returning signed-in user: empty thread shows kickoff immediately (no YouTube prerequisite). */
   useEffect(() => {
     if (messages.length) return;
     if (bookKickoffStage !== "choice") return;
     if (!isAuthenticated || !listLoaded || conversationCount === 0) return;
-    const id = "book-kickoff-choice";
-    const exists = usePublishingStore.getState().chatMessages.some((m) => m.id === id);
+    const exists = usePublishingStore.getState().chatMessages.some(
+      (m) => m.id === BOOK_KICKOFF_CHOICE_MESSAGE_ID,
+    );
     if (exists) return;
     scheduleKickoffAssistantReveal(
-      id,
-      "Hi! I'm glad you're here.\n\nBefore we dive in, do you already have a working title, subtitle, and a short summary in mind?",
+      BOOK_KICKOFF_CHOICE_MESSAGE_ID,
+      BOOK_KICKOFF_CHOICE_COPY,
       kickoffLoaderTimersRef.current,
     );
   }, [messages.length, bookKickoffStage, isAuthenticated, listLoaded, conversationCount]);
@@ -421,6 +473,32 @@ export function ChatPageClient() {
     const value = text.trim();
     if (!value) return;
     const pub = usePublishingStore.getState();
+    if (
+      !isAuthenticated &&
+      shouldShowGuestEmailCapture(pub.chatMessages) &&
+      value.includes("@")
+    ) {
+      pub.pushUserMessage(value);
+      const u = usePublishingStore.getState().chatMessages.at(-1);
+      if (u?.role === "user") void persistChatMessageIfAuthenticated(u);
+      pub.setGuestEmail(value);
+      const after = usePublishingStore.getState().chatMessages;
+      const { userName, guestEmail } = syncGuestOnboardingFromMessages(after);
+      if (userName) pub.setUserName(userName);
+      if (guestEmail) pub.setGuestEmail(guestEmail);
+      void syncGuestPromotionLead(userName, guestEmail ?? value, false);
+      if (
+        !after.some((m) => m.id === BOOK_KICKOFF_CHOICE_MESSAGE_ID)
+      ) {
+        setBookKickoffStage("choice");
+        scheduleKickoffAssistantReveal(
+          BOOK_KICKOFF_CHOICE_MESSAGE_ID,
+          BOOK_KICKOFF_CHOICE_COPY,
+          kickoffLoaderTimersRef.current,
+        );
+      }
+      return;
+    }
     if (pub.awaitingCoverSigningReply) {
       pub.pushUserMessage(value);
       pub.setCoverSigningName(value);

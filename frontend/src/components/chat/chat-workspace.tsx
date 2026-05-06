@@ -36,7 +36,14 @@ type GateHandlers = {
   generateFullBusy?: boolean;
   payPalLoading?: boolean;
   payPalError?: string | null;
-  bookKickoffStage?: "choice" | "title" | "subtitle" | "summary" | "general_idea" | "done";
+  bookKickoffStage?:
+    | "before_choice"
+    | "choice"
+    | "title"
+    | "subtitle"
+    | "summary"
+    | "general_idea"
+    | "done";
   onBookKickoffOptionSelect?: (option: "start_together" | "complete_idea") => void;
   onBookKickoffInputSend?: (text: string) => void;
   onCollaborativeAgree?: () => void;

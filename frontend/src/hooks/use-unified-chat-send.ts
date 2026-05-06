@@ -11,6 +11,7 @@ import {
 } from "@/lib/chat/unified-chat/placeholders";
 import { handleUnifiedChatSseEvent } from "@/lib/chat/unified-chat/event-handler";
 import { authGreetingName } from "@/lib/auth/greeting-name";
+import { getAccessToken, getUserEmail, getUserFirstName } from "@/lib/auth/access-token";
 import { syncGuestOnboardingFromMessages } from "@/lib/chat/welcome-flow";
 import { assertGuestMaySendNewThread } from "@/lib/guest/guest-send-guard";
 import { useAuthStore } from "@/stores/auth-store";
@@ -75,10 +76,12 @@ export function useUnifiedChatSend() {
           : [];
 
       const auth = useAuthStore.getState();
+      const token = getAccessToken();
+      const isAuthed = auth.isAuthenticated || Boolean(token);
       const userDisplayName = authGreetingName(
-        auth.isAuthenticated,
-        auth.firstName,
-        auth.email,
+        isAuthed,
+        auth.firstName ?? getUserFirstName(),
+        auth.email ?? getUserEmail(),
       );
 
       const tryAck =
