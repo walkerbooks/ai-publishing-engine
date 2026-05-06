@@ -64,6 +64,7 @@ export function PayPalReturnClient() {
           } catch {
             /* */
           }
+          const checkoutCtx = readPayPalCheckoutContext();
           const postedKey = subscriptionPostedStorageKey(bookId!);
           let alreadyPosted = false;
           try {
@@ -72,8 +73,9 @@ export function PayPalReturnClient() {
             /* */
           }
           if (!alreadyPosted) {
-            const ctx = readPayPalCheckoutContext();
-            const plan = packageTierToSubscriptionPlan(ctx?.package_tier ?? "single");
+            const plan = packageTierToSubscriptionPlan(
+              checkoutCtx?.package_tier ?? "single",
+            );
             try {
               await createSubscription(plan, token);
               try {
@@ -89,7 +91,10 @@ export function PayPalReturnClient() {
             bookId,
             status: book.Status,
           });
-          router.replace(`/chat?book=${encodeURIComponent(bookId!)}`);
+          const withCover = checkoutCtx?.include_cover ? "&with_cover=1" : "";
+          router.replace(
+            `/chat?book=${encodeURIComponent(bookId!)}&paid=1${withCover}`,
+          );
           return;
         }
       } catch {

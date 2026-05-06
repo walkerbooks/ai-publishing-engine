@@ -32,6 +32,7 @@ export function usePayPalCheckout() {
       bookPublicId: string,
       loginRedirectPath?: string,
       packageTier: FullBookPackageTier = "single",
+      includeCover = false,
     ) => {
       setError(null);
       if (PAYPAL_BYPASS) {
@@ -46,6 +47,14 @@ export function usePayPalCheckout() {
               "PayPal bypass: createSubscription failed (continuing if you already have credits)",
               e,
             );
+          }
+          if (includeCover) {
+            usePublishingStore.getState().setMockPayment(true);
+            usePublishingStore.getState().setPostPayCoverFlowActive(true);
+            router.push(
+              `/chat?book=${encodeURIComponent(bookPublicId)}&paid=1&with_cover=1`,
+            );
+            return;
           }
           try {
             await requestFullGeneration(bookPublicId, token);
@@ -81,8 +90,12 @@ export function usePayPalCheckout() {
           book_public_id: bookPublicId,
           conversation_public_id: convId,
           package_tier: packageTier,
+          include_cover: includeCover ? true : undefined,
         });
-        const { checkout_url } = await createPayPalCheckout(bookPublicId, token);
+        const { checkout_url } = await createPayPalCheckout(bookPublicId, token, {
+          packageTier,
+          includeCover,
+        });
         try {
           sessionStorage.setItem(PAYPAL_BOOK_STORAGE_KEY, bookPublicId);
         } catch {

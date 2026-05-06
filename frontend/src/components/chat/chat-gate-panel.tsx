@@ -73,6 +73,7 @@ export function ChatGatePanel({
   const setFullBookAcknowledgementText = usePublishingStore(
     (s) => s.setFullBookAcknowledgementText,
   );
+  const postPayCoverFlowActive = usePublishingStore((s) => s.postPayCoverFlowActive);
 
   if (!awaitingGate) return null;
 
@@ -118,6 +119,18 @@ export function ChatGatePanel({
 
       {awaitingGate === "post_preview" ? (
         <div className="space-y-4">
+          {!postPayCoverFlowActive && !coverVariantUrls?.length ? (
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
+              Your preview is ready. Choose a package for one PayPal payment. You can add an AI
+              cover (three options, +$1) in the same checkout before you pay.
+            </p>
+          ) : null}
+          {postPayCoverFlowActive && !coverVariantUrls?.length ? (
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
+              Payment received. Complete your AI cover next (signing name, then pick one of three
+              layouts). After that we start your full manuscript.
+            </p>
+          ) : null}
           {awaitingCoverSigningReply ? (
             <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
               Use the text box below to enter how you want to sign your book, then press Send.
@@ -166,15 +179,27 @@ export function ChatGatePanel({
                 >
                   {coverGenBusy ? "Regenerating…" : "Generate 3 new options"}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onContinueToFullBookFromPostPreview}
-                  className={cn(btnGhost)}
-                  disabled={coverGenBusy}
-                >
-                  Skip cover · continue to full book
-                </Button>
+                {!postPayCoverFlowActive ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onContinueToFullBookFromPostPreview}
+                    className={cn(btnGhost)}
+                    disabled={coverGenBusy}
+                  >
+                    Skip cover · continue to full book
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onContinueToFullBookFromPostPreview}
+                    className={cn(btnGhost)}
+                    disabled={coverGenBusy}
+                  >
+                    Continue to full book without cover image
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   type="button"
@@ -188,29 +213,44 @@ export function ChatGatePanel({
             </>
           ) : (
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <Button
-                type="button"
-                onClick={onPayForCoverPage}
-                className={cn(btnPrimary)}
-                disabled={coverGenBusy || awaitingCoverSigningReply}
-              >
-                {coverGenBusy ? "Generating 3 covers…" : "Pay $1 for cover page (3 options)"}
-              </Button>
+              {postPayCoverFlowActive ? (
+                <Button
+                  type="button"
+                  onClick={onPayForCoverPage}
+                  className={cn(btnPrimary)}
+                  disabled={coverGenBusy || awaitingCoverSigningReply}
+                >
+                  {coverGenBusy
+                    ? "Generating 3 covers…"
+                    : "Generate 3 cover options (included in your purchase)"}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={onPayForFullBook}
+                  className={cn(btnPrimary)}
+                  disabled={payPalLoading || coverGenBusy}
+                >
+                  {payPalLoading ? "Opening PayPal…" : "Choose package & pay"}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
                 onClick={onContinueToFullBookFromPostPreview}
                 className={cn(btnGhost)}
-                disabled={coverGenBusy}
+                disabled={coverGenBusy || payPalLoading}
               >
-                Continue to full book
+                {postPayCoverFlowActive
+                  ? "Skip cover · start full book"
+                  : "Continue to full book"}
               </Button>
               <Button
                 variant="outline"
                 type="button"
                 onClick={onChangePreview}
                 className={cn(btnGhost)}
-                disabled={coverGenBusy}
+                disabled={coverGenBusy || payPalLoading}
               >
                 Change preview
               </Button>

@@ -103,6 +103,7 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           activeBookId: nextActive,
           bookPreviewRowSynced: sameBook ? s.bookPreviewRowSynced : false,
           subscriptionFullGenUnlocked: sameBook ? s.subscriptionFullGenUnlocked : false,
+          postPayCoverFlowActive: sameBook ? s.postPayCoverFlowActive : false,
           intakeCollaborative: s.intakeCollaborative,
         };
       }),
@@ -113,6 +114,8 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           activeBookId === s.activeBookId ? s.bookPreviewRowSynced : false,
         subscriptionFullGenUnlocked:
           activeBookId === s.activeBookId ? s.subscriptionFullGenUnlocked : false,
+        postPayCoverFlowActive:
+          activeBookId === s.activeBookId ? s.postPayCoverFlowActive : false,
       })),
     setBookOutline: (bookOutline) => set({ bookOutline }),
     setPreviewContent: (previewContent) => set({ previewContent }),
@@ -139,6 +142,13 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
       set({ fullBookAboutAuthorText }),
     setFullBookAcknowledgementText: (fullBookAcknowledgementText) =>
       set({ fullBookAcknowledgementText }),
+    setPostPayCoverFlowActive: (postPayCoverFlowActive) => set({ postPayCoverFlowActive }),
+    removeIncompleteFullBookMessages: () =>
+      set((s) => ({
+        chatMessages: s.chatMessages.filter(
+          (m) => m.kind !== "full" || m.fullGenPhase === "complete",
+        ),
+      })),
     patchChatMessage: (messageId, patch) =>
       set((s) => ({
         chatMessages: s.chatMessages.map((m) =>

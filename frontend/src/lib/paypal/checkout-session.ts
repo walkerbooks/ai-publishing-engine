@@ -19,6 +19,7 @@ export type PayPalCheckoutContextV1 = {
   conversation_public_id: string | null;
   /** Which full-book package was chosen (maps to subscription_plan on the server). */
   package_tier?: FullBookPackageTier;
+  include_cover?: boolean;
 };
 
 export function readPayPalCheckoutContext(): PayPalCheckoutContextV1 | null {
@@ -51,11 +52,14 @@ export function readPayPalCheckoutContext(): PayPalCheckoutContextV1 | null {
       rawTier === "single" || rawTier === "double" || rawTier === "triple"
         ? rawTier
         : undefined;
+    const rawCover = (j as PayPalCheckoutContextV1).include_cover;
+    const include_cover = rawCover === true ? true : undefined;
     return {
       v: 1,
       book_public_id: book_public_id.trim(),
       conversation_public_id: conversation_public_id?.trim() || null,
       package_tier,
+      include_cover,
     };
   } catch {
     return null;

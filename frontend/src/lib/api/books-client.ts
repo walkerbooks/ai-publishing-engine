@@ -198,9 +198,8 @@ export async function listChapters(
 }
 
 /**
- * Queue full book generation. Go accepts exactly `{ "book_public_id": "<uuid>" }` (snake_case
- * only; extra keys → 400). Call only when book status is preview_ready or awaiting_payment, or
- * expect 400 if the book is already paid/generating without an idempotent job reuse.
+ * Queue full book generation. Body is `{ book_public_id }` only.
+ * Some 400 responses indicate the job already exists — treated as success for idempotency.
  */
 export async function requestFullGeneration(
   bookPublicId: string,
@@ -219,7 +218,21 @@ export async function requestFullGeneration(
   });
   if (!res.ok) {
     log.debug(`requestFullGeneration: HTTP ${res.status}`, { bookPublicId });
-    throw new Error(await readErrorMessage(res));
+    const msg = await readErrorMessage(res);
+    if (res.status === 400) {
+      const lower = msg.toLowerCase();
+      if (
+        lower.includes("already") ||
+        lower.includes("progress") ||
+        lower.includes("generating") ||
+        lower.includes("complete") ||
+        lower.includes("in progress")
+      ) {
+        log.debug("requestFullGeneration: idempotent 400 treated as ok", { bookPublicId });
+        return;
+      }
+    }
+    throw new Error(msg);
   }
 }
 

@@ -30,8 +30,8 @@ const PAID_LIKE = new Set(["paid", "generating", "complete"]);
 /** Go only enqueues full generation from these statuses via POST /full-book/request. */
 const FULL_BOOK_POST_STATUSES = new Set(["preview_ready", "awaiting_payment"]);
 
-/** After payment / webhook, the job exists — POST again returns 400. */
-const FULL_BOOK_JOB_UNDERWAY = new Set(["paid", "generating", "complete"]);
+/** Generation started or finished — avoid duplicate POST /full-book/request. */
+const FULL_BOOK_JOB_UNDERWAY = new Set(["generating", "complete"]);
 
 function chapterToMd(c: BackendChapter): string {
   const body = c.content.trim();
@@ -63,6 +63,7 @@ export function useFullBookChatFlow() {
   const bookOutline = usePublishingStore((s) => s.bookOutline);
   const previewContent = usePublishingStore((s) => s.previewContent);
   const mockPaymentConfirmed = usePublishingStore((s) => s.mockPaymentConfirmed);
+  const postPayCoverFlowActive = usePublishingStore((s) => s.postPayCoverFlowActive);
   const subscriptionFullGenUnlocked = usePublishingStore(
     (s) => s.subscriptionFullGenUnlocked,
   );
@@ -93,6 +94,10 @@ export function useFullBookChatFlow() {
       !bookOutline ||
       !previewContent?.trim()
     ) {
+      return;
+    }
+
+    if (usePublishingStore.getState().postPayCoverFlowActive) {
       return;
     }
 
@@ -128,6 +133,9 @@ export function useFullBookChatFlow() {
 
     const tick = async () => {
       if (cancelled) return;
+      if (usePublishingStore.getState().postPayCoverFlowActive) {
+        return;
+      }
 
       let book;
       try {
@@ -207,7 +215,8 @@ export function useFullBookChatFlow() {
         } else if (
           canPostFullBook ||
           mockPaymentConfirmed ||
-          subscriptionFullGenUnlocked
+          subscriptionFullGenUnlocked ||
+          statusNorm === "paid"
         ) {
           const gate = await checkFullGenerationEntitlement(token);
           if (!gate.ok) {
@@ -346,6 +355,7 @@ export function useFullBookChatFlow() {
     bookOutline,
     previewContent,
     mockPaymentConfirmed,
+    postPayCoverFlowActive,
     subscriptionFullGenUnlocked,
     patchChatMessage,
     pushAssistantMessage,
@@ -355,6 +365,7 @@ export function useFullBookChatFlow() {
 
   useEffect(() => {
     const t = window.setInterval(() => {
+      if (usePublishingStore.getState().postPayCoverFlowActive) return;
       const m = usePublishingStore
         .getState()
         .chatMessages.find((x) => x.kind === "full" && x.fullGenPhase !== "complete");

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { useVideoInjection } from "@/hooks/use-video-injection";
@@ -79,7 +79,6 @@ type BookKickoffStage =
 
 export function ChatPageClient() {
   useVideoInjection();
-  useFullBookChatFlow();
   const router = useRouter();
   const searchParams = useSearchParams();
   const setActiveBookId = usePublishingStore((s) => s.setActiveBookId);
@@ -129,6 +128,60 @@ export function ChatPageClient() {
   const listLoaded = useChatDirectoryStore((s) => s.listLoaded);
 
   const bookParam = searchParams.get("book")?.trim() ?? null;
+
+  useLayoutEffect(() => {
+    const paid = searchParams.get("paid") === "1";
+    const withCover = searchParams.get("with_cover") === "1";
+    if (!paid && !withCover) return;
+
+    if (paid) {
+      usePublishingStore.getState().setMockPayment(true);
+    }
+    if (withCover) {
+      usePublishingStore.getState().setPostPayCoverFlowActive(true);
+      usePublishingStore.getState().removeIncompleteFullBookMessages();
+      usePublishingStore.getState().setAwaitingGate("post_preview");
+    } else if (paid) {
+      usePublishingStore.getState().setAwaitingGate("full");
+    }
+
+    const path =
+      typeof window !== "undefined" ? window.location.pathname : "/chat";
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("paid");
+    params.delete("with_cover");
+    const q = params.toString();
+    router.replace(q ? `${path}?${q}` : path, { scroll: false });
+  }, [searchParams, router]);
+
+  const postPayCoverFlowActive = usePublishingStore((s) => s.postPayCoverFlowActive);
+
+  useEffect(() => {
+    if (!postPayCoverFlowActive) return;
+    if (awaitingGate !== "post_preview") return;
+    const pub = usePublishingStore.getState();
+    if (pub.coverSigningName?.trim()) return;
+    if (pub.awaitingCoverSigningReply) return;
+    const asked = pub.chatMessages.some(
+      (m) =>
+        m.role === "assistant" &&
+        typeof m.content === "string" &&
+        m.content.includes("How do you want to sign your book"),
+    );
+    if (asked) return;
+    const ask: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      kind: "gate",
+      content:
+        "How do you want to sign your book? Type the name exactly as it should appear on the bottom of the cover, then press Send.",
+    };
+    pub.pushAssistantMessage(ask);
+    pub.setAwaitingCoverSigningReply(true);
+    void persistChatMessageIfAuthenticated(ask);
+  }, [postPayCoverFlowActive, awaitingGate, messages]);
+
+  useFullBookChatFlow();
 
   const prevAuthenticated = useRef(isAuthenticated);
   useEffect(() => {
@@ -561,7 +614,10 @@ export function ChatPageClient() {
     }
   };
 
-  const continueFullBookPayPal = (tier: FullBookPackageTier) => {
+  const continueFullBookPayPal = (
+    tier: FullBookPackageTier,
+    opts?: { includeCover?: boolean },
+  ) => {
     clearPayPalErr();
     const id = usePublishingStore.getState().activeBookId;
     if (!id) return;
@@ -579,12 +635,13 @@ export function ChatPageClient() {
         setFullBookPricingOpen(true);
         return;
       }
-      void startCheckout(id, "/chat", tier);
+      void startCheckout(id, "/chat", tier, Boolean(opts?.includeCover));
     })();
   };
   const changePreview = () => {
     setCoverVariantUrls(null);
     const p = usePublishingStore.getState();
+    p.setPostPayCoverFlowActive(false);
     p.setAwaitingGate(null);
     p.setComposerStep("preview");
     p.setComposerAction("revise");
@@ -600,6 +657,7 @@ export function ChatPageClient() {
     setCoverErr(null);
     setCoverVariantUrls(null);
     const p = usePublishingStore.getState();
+    p.setPostPayCoverFlowActive(false);
     p.setCoverSigningName(null);
     p.setAwaitingCoverSigningReply(false);
     p.setAwaitingGate("full");
@@ -620,6 +678,7 @@ export function ChatPageClient() {
     }
     setCoverVariantUrls(null);
     const pub = usePublishingStore.getState();
+    pub.setPostPayCoverFlowActive(false);
     const msg: ChatMessage = {
       id: crypto.randomUUID(),
       role: "assistant",
@@ -652,7 +711,7 @@ export function ChatPageClient() {
       );
       return;
     }
-    if (!COVER_PAYMENT_BYPASS) {
+    if (!pub.postPayCoverFlowActive && !COVER_PAYMENT_BYPASS) {
       setCoverPaymentBlockedOpen(true);
       return;
     }
@@ -706,15 +765,14 @@ export function ChatPageClient() {
       >
         <DialogContent className="border-border dark:border-white/10 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Cover art ($1)</DialogTitle>
+            <DialogTitle>Cover generation</DialogTitle>
             <DialogDescription className="text-left text-sm leading-relaxed text-foreground dark:text-zinc-200">
-              PayPal checkout for cover-only purchases is not enabled in this build yet.
-              To test cover generation locally, set{" "}
+              AI cover is purchased with your full book (package dialog). This dialog only appears
+              for legacy paths. To test cover generation locally without that flow, set{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">
                 NEXT_PUBLIC_COVER_PAYMENT_BYPASS=true
-              </code>{" "}
-              in your frontend environment. You can still continue to the full book or change your
-              preview using the other actions.
+              </code>
+              .
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-2">
@@ -755,7 +813,7 @@ export function ChatPageClient() {
         }}
         loading={payPalLoading}
         error={payPalErr}
-        onBuy={continueFullBookPayPal}
+        onBuy={(tier, opts) => continueFullBookPayPal(tier, opts)}
       />
       <ChatShell
         showConversationChrome={showConversationChrome}
