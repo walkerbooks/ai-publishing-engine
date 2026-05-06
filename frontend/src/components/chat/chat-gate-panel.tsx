@@ -5,6 +5,69 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { usePublishingStore } from "@/stores/publishing-store";
 
+/** Shared checkboxes + text areas; values persist in the publishing store for PATCH to Go. */
+function FullBookFrontMatterCheckboxes() {
+  const fullBookIncludeAboutAuthor = usePublishingStore((s) => s.fullBookIncludeAboutAuthor);
+  const fullBookIncludeAcknowledgement = usePublishingStore(
+    (s) => s.fullBookIncludeAcknowledgement,
+  );
+  const fullBookAboutAuthorText = usePublishingStore((s) => s.fullBookAboutAuthorText);
+  const fullBookAcknowledgementText = usePublishingStore(
+    (s) => s.fullBookAcknowledgementText,
+  );
+  const setFullBookIncludeAboutAuthor = usePublishingStore(
+    (s) => s.setFullBookIncludeAboutAuthor,
+  );
+  const setFullBookIncludeAcknowledgement = usePublishingStore(
+    (s) => s.setFullBookIncludeAcknowledgement,
+  );
+  const setFullBookAboutAuthorText = usePublishingStore((s) => s.setFullBookAboutAuthorText);
+  const setFullBookAcknowledgementText = usePublishingStore(
+    (s) => s.setFullBookAcknowledgementText,
+  );
+
+  return (
+    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-white/10 dark:bg-white/5">
+      <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800 dark:text-zinc-100">
+        <input
+          type="checkbox"
+          className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-walker-teal focus:ring-walker-teal"
+          checked={fullBookIncludeAboutAuthor}
+          onChange={(e) => setFullBookIncludeAboutAuthor(e.target.checked)}
+        />
+        <span>Include about the author</span>
+      </label>
+      {fullBookIncludeAboutAuthor ? (
+        <textarea
+          value={fullBookAboutAuthorText}
+          onChange={(e) => setFullBookAboutAuthorText(e.target.value)}
+          placeholder="Your author bio…"
+          rows={4}
+          className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-walker-teal focus:outline-none focus:ring-1 focus:ring-walker-teal dark:border-white/15 dark:bg-walker-nightPanel dark:text-zinc-100 dark:placeholder:text-zinc-500"
+        />
+      ) : null}
+      <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800 dark:text-zinc-100">
+        <input
+          type="checkbox"
+          className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-walker-teal focus:ring-walker-teal"
+          checked={fullBookIncludeAcknowledgement}
+          onChange={(e) => setFullBookIncludeAcknowledgement(e.target.checked)}
+        />
+        <span>Include acknowledgements</span>
+      </label>
+      {fullBookIncludeAcknowledgement ? (
+        <textarea
+          value={fullBookAcknowledgementText}
+          onChange={(e) => setFullBookAcknowledgementText(e.target.value)}
+          placeholder="Your acknowledgements…"
+          rows={4}
+          className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-walker-teal focus:outline-none focus:ring-1 focus:ring-walker-teal dark:border-white/15 dark:bg-walker-nightPanel dark:text-zinc-100 dark:placeholder:text-zinc-500"
+        />
+      ) : null}
+    </div>
+  );
+}
+
 type FullGateMode = "loading" | "generate" | "cooldown" | "paypal";
 
 type Props = {
@@ -55,25 +118,8 @@ export function ChatGatePanel({
   payPalError,
   awaitingCoverSigningReply = false,
 }: Props) {
-  const fullBookIncludeAboutAuthor = usePublishingStore((s) => s.fullBookIncludeAboutAuthor);
-  const fullBookIncludeAcknowledgement = usePublishingStore(
-    (s) => s.fullBookIncludeAcknowledgement,
-  );
-  const fullBookAboutAuthorText = usePublishingStore((s) => s.fullBookAboutAuthorText);
-  const fullBookAcknowledgementText = usePublishingStore(
-    (s) => s.fullBookAcknowledgementText,
-  );
-  const setFullBookIncludeAboutAuthor = usePublishingStore(
-    (s) => s.setFullBookIncludeAboutAuthor,
-  );
-  const setFullBookIncludeAcknowledgement = usePublishingStore(
-    (s) => s.setFullBookIncludeAcknowledgement,
-  );
-  const setFullBookAboutAuthorText = usePublishingStore((s) => s.setFullBookAboutAuthorText);
-  const setFullBookAcknowledgementText = usePublishingStore(
-    (s) => s.setFullBookAcknowledgementText,
-  );
   const postPayCoverFlowActive = usePublishingStore((s) => s.postPayCoverFlowActive);
+  const postPayFrontMatterLocked = usePublishingStore((s) => s.postPayFrontMatterLocked);
 
   if (!awaitingGate) return null;
 
@@ -125,23 +171,71 @@ export function ChatGatePanel({
               cover (three options, +$1) in the same checkout before you pay.
             </p>
           ) : null}
-          {postPayCoverFlowActive && !coverVariantUrls?.length ? (
-            <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
-              Payment received. Complete your AI cover next (signing name, then pick one of three
-              layouts). After that we start your full manuscript.
-            </p>
+
+          {postPayCoverFlowActive && !postPayFrontMatterLocked ? (
+            <div className="space-y-3">
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
+                First, add your{' '}
+                <span className="font-medium text-slate-800 dark:text-zinc-100">About the author</span>
+                {' '}and{' '}
+                <span className="font-medium text-slate-800 dark:text-zinc-100">Acknowledgements</span>
+                {' '}
+                for the full manuscript if you want them included. (In the book, acknowledgements are
+                typeset before about the author.) When you continue, this step closes and you will set
+                up your cover (signing name, then layouts).
+              </p>
+              <FullBookFrontMatterCheckboxes />
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button
+                  type="button"
+                  className={cn(btnPrimary)}
+                  onClick={() => {
+                    const p = usePublishingStore.getState();
+                    p.setPostPayFrontMatterLocked(true);
+                  }}
+                >
+                  Continue to book cover
+                </Button>
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={onChangePreview}
+                  className={cn(btnGhost)}
+                >
+                  Change preview
+                </Button>
+              </div>
+            </div>
           ) : null}
-          {awaitingCoverSigningReply ? (
+
+          {postPayCoverFlowActive && postPayFrontMatterLocked ? (
+            <>
+              {coverVariantUrls?.length === 3 ? (
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
+                  Pick your favorite cover.
+                </p>
+              ) : (
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
+                  When you are ready, tap{' '}
+                  <span className="font-medium text-slate-800 dark:text-zinc-100">
+                    Generate 3 cover options
+                  </span>
+                  . If needed we will ask how to sign the cover in the message box below, then you
+                  choose a layout. After that you will unlock full manuscript generation.
+                </p>
+              )}
+            </>
+          ) : null}
+
+          {awaitingCoverSigningReply &&
+          (!postPayCoverFlowActive || postPayFrontMatterLocked) ? (
             <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
               Use the text box below to enter how you want to sign your book, then press Send.
             </p>
           ) : null}
-          {coverVariantUrls?.length === 3 ? (
+          {coverVariantUrls?.length === 3 &&
+          (!postPayCoverFlowActive || postPayFrontMatterLocked) ? (
             <>
-              <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
-                Here are three cover directions. Tap your favorite — it will appear in the chat
-                above, then you can unlock the full book.
-              </p>
               <div
                 className="grid grid-cols-1 gap-3 sm:grid-cols-3"
                 role="group"
@@ -211,14 +305,18 @@ export function ChatGatePanel({
                 </Button>
               </div>
             </>
-          ) : (
+          ) : !(postPayCoverFlowActive && !postPayFrontMatterLocked) ? (
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               {postPayCoverFlowActive ? (
                 <Button
                   type="button"
                   onClick={onPayForCoverPage}
                   className={cn(btnPrimary)}
-                  disabled={coverGenBusy || awaitingCoverSigningReply}
+                  disabled={
+                    coverGenBusy ||
+                    awaitingCoverSigningReply ||
+                    !postPayFrontMatterLocked
+                  }
                 >
                   {coverGenBusy
                     ? "Generating 3 covers…"
@@ -239,7 +337,11 @@ export function ChatGatePanel({
                 variant="outline"
                 onClick={onContinueToFullBookFromPostPreview}
                 className={cn(btnGhost)}
-                disabled={coverGenBusy || payPalLoading}
+                disabled={
+                  coverGenBusy ||
+                  payPalLoading ||
+                  (postPayCoverFlowActive && !postPayFrontMatterLocked)
+                }
               >
                 {postPayCoverFlowActive
                   ? "Skip cover · start full book"
@@ -255,58 +357,31 @@ export function ChatGatePanel({
                 Change preview
               </Button>
             </div>
-          )}
+          ) : null}
         </div>
       ) : null}
 
       {awaitingGate === "full" ? (
         <div className="space-y-4">
-          <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
-            Before we generate your full manuscript: would you like an{' '}
-            <span className="font-medium text-slate-800 dark:text-zinc-100">About the author</span>{' '}
-            section and/or{' '}
-            <span className="font-medium text-slate-800 dark:text-zinc-100">Acknowledgements</span>
-            ? Check the boxes you want, then add your text below each. (In the book, acknowledgements
-            are typeset before about the author.)
-          </p>
-          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-white/10 dark:bg-white/5">
-            <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800 dark:text-zinc-100">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-walker-teal focus:ring-walker-teal"
-                checked={fullBookIncludeAboutAuthor}
-                onChange={(e) => setFullBookIncludeAboutAuthor(e.target.checked)}
-              />
-              <span>Include about the author</span>
-            </label>
-            {fullBookIncludeAboutAuthor ? (
-              <textarea
-                value={fullBookAboutAuthorText}
-                onChange={(e) => setFullBookAboutAuthorText(e.target.value)}
-                placeholder="Your author bio…"
-                rows={4}
-                className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-walker-teal focus:outline-none focus:ring-1 focus:ring-walker-teal dark:border-white/15 dark:bg-walker-nightPanel dark:text-zinc-100 dark:placeholder:text-zinc-500"
-              />
-            ) : null}
-            <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800 dark:text-zinc-100">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-walker-teal focus:ring-walker-teal"
-                checked={fullBookIncludeAcknowledgement}
-                onChange={(e) => setFullBookIncludeAcknowledgement(e.target.checked)}
-              />
-              <span>Include acknowledgements</span>
-            </label>
-            {fullBookIncludeAcknowledgement ? (
-              <textarea
-                value={fullBookAcknowledgementText}
-                onChange={(e) => setFullBookAcknowledgementText(e.target.value)}
-                placeholder="Your acknowledgements…"
-                rows={4}
-                className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-walker-teal focus:outline-none focus:ring-1 focus:ring-walker-teal dark:border-white/15 dark:bg-walker-nightPanel dark:text-zinc-100 dark:placeholder:text-zinc-500"
-              />
-            ) : null}
-          </div>
+          {postPayFrontMatterLocked ? (
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
+              Your about the author and acknowledgements are saved for this book. Next, confirm
+              payment or start generation below. Use <span className="font-medium">Change preview</span>{" "}
+              only if you need to go back and edit earlier steps.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
+                Before we generate your full manuscript: would you like an{' '}
+                <span className="font-medium text-slate-800 dark:text-zinc-100">About the author</span>{' '}
+                section and/or{' '}
+                <span className="font-medium text-slate-800 dark:text-zinc-100">Acknowledgements</span>
+                ? Check the boxes you want, then add your text below each. (In the book,
+                acknowledgements are typeset before about the author.)
+              </p>
+              <FullBookFrontMatterCheckboxes />
+            </>
+          )}
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {payPalError ? (
             <p className="w-full text-sm text-red-600" role="alert">

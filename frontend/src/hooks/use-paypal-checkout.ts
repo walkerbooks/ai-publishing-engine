@@ -51,6 +51,7 @@ export function usePayPalCheckout() {
           if (includeCover) {
             usePublishingStore.getState().setMockPayment(true);
             usePublishingStore.getState().setPostPayCoverFlowActive(true);
+            usePublishingStore.getState().setPostPayFrontMatterLocked(false);
             router.push(
               `/chat?book=${encodeURIComponent(bookPublicId)}&paid=1&with_cover=1`,
             );

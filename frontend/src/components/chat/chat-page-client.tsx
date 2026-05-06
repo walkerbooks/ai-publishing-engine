@@ -139,6 +139,7 @@ export function ChatPageClient() {
     }
     if (withCover) {
       usePublishingStore.getState().setPostPayCoverFlowActive(true);
+      usePublishingStore.getState().setPostPayFrontMatterLocked(false);
       usePublishingStore.getState().removeIncompleteFullBookMessages();
       usePublishingStore.getState().setAwaitingGate("post_preview");
     } else if (paid) {
@@ -153,33 +154,6 @@ export function ChatPageClient() {
     const q = params.toString();
     router.replace(q ? `${path}?${q}` : path, { scroll: false });
   }, [searchParams, router]);
-
-  const postPayCoverFlowActive = usePublishingStore((s) => s.postPayCoverFlowActive);
-
-  useEffect(() => {
-    if (!postPayCoverFlowActive) return;
-    if (awaitingGate !== "post_preview") return;
-    const pub = usePublishingStore.getState();
-    if (pub.coverSigningName?.trim()) return;
-    if (pub.awaitingCoverSigningReply) return;
-    const asked = pub.chatMessages.some(
-      (m) =>
-        m.role === "assistant" &&
-        typeof m.content === "string" &&
-        m.content.includes("How do you want to sign your book"),
-    );
-    if (asked) return;
-    const ask: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      kind: "gate",
-      content:
-        "How do you want to sign your book? Type the name exactly as it should appear on the bottom of the cover, then press Send.",
-    };
-    pub.pushAssistantMessage(ask);
-    pub.setAwaitingCoverSigningReply(true);
-    void persistChatMessageIfAuthenticated(ask);
-  }, [postPayCoverFlowActive, awaitingGate, messages]);
 
   useFullBookChatFlow();
 
@@ -642,6 +616,7 @@ export function ChatPageClient() {
     setCoverVariantUrls(null);
     const p = usePublishingStore.getState();
     p.setPostPayCoverFlowActive(false);
+    p.setPostPayFrontMatterLocked(false);
     p.setAwaitingGate(null);
     p.setComposerStep("preview");
     p.setComposerAction("revise");
@@ -657,7 +632,12 @@ export function ChatPageClient() {
     setCoverErr(null);
     setCoverVariantUrls(null);
     const p = usePublishingStore.getState();
+    const keepBundledFrontMatter =
+      p.postPayCoverFlowActive && p.postPayFrontMatterLocked;
     p.setPostPayCoverFlowActive(false);
+    if (!keepBundledFrontMatter) {
+      p.setPostPayFrontMatterLocked(false);
+    }
     p.setCoverSigningName(null);
     p.setAwaitingCoverSigningReply(false);
     p.setAwaitingGate("full");

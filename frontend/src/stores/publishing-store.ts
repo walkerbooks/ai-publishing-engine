@@ -104,6 +104,7 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           bookPreviewRowSynced: sameBook ? s.bookPreviewRowSynced : false,
           subscriptionFullGenUnlocked: sameBook ? s.subscriptionFullGenUnlocked : false,
           postPayCoverFlowActive: sameBook ? s.postPayCoverFlowActive : false,
+          postPayFrontMatterLocked: sameBook ? s.postPayFrontMatterLocked : false,
           intakeCollaborative: s.intakeCollaborative,
         };
       }),
@@ -116,6 +117,8 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           activeBookId === s.activeBookId ? s.subscriptionFullGenUnlocked : false,
         postPayCoverFlowActive:
           activeBookId === s.activeBookId ? s.postPayCoverFlowActive : false,
+        postPayFrontMatterLocked:
+          activeBookId === s.activeBookId ? s.postPayFrontMatterLocked : false,
       })),
     setBookOutline: (bookOutline) => set({ bookOutline }),
     setPreviewContent: (previewContent) => set({ previewContent }),
@@ -143,6 +146,8 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
     setFullBookAcknowledgementText: (fullBookAcknowledgementText) =>
       set({ fullBookAcknowledgementText }),
     setPostPayCoverFlowActive: (postPayCoverFlowActive) => set({ postPayCoverFlowActive }),
+    setPostPayFrontMatterLocked: (postPayFrontMatterLocked) =>
+      set({ postPayFrontMatterLocked }),
     removeIncompleteFullBookMessages: () =>
       set((s) => ({
         chatMessages: s.chatMessages.filter(

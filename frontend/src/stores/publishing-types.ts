@@ -47,6 +47,11 @@ export type PublishingState = {
    * full manuscript generation.
    */
   postPayCoverFlowActive: boolean;
+  /**
+   * Bundled-cover path: user completed the optional About the author / Acknowledgements step;
+   * form is hidden and cover actions are shown.
+   */
+  postPayFrontMatterLocked: boolean;
 };
 
 export type PublishingActions = {
@@ -96,6 +101,7 @@ export type PublishingActions = {
   setFullBookAboutAuthorText: (t: string) => void;
   setFullBookAcknowledgementText: (t: string) => void;
   setPostPayCoverFlowActive: (v: boolean) => void;
+  setPostPayFrontMatterLocked: (v: boolean) => void;
   removeIncompleteFullBookMessages: () => void;
   patchChatMessage: (
     messageId: string,
@@ -131,5 +137,6 @@ export function createInitialPublishingState(): PublishingState {
     fullBookAboutAuthorText: "",
     fullBookAcknowledgementText: "",
     postPayCoverFlowActive: false,
+    postPayFrontMatterLocked: false,
   };
 }
