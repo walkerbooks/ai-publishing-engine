@@ -747,7 +747,14 @@ export function ChatPageClient() {
     };
     pub.pushAssistantMessage(msg);
     pub.setAwaitingGate("full");
-    void persistChatMessageIfAuthenticated(msg);
+    void (async () => {
+      const saved = await persistChatMessageIfAuthenticated(msg);
+      if (!saved) {
+        setCoverErr(
+          "We couldn’t save your cover to the server. Check your connection, ensure you’re signed in with a synced chat, then pick a cover again — otherwise the PDF may not include it.",
+        );
+      }
+    })();
   };
 
   const payForCoverPage = () => {

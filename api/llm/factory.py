@@ -8,13 +8,17 @@ from api.config import get_settings
 def get_llm(
     provider: str | None = None,
     streaming: bool = False,
+    *,
+    temperature: float | None = None,
 ) -> BaseChatModel:
     """
     Return a LangChain chat model for the given provider.
     If provider is None, uses settings.llm_provider.
+    If temperature is None, uses 0.3 (general agents); structured intake uses a lower value.
     """
     settings = get_settings()
     p = (provider or settings.llm_provider).lower()
+    temp = 0.3 if temperature is None else temperature
 
     if p == "openai":
         from langchain_openai import ChatOpenAI
@@ -24,7 +28,7 @@ def get_llm(
         return ChatOpenAI(
             model=settings.openai_model,
             api_key=settings.openai_api_key,
-            temperature=0.3,
+            temperature=temp,
             streaming=streaming,
         )
 
@@ -36,7 +40,7 @@ def get_llm(
         kwargs = {
             "model": settings.groq_model,
             "api_key": settings.groq_api_key,
-            "temperature": 0.3,
+            "temperature": temp,
         }
         # Streaming support depends on provider capabilities; if the Groq SDK
         # doesn't accept the `streaming` kwarg, we fall back to non-streaming.

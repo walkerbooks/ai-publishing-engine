@@ -264,6 +264,19 @@ ENV DEFAULT LENGTH (testing / deployment)
 When the user does **not** specify a page count or book length, set **target_length_pages** to **{n}** (still within 1–200). If they explicitly ask for a different length, use their number (clamped to 1–200). Prefer staying at or below {n} pages unless they clearly want longer.
 """
 
+# Appended last so it overrides ambiguity. Required for OpenAI/LangChain structured output.
+STRUCTURED_OUTPUT_INTAKE_SUFFIX = """
+
+---
+
+STRUCTURED OUTPUT (mandatory — the API parses your answer into a fixed schema; mistakes return errors)
+
+- **reply**: The user-visible chat message only. Keep it concise (about six short sentences or fewer when possible). Write plain prose only—do **not** paste JSON, field names, `key: value` lines, or lists of BSO attributes inside **reply**.
+- **bso**: Put **every** book-spec field here and **only** here: genre, sub_genre, audience, tone, target_length_pages, format_type, page_size, language, title, custom_instructions. Do **not** duplicate those keys at the top level of the response next to **reply**.
+- **Top level** allows exactly: **reply**, **bso**, **intake_complete**, **offer_collaborative_feedback**—nothing else.
+- Unknown or not-yet-filled BSO fields: omit them inside **bso** or use null; never invent parallel top-level fields for the same data.
+"""
+
 
 def _strip_display_name(raw: str | None) -> str | None:
     if raw is None:
@@ -299,7 +312,7 @@ def build_intake_system(
     base = auth_first + base
     if default_target_pages is not None:
         base = base + _default_target_pages_extra(default_target_pages)
-    return base
+    return base + STRUCTURED_OUTPUT_INTAKE_SUFFIX
 
 
 def build_intake_reply_system(

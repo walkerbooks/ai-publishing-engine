@@ -1,6 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { usePublishingStore } from "@/stores/publishing-store";
@@ -64,6 +71,145 @@ function FullBookFrontMatterCheckboxes() {
           className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-walker-teal focus:outline-none focus:ring-1 focus:ring-walker-teal dark:border-white/15 dark:bg-walker-nightPanel dark:text-zinc-100 dark:placeholder:text-zinc-500"
         />
       ) : null}
+    </div>
+  );
+}
+
+const SWIPE_COMMIT_PX = 56;
+
+function CoverVariantMobileStack({
+  coverVariantUrls,
+  onPickCoverVariant,
+}: {
+  coverVariantUrls: string[];
+  onPickCoverVariant: (index: number) => void;
+}) {
+  const n = coverVariantUrls.length;
+  const [active, setActive] = useState(0);
+  const [dragX, setDragX] = useState(0);
+  const startRef = useRef<{ x: number } | null>(null);
+
+  useEffect(() => {
+    setActive(0);
+  }, [coverVariantUrls]);
+
+  const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    startRef.current = { x: e.clientX };
+    setDragX(0);
+  }, []);
+
+  const onPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!startRef.current) return;
+    setDragX(e.clientX - startRef.current.x);
+  }, []);
+
+  const onPointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (!startRef.current) return;
+      const dx = e.clientX - startRef.current.x;
+      startRef.current = null;
+      setDragX(0);
+      /* Only a deliberate horizontal swipe changes the card; anything else confirms the
+       * front cover. A dead zone (small movement but below SWIPE_COMMIT_PX) used to do
+       * nothing on touch devices, so the cover never reached Go and PDFs shipped without art. */
+      if (dx <= -SWIPE_COMMIT_PX) {
+        setActive((a) => (a + 1) % n);
+      } else if (dx >= SWIPE_COMMIT_PX) {
+        setActive((a) => (a + n - 1) % n);
+      } else {
+        onPickCoverVariant(active);
+      }
+    },
+    [active, n, onPickCoverVariant],
+  );
+
+  const onPointerCancel = useCallback(() => {
+    startRef.current = null;
+    setDragX(0);
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div
+        className="relative mx-auto w-full max-w-[min(100%,280px)] touch-none"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        role="group"
+        aria-label="Cover options — swipe left or right to compare, tap to choose"
+      >
+        <div className="relative aspect-[2/3] w-full">
+          {coverVariantUrls.map((url, i) => {
+            const stackPos = (i - active + n) % n;
+            const isFront = stackPos === 0;
+            const offsetY = stackPos === 0 ? 0 : stackPos === 1 ? 10 : 20;
+            const scale = stackPos === 0 ? 1 : stackPos === 1 ? 0.94 : 0.88;
+            const z = 30 - stackPos * 10;
+            const tx = isFront ? dragX : 0;
+            return (
+              <div
+                key={i}
+                className={cn(
+                  "absolute inset-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md dark:border-white/15 dark:bg-walker-nightPanel dark:shadow-lg",
+                  dragX === 0 && "transition-[transform,opacity] duration-300 ease-out",
+                  !isFront && "pointer-events-none",
+                )}
+                style={{
+                  zIndex: z,
+                  transform: `translateX(${tx}px) translateY(${offsetY}px) scale(${scale})`,
+                  opacity: stackPos === 2 ? 0.92 : 1,
+                }}
+              >
+                <Image
+                  src={url}
+                  alt={`Cover option ${i + 1} of ${n}`}
+                  width={512}
+                  height={768}
+                  unoptimized
+                  draggable={false}
+                  className="pointer-events-none h-full w-full object-cover"
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <p className="text-center text-xs font-medium text-slate-600 dark:text-zinc-300">
+          Option {active + 1} of {n} · swipe to compare, then tap the cover or use the button below
+        </p>
+        <Button
+          type="button"
+          className="w-full max-w-[min(100%,280px)] bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+          onClick={() => onPickCoverVariant(active)}
+        >
+          Use this cover
+        </Button>
+        <div className="flex justify-center gap-2" role="tablist" aria-label="Jump to cover option">
+          {coverVariantUrls.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              role="tab"
+              aria-selected={i === active}
+              aria-label={`Show option ${i + 1}`}
+              onClick={(ev) => {
+                ev.stopPropagation();
+                setActive(i);
+              }}
+              className={cn(
+                "h-2.5 w-2.5 rounded-full transition-colors",
+                i === active
+                  ? "bg-slate-800 dark:bg-zinc-100"
+                  : "bg-slate-300 hover:bg-slate-400 dark:bg-white/25 dark:hover:bg-white/40",
+              )}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -236,8 +382,25 @@ export function ChatGatePanel({
           {coverVariantUrls?.length === 3 &&
           (!postPayCoverFlowActive || postPayFrontMatterLocked) ? (
             <>
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
+                <span className="sm:hidden">
+                  Here are three cover directions. Swipe left or right on the stack to compare, then
+                  tap the front cover or tap <span className="font-medium">Use this cover</span> to
+                  add it to the chat. You can then unlock the full book.
+                </span>
+                <span className="hidden sm:inline">
+                  Here are three cover directions. Tap your favorite — it will appear in the chat
+                  above, then you can unlock the full book.
+                </span>
+              </p>
+              <div className="sm:hidden">
+                <CoverVariantMobileStack
+                  coverVariantUrls={coverVariantUrls}
+                  onPickCoverVariant={(i) => onPickCoverVariant?.(i)}
+                />
+              </div>
               <div
-                className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+                className="hidden grid-cols-3 gap-3 sm:grid"
                 role="group"
                 aria-label="Cover options"
               >
