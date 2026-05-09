@@ -28,7 +28,11 @@ from pathlib import Path
 from typing import Any
 
 from api.agents.chapter_agent import run_chapter, summarize_chapter
-from api.agents.preview_agent import run_preview
+from api.agents.preview_agent import (
+    evaluate_chapter_quality,
+    rewrite_chapter_with_quality_feedback,
+    run_preview,
+)
 from api.agents.sync_state_agent import run_sync_state_update
 from api.config import get_settings
 from api.services.chapters_docx import build_manuscript_docx_bytes, write_docx_to_path
@@ -125,6 +129,7 @@ def _finalize_chapter_after_body(
     sync: dict[str, Any],
     spec: dict[str, Any],
     provider: str | None,
+    update_sync_state: bool = True,
 ) -> tuple[dict[str, Any], str]:
     """Persist chapter to Go, summarize, sync_state patch. Returns (sync, prev_excerpt tail)."""
     post_ai_callback(
@@ -146,23 +151,26 @@ def _finalize_chapter_after_body(
     sync["chapter_summaries"] = summaries
 
     excerpt_tail = body[-8000:] if len(body) > 8000 else body
-    updated = run_sync_state_update(
-        sync,
-        idx,
-        title,
-        chapter_summary,
-        excerpt_tail,
-        spec,
-        provider=provider,
-    )
-    sync["narrative_arc"] = updated["narrative_arc"]
-    sync["key_facts"] = updated["key_facts"]
-    sync["open_threads"] = updated["open_threads"]
-    sync["last_chapter_beat"] = updated["last_chapter_beat"]
-    sync["tone_anchors"] = updated["tone_anchors"]
-    sync["character_arc"] = updated["character_arc"]
+    if update_sync_state:
+        updated = run_sync_state_update(
+            sync,
+            idx,
+            title,
+            chapter_summary,
+            excerpt_tail,
+            spec,
+            provider=provider,
+        )
+        sync["narrative_arc"] = updated["narrative_arc"]
+        sync["key_facts"] = updated["key_facts"]
+        sync["open_threads"] = updated["open_threads"]
+        sync["last_chapter_beat"] = updated["last_chapter_beat"]
+        sync["tone_anchors"] = updated["tone_anchors"]
+        sync["character_arc"] = updated["character_arc"]
+        sync["character_bible"] = updated["character_bible"]
     sync["previous_excerpt_tail"] = excerpt_tail
-    patch_book_sync_state(book_id, sync)
+    if update_sync_state:
+        patch_book_sync_state(book_id, sync)
 
     prev_excerpt = body[-8000:] if len(body) > 8000 else body
     return sync, prev_excerpt
@@ -176,6 +184,32 @@ def _fail(book_public_id: str, message: str) -> None:
             "error": message[:4000],
         }
     )
+
+
+def _quality_thresholds_from_settings() -> dict[str, int]:
+    settings = get_settings()
+    return {
+        "character_depth_score": int(settings.quality_min_character_depth),
+        "readability_score": int(settings.quality_min_readability),
+        "engagement_score": int(settings.quality_min_engagement),
+        "pacing_score": int(settings.quality_min_pacing),
+        "conversational_voice_score": int(settings.quality_min_conversational_voice),
+        "emotional_authenticity_score": int(settings.quality_min_emotional_authenticity),
+        "emotional_stakes_score": int(settings.quality_min_emotional_stakes),
+        "character_texture_score": int(settings.quality_min_character_texture),
+        "repetition_penalty_score": int(settings.quality_min_repetition_penalty),
+        "generic_language_score": int(settings.quality_min_generic_language),
+    }
+
+
+def _passes_quality_gate(scores: dict[str, Any], thresholds: dict[str, int]) -> bool:
+    for key, floor in thresholds.items():
+        try:
+            if int(scores.get(key, 0)) < int(floor):
+                return False
+        except (TypeError, ValueError):
+            return False
+    return True
 
 
 def _outline_dedication_from_book(book: dict[str, Any]) -> str | None:
@@ -439,6 +473,10 @@ def run_full_generation(book_id: int) -> None:
 
     start_idx = len(sorted_db) + 1
     total = len(chapters_plan)
+    sync_every_n = max(1, int(settings.full_generation_sync_state_every_n_chapters))
+    quality_enabled = bool(settings.quality_eval_enabled)
+    quality_thresholds = _quality_thresholds_from_settings()
+    max_rewrite_passes = int(settings.quality_max_rewrite_passes)
 
     # Full manuscript must include the user-facing preview: when there are no chapter rows yet,
     # reuse preview_text / description.preview_markdown as chapter 1 (verbatim), then continue.
@@ -459,6 +497,7 @@ def run_full_generation(book_id: int) -> None:
                     sync,
                     spec,
                     provider,
+                    update_sync_state=True,
                 )
                 loop_start = 2
 
@@ -481,6 +520,38 @@ def run_full_generation(book_id: int) -> None:
                 prev_excerpt,
                 provider=provider,
             )
+            if quality_enabled:
+                quality_eval = evaluate_chapter_quality(
+                    spec,
+                    outline,
+                    idx,
+                    title,
+                    body,
+                    provider=provider,
+                )
+                rewrite_count = 0
+                while (
+                    rewrite_count < max_rewrite_passes
+                    and not _passes_quality_gate(quality_eval, quality_thresholds)
+                ):
+                    body = rewrite_chapter_with_quality_feedback(
+                        spec,
+                        outline,
+                        idx,
+                        title,
+                        body,
+                        quality_eval,
+                        provider=provider,
+                    )
+                    rewrite_count += 1
+                    quality_eval = evaluate_chapter_quality(
+                        spec,
+                        outline,
+                        idx,
+                        title,
+                        body,
+                        provider=provider,
+                    )
             sync, prev_excerpt = _finalize_chapter_after_body(
                 book_id,
                 public_id,
@@ -490,6 +561,7 @@ def run_full_generation(book_id: int) -> None:
                 sync,
                 spec,
                 provider,
+                update_sync_state=(idx == 1 or idx == total or idx % sync_every_n == 0),
             )
 
         _complete_book_callback(book_id, public_id, book_title)

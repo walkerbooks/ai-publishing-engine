@@ -99,6 +99,101 @@ class Settings(BaseSettings):
     langsmith_project: str = "ebook-engine"
     langchain_endpoint: str = "https://api.smith.langchain.com"
 
+    # Run sync-state LLM updates every N chapters (and always on chapter 1/final).
+    full_generation_sync_state_every_n_chapters: int = Field(
+        default=2,
+        ge=1,
+        le=10,
+        validation_alias="FULL_GENERATION_SYNC_STATE_EVERY_N_CHAPTERS",
+    )
+
+    # Trigger chapter expansion pass only when initial draft is below this ratio of target words.
+    chapter_expand_floor_ratio: float = Field(
+        default=0.80,
+        ge=0.5,
+        le=0.95,
+        validation_alias="CHAPTER_EXPAND_FLOOR_RATIO",
+    )
+
+    # Skip expensive chapter expansion pass for longer books (page target at or above this).
+    chapter_expand_max_pages: int = Field(
+        default=120,
+        ge=1,
+        le=200,
+        validation_alias="CHAPTER_EXPAND_MAX_PAGES",
+    )
+
+    quality_eval_enabled: bool = Field(
+        default=True,
+        validation_alias="QUALITY_EVAL_ENABLED",
+    )
+    quality_min_character_depth: int = Field(
+        default=7,
+        ge=1,
+        le=10,
+        validation_alias="QUALITY_MIN_CHARACTER_DEPTH",
+    )
+    quality_min_readability: int = Field(
+        default=7,
+        ge=1,
+        le=10,
+        validation_alias="QUALITY_MIN_READABILITY",
+    )
+    quality_min_engagement: int = Field(
+        default=7,
+        ge=1,
+        le=10,
+        validation_alias="QUALITY_MIN_ENGAGEMENT",
+    )
+    quality_min_pacing: int = Field(
+        default=7,
+        ge=1,
+        le=10,
+        validation_alias="QUALITY_MIN_PACING",
+    )
+    quality_min_conversational_voice: int = Field(
+        default=7,
+        ge=1,
+        le=10,
+        validation_alias="QUALITY_MIN_CONVERSATIONAL_VOICE",
+    )
+    quality_min_emotional_authenticity: int = Field(
+        default=7,
+        ge=1,
+        le=10,
+        validation_alias="QUALITY_MIN_EMOTIONAL_AUTHENTICITY",
+    )
+    quality_min_emotional_stakes: int = Field(
+        default=7,
+        ge=1,
+        le=10,
+        validation_alias="QUALITY_MIN_EMOTIONAL_STAKES",
+    )
+    quality_min_character_texture: int = Field(
+        default=7,
+        ge=1,
+        le=10,
+        validation_alias="QUALITY_MIN_CHARACTER_TEXTURE",
+    )
+    quality_min_repetition_penalty: int = Field(
+        default=7,
+        ge=1,
+        le=10,
+        validation_alias="QUALITY_MIN_REPETITION_PENALTY",
+    )
+    quality_min_generic_language: int = Field(
+        default=7,
+        ge=1,
+        le=10,
+        validation_alias="QUALITY_MIN_GENERIC_LANGUAGE",
+    )
+    quality_max_rewrite_passes: int = Field(
+        default=2,
+        ge=0,
+        le=5,
+        validation_alias="QUALITY_MAX_REWRITE_PASSES",
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

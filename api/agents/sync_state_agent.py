@@ -92,10 +92,8 @@ class SyncStateFields(BaseModel):
     open_threads: list[str] = Field(default_factory=list)
     last_chapter_beat: str = ""
     tone_anchors: str = ""
-    character_arc: CharacterArcFields = Field(default_factory=CharacterArcFields)
-    environmental_pressure: EnvironmentalPressureFields = Field(
-        default_factory=EnvironmentalPressureFields
-    )
+    character_arc: str = ""
+    character_bible: str = ""
 
     @field_validator("character_arc", mode="before")
     @classmethod
@@ -125,15 +123,15 @@ def run_sync_state_update(
     (caller appends chapter_summaries and excerpt separately).
     """
     llm = get_llm(provider)
-    structured = llm.with_structured_output(SyncStateFields)
+    structured = llm.with_structured_output(SyncStateFields, method="function_calling")
     payload = {
         "prior_state": {
             "narrative_arc": sync_state.get("narrative_arc", ""),
             "key_facts": sync_state.get("key_facts", []),
             "open_threads": sync_state.get("open_threads", []),
             "tone_anchors": sync_state.get("tone_anchors", ""),
-            "character_arc": sync_state.get("character_arc", {}),
-            "environmental_pressure": sync_state.get("environmental_pressure", {}),
+            "character_arc": sync_state.get("character_arc", ""),
+            "character_bible": sync_state.get("character_bible", ""),
         },
         "chapter_index": chapter_index,
         "chapter_title": chapter_title,
@@ -152,6 +150,6 @@ def run_sync_state_update(
         "open_threads": out.open_threads[:12],
         "last_chapter_beat": out.last_chapter_beat,
         "tone_anchors": out.tone_anchors,
-        "character_arc": out.character_arc.model_dump(),
-        "environmental_pressure": out.environmental_pressure.model_dump(),
+        "character_arc": out.character_arc,
+        "character_bible": out.character_bible,
     }

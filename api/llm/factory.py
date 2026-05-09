@@ -25,11 +25,15 @@ def get_llm(
 
         if not settings.openai_api_key:
             raise ValueError("OPENAI_API_KEY is not set")
+        kwargs = {}
+        if settings.openai_model.startswith("gpt-5"):
+            kwargs["reasoning"] = {"effort": "minimal"}
         return ChatOpenAI(
             model=settings.openai_model,
             api_key=settings.openai_api_key,
             temperature=temp,
             streaming=streaming,
+            **kwargs,
         )
 
     if p == "groq":

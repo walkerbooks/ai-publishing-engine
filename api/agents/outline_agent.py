@@ -122,7 +122,7 @@ def run_outline(
     spec = merge_target_pages_from_revision_into_spec(dict(book_spec), revision_notes)
 
     llm = get_llm(provider)
-    structured_llm = llm.with_structured_output(BookOutline)
+    structured_llm = llm.with_structured_output(BookOutline, method="function_calling")
     spec_text = json.dumps(spec, indent=2)
 
     notes = f"\n\nRevision instructions from the user:\n{revision_notes}\n\n" if revision_notes else ""

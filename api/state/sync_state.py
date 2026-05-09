@@ -14,20 +14,8 @@ def default_sync_state() -> dict[str, Any]:
         "open_threads": [],
         "last_chapter_beat": "",
         "tone_anchors": "",
-        "character_arc": {
-            "current_mindset": "",
-            "moral_position": "",
-            "hardness_level": "",
-            "last_decision_made": "",
-            "current_belief": "",
-            "arc_delta": "",
-        },
-        "environmental_pressure": {
-            "active_forces": [],
-            "pressure_level": "",
-            "last_causal_moment": "",
-            "escalation_due": "",
-        },
+        "character_arc": "",
+        "character_bible": "",
         "previous_excerpt_tail": "",
     }
 
@@ -47,6 +35,8 @@ def merge_with_defaults(raw: Any) -> dict[str, Any]:
             "narrative_arc",
             "last_chapter_beat",
             "tone_anchors",
+            "character_arc",
+            "character_bible",
             "previous_excerpt_tail",
         ) and isinstance(raw[k], str):
             base[k] = raw[k]
