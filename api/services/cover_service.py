@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import re
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from api.config import get_settings
@@ -113,11 +114,15 @@ def generate_cover_variants(
     if not base:
         raise ValueError("prompt is required")
     stem = _safe_file_stem(output_basename_stem or f"cover-{uuid.uuid4().hex[:8]}")
-    out: list[tuple[str, bytes]] = []
-    for i in range(n):
-        hint = _COVER_VARIANT_HINTS[i] if i < len(_COVER_VARIANT_HINTS) else _COVER_VARIANT_HINTS[-1]
+
+    def _one_variant(index: int) -> tuple[str, bytes]:
+        hint = (
+            _COVER_VARIANT_HINTS[index]
+            if index < len(_COVER_VARIANT_HINTS)
+            else _COVER_VARIANT_HINTS[-1]
+        )
         full_prompt = f"{base}\n\n{hint}"
-        suffix = f"{stem}-v{i + 1}"
+        suffix = f"{stem}-v{index + 1}"
         path_raw = generate_cover_image(
             full_prompt,
             output_basename=suffix,
@@ -128,6 +133,10 @@ def generate_cover_variants(
             return_bytes=True,
         )
         path_str, raw = path_raw
-        out.append((path_str, raw))
-    return out
+        return path_str, raw
+
+    # I/O-bound API calls — run in parallel; map() keeps results in index order (v1, v2, v3).
+    workers = min(n, 3)
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        return list(executor.map(_one_variant, range(n)))
 

@@ -37,6 +37,21 @@ export type PublishingState = {
   coverSigningName: string | null;
   /** True after "Pay for cover" until the user sends their signing name from the composer. */
   awaitingCoverSigningReply: boolean;
+  /** Full-book export: optional front matter (persisted in book description JSON). */
+  fullBookIncludeAboutAuthor: boolean;
+  fullBookIncludeAcknowledgement: boolean;
+  fullBookAboutAuthorText: string;
+  fullBookAcknowledgementText: string;
+  /**
+   * Paid for full book with bundled AI cover — run cover signing / variants before starting
+   * full manuscript generation.
+   */
+  postPayCoverFlowActive: boolean;
+  /**
+   * Bundled-cover path: user completed the optional About the author / Acknowledgements step;
+   * form is hidden and cover actions are shown.
+   */
+  postPayFrontMatterLocked: boolean;
 };
 
 export type PublishingActions = {
@@ -81,6 +96,13 @@ export type PublishingActions = {
   setIntakeCollaborative: (v: boolean) => void;
   setCoverSigningName: (name: string | null) => void;
   setAwaitingCoverSigningReply: (v: boolean) => void;
+  setFullBookIncludeAboutAuthor: (v: boolean) => void;
+  setFullBookIncludeAcknowledgement: (v: boolean) => void;
+  setFullBookAboutAuthorText: (t: string) => void;
+  setFullBookAcknowledgementText: (t: string) => void;
+  setPostPayCoverFlowActive: (v: boolean) => void;
+  setPostPayFrontMatterLocked: (v: boolean) => void;
+  removeIncompleteFullBookMessages: () => void;
   patchChatMessage: (
     messageId: string,
     patch: Partial<import("@/lib/types/chat").ChatMessage>,
@@ -110,5 +132,11 @@ export function createInitialPublishingState(): PublishingState {
     intakeCollaborative: false,
     coverSigningName: null,
     awaitingCoverSigningReply: false,
+    fullBookIncludeAboutAuthor: false,
+    fullBookIncludeAcknowledgement: false,
+    fullBookAboutAuthorText: "",
+    fullBookAcknowledgementText: "",
+    postPayCoverFlowActive: false,
+    postPayFrontMatterLocked: false,
   };
 }

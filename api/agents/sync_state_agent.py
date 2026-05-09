@@ -13,26 +13,73 @@ from api.llm.factory import get_llm
 from api.llm.rate_limit_retry import invoke_with_rate_limit_retry
 
 
-def _character_arc_to_str(value: Any) -> str:
-    """Persist character_arc as plain text; models often return a dict despite a string schema."""
+def _to_text(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, str):
         return value.strip()
-    if isinstance(value, dict):
-        lines: list[str] = []
-        for k, v in value.items():
-            if v is None:
-                continue
-            s = str(v).strip()
-            if not s:
-                continue
-            label = str(k).replace("_", " ").strip()
-            lines.append(f"{label}: {s}")
-        return "\n".join(lines)
-    if isinstance(value, list):
-        return "\n".join(str(x).strip() for x in value if str(x).strip())
     return str(value).strip()
+
+
+def _to_str_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(x).strip() for x in value if str(x).strip()]
+    t = _to_text(value)
+    return [t] if t else []
+
+
+class CharacterArcFields(BaseModel):
+    """Structured protagonist trajectory used by chapter generation continuity."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    current_mindset: str = ""
+    moral_position: str = ""
+    hardness_level: str = ""
+    last_decision_made: str = ""
+    current_belief: str = ""
+    arc_delta: str = ""
+
+    @classmethod
+    def from_any(cls, value: Any) -> "CharacterArcFields":
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, dict):
+            return cls(
+                current_mindset=_to_text(value.get("current_mindset")),
+                moral_position=_to_text(value.get("moral_position")),
+                hardness_level=_to_text(value.get("hardness_level")),
+                last_decision_made=_to_text(value.get("last_decision_made")),
+                current_belief=_to_text(value.get("current_belief")),
+                arc_delta=_to_text(value.get("arc_delta")),
+            )
+        t = _to_text(value)
+        return cls(current_mindset=t if t else "")
+
+
+class EnvironmentalPressureFields(BaseModel):
+    """Structured environmental pressure tracker required by sync-state prompt."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    active_forces: list[str] = Field(default_factory=list)
+    pressure_level: str = ""
+    last_causal_moment: str = ""
+    escalation_due: str = ""
+
+    @classmethod
+    def from_any(cls, value: Any) -> "EnvironmentalPressureFields":
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, dict):
+            return cls(
+                active_forces=_to_str_list(value.get("active_forces")),
+                pressure_level=_to_text(value.get("pressure_level")),
+                last_causal_moment=_to_text(value.get("last_causal_moment")),
+                escalation_due=_to_text(value.get("escalation_due")),
+            )
+        t = _to_text(value)
+        return cls(pressure_level=t if t else "")
 
 
 class SyncStateFields(BaseModel):
@@ -50,8 +97,15 @@ class SyncStateFields(BaseModel):
 
     @field_validator("character_arc", mode="before")
     @classmethod
-    def _coerce_character_arc(cls, v: Any) -> str:
-        return _character_arc_to_str(v)
+    def _coerce_character_arc(cls, v: Any) -> CharacterArcFields:
+        return CharacterArcFields.from_any(v)
+
+    @field_validator("environmental_pressure", mode="before")
+    @classmethod
+    def _coerce_environmental_pressure(
+        cls, v: Any
+    ) -> EnvironmentalPressureFields:
+        return EnvironmentalPressureFields.from_any(v)
 
 
 def run_sync_state_update(
@@ -65,7 +119,8 @@ def run_sync_state_update(
 ) -> dict[str, Any]:
     """
     Returns dict with keys narrative_arc, key_facts, open_threads, last_chapter_beat, tone_anchors,
-    character_arc — to merge into persisted sync_state (caller appends chapter_summaries and excerpt separately).
+    character_arc, environmental_pressure — to merge into persisted sync_state
+    (caller appends chapter_summaries and excerpt separately).
     """
     llm = get_llm(provider)
     structured = llm.with_structured_output(SyncStateFields, method="function_calling")

@@ -40,4 +40,34 @@ def merge_with_defaults(raw: Any) -> dict[str, Any]:
             "previous_excerpt_tail",
         ) and isinstance(raw[k], str):
             base[k] = raw[k]
+        elif k == "character_arc":
+            rv = raw[k]
+            if isinstance(rv, dict):
+                base[k] = {
+                    "current_mindset": str(rv.get("current_mindset") or ""),
+                    "moral_position": str(rv.get("moral_position") or ""),
+                    "hardness_level": str(rv.get("hardness_level") or ""),
+                    "last_decision_made": str(rv.get("last_decision_made") or ""),
+                    "current_belief": str(rv.get("current_belief") or ""),
+                    "arc_delta": str(rv.get("arc_delta") or ""),
+                }
+            elif isinstance(rv, str):
+                # Backward compatibility with old string-only schema.
+                base[k] = {
+                    "current_mindset": rv,
+                    "moral_position": "",
+                    "hardness_level": "",
+                    "last_decision_made": "",
+                    "current_belief": "",
+                    "arc_delta": "",
+                }
+        elif k == "environmental_pressure" and isinstance(raw[k], dict):
+            ep = raw[k]
+            af = ep.get("active_forces")
+            base[k] = {
+                "active_forces": [str(x) for x in af] if isinstance(af, list) else [],
+                "pressure_level": str(ep.get("pressure_level") or ""),
+                "last_causal_moment": str(ep.get("last_causal_moment") or ""),
+                "escalation_due": str(ep.get("escalation_due") or ""),
+            }
     return base

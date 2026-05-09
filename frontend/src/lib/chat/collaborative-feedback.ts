@@ -11,7 +11,14 @@ export type CollaborativeFeedbackOpts = {
   awaitingGate: null | "outline" | "preview" | "post_preview" | "full";
   composerStep: "intake" | "outline" | "preview";
   /** Kickoff inline flow must finish before collaborative feedback applies */
-  bookKickoffStage: "choice" | "title" | "subtitle" | "summary" | "general_idea" | "done";
+  bookKickoffStage:
+    | "before_choice"
+    | "choice"
+    | "title"
+    | "subtitle"
+    | "summary"
+    | "general_idea"
+    | "done";
   isAuthenticated: boolean;
 };
 

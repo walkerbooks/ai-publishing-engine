@@ -290,8 +290,13 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                 yield _sse("message_end", {"messageId": preview_message_id})
 
                 gate_text = (
-                    "Your preview is ready. You can pay $1 for an AI-generated book cover, "
-                    "unlock the full book, or tell us what to change in the preview."
+                    "Your preview is ready. Choose a package to unlock the full book in one payment "
+                    "(you can add an AI cover—three layout options, +$1—in the same checkout), "
+                    "or tell us what to change in the preview. "
+                    "If your checkout includes a cover, you will enter **About the author** and "
+                    "**Acknowledgements** first (both required), then your cover signing name and "
+                    "layout. Otherwise you can add those sections optionally on the step before "
+                    "full manuscript generation."
                 )
                 yield _sse(
                     "message_start",

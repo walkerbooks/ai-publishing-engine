@@ -113,6 +113,10 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           activeBookId === s.activeBookId ? s.bookPreviewRowSynced : false,
         subscriptionFullGenUnlocked:
           activeBookId === s.activeBookId ? s.subscriptionFullGenUnlocked : false,
+        postPayCoverFlowActive:
+          activeBookId === s.activeBookId ? s.postPayCoverFlowActive : false,
+        postPayFrontMatterLocked:
+          activeBookId === s.activeBookId ? s.postPayFrontMatterLocked : false,
       })),
     setBookOutline: (bookOutline) => set({ bookOutline }),
     setPreviewContent: (previewContent) => set({ previewContent }),
@@ -131,6 +135,23 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
     setCoverSigningName: (coverSigningName) => set({ coverSigningName }),
     setAwaitingCoverSigningReply: (awaitingCoverSigningReply) =>
       set({ awaitingCoverSigningReply }),
+    setFullBookIncludeAboutAuthor: (fullBookIncludeAboutAuthor) =>
+      set({ fullBookIncludeAboutAuthor }),
+    setFullBookIncludeAcknowledgement: (fullBookIncludeAcknowledgement) =>
+      set({ fullBookIncludeAcknowledgement }),
+    setFullBookAboutAuthorText: (fullBookAboutAuthorText) =>
+      set({ fullBookAboutAuthorText }),
+    setFullBookAcknowledgementText: (fullBookAcknowledgementText) =>
+      set({ fullBookAcknowledgementText }),
+    setPostPayCoverFlowActive: (postPayCoverFlowActive) => set({ postPayCoverFlowActive }),
+    setPostPayFrontMatterLocked: (postPayFrontMatterLocked) =>
+      set({ postPayFrontMatterLocked }),
+    removeIncompleteFullBookMessages: () =>
+      set((s) => ({
+        chatMessages: s.chatMessages.filter(
+          (m) => m.kind !== "full" || m.fullGenPhase === "complete",
+        ),
+      })),
     patchChatMessage: (messageId, patch) =>
       set((s) => ({
         chatMessages: s.chatMessages.map((m) =>

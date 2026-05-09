@@ -171,20 +171,39 @@ export async function ensureServerConversationBeforeSend(): Promise<void> {
   }
 }
 
-export async function persistChatMessageIfAuthenticated(msg: ChatMessage): Promise<void> {
+/**
+ * POSTs the message to Go when the user is authenticated.
+ * @returns true if nothing to do (guest) or append succeeded; false if logged in but the save failed.
+ */
+export async function persistChatMessageIfAuthenticated(msg: ChatMessage): Promise<boolean> {
   const token = getAccessToken();
-  if (!token || !useAuthStore.getState().isAuthenticated) return;
+  if (!token || !useAuthStore.getState().isAuthenticated) {
+    return true;
+  }
   const publicId = useChatDirectoryStore.getState().activeConversationId;
-  if (!publicId) return;
+  if (!publicId) {
+    log.warning("persistChatMessageIfAuthenticated: no activeConversationId");
+    return false;
+  }
   if (!msg.content.trim()) {
     log.warning("persistChatMessageIfAuthenticated: skip empty content");
-    return;
+    return false;
   }
   try {
     const linkBook =
       msg.kind === "cover" ? usePublishingStore.getState().activeBookId : null;
-    await appendConversationMessage(token, publicId, chatMessageToAppendBody(msg, linkBook));
+    const row = await appendConversationMessage(
+      token,
+      publicId,
+      chatMessageToAppendBody(msg, linkBook),
+    );
+    if (!row) {
+      log.warning("persistChatMessageIfAuthenticated: append returned null");
+      return false;
+    }
+    return true;
   } catch (e) {
     log.warning("persistChatMessageIfAuthenticated failed", e);
+    return false;
   }
 }

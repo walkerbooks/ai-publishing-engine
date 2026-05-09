@@ -19,6 +19,7 @@ import { checkFullGenerationEntitlement } from "@/lib/api/subscriptions-client";
 import { getAccessToken, getUserFirstName } from "@/lib/auth/access-token";
 import { randomFullBookQuip } from "@/lib/chat/full-book-quips";
 import type { FullBookGenPhase } from "@/lib/types/chat";
+import { buildBookDescriptionJson } from "@/lib/book/book-description-payload";
 import { getLogger } from "@/lib/log";
 import { usePublishingStore } from "@/stores/publishing-store";
 
@@ -29,8 +30,8 @@ const PAID_LIKE = new Set(["paid", "generating", "complete"]);
 /** Go only enqueues full generation from these statuses via POST /full-book/request. */
 const FULL_BOOK_POST_STATUSES = new Set(["preview_ready", "awaiting_payment"]);
 
-/** After payment / webhook, the job exists — POST again returns 400. */
-const FULL_BOOK_JOB_UNDERWAY = new Set(["paid", "generating", "complete"]);
+/** Generation started or finished — avoid duplicate POST /full-book/request. */
+const FULL_BOOK_JOB_UNDERWAY = new Set(["generating", "complete"]);
 
 function chapterToMd(c: BackendChapter): string {
   const body = c.content.trim();
@@ -62,6 +63,7 @@ export function useFullBookChatFlow() {
   const bookOutline = usePublishingStore((s) => s.bookOutline);
   const previewContent = usePublishingStore((s) => s.previewContent);
   const mockPaymentConfirmed = usePublishingStore((s) => s.mockPaymentConfirmed);
+  const postPayCoverFlowActive = usePublishingStore((s) => s.postPayCoverFlowActive);
   const subscriptionFullGenUnlocked = usePublishingStore(
     (s) => s.subscriptionFullGenUnlocked,
   );
@@ -97,6 +99,10 @@ export function useFullBookChatFlow() {
       return;
     }
 
+    if (usePublishingStore.getState().postPayCoverFlowActive) {
+      return;
+    }
+
     const stopPoll = () => {
       if (pollRef.current != null) {
         window.clearInterval(pollRef.current);
@@ -129,6 +135,9 @@ export function useFullBookChatFlow() {
 
     const tick = async () => {
       if (cancelled) return;
+      if (usePublishingStore.getState().postPayCoverFlowActive) {
+        return;
+      }
 
       let book;
       try {
@@ -192,11 +201,7 @@ export function useFullBookChatFlow() {
       if (!payloadSyncedRef.current) {
         payloadSyncedRef.current = true;
         void patchBook(activeBookId, token, {
-          description: JSON.stringify({
-            book_spec: bookSpec,
-            book_outline: bookOutline,
-            preview_markdown: previewContent,
-          }),
+          description: buildBookDescriptionJson(),
           ...getBookConversationLinkForApi(),
         }).catch(() => {
           payloadSyncedRef.current = false;
@@ -212,7 +217,8 @@ export function useFullBookChatFlow() {
         } else if (
           canPostFullBook ||
           mockPaymentConfirmed ||
-          subscriptionFullGenUnlocked
+          subscriptionFullGenUnlocked ||
+          statusNorm === "paid"
         ) {
           const gate = await checkFullGenerationEntitlement(token);
           if (!gate.ok) {
@@ -361,6 +367,7 @@ export function useFullBookChatFlow() {
     bookOutline,
     previewContent,
     mockPaymentConfirmed,
+    postPayCoverFlowActive,
     subscriptionFullGenUnlocked,
     patchChatMessage,
     pushAssistantMessage,
@@ -370,6 +377,7 @@ export function useFullBookChatFlow() {
 
   useEffect(() => {
     const t = window.setInterval(() => {
+      if (usePublishingStore.getState().postPayCoverFlowActive) return;
       const m = usePublishingStore
         .getState()
         .chatMessages.find((x) => x.kind === "full" && x.fullGenPhase !== "complete");
