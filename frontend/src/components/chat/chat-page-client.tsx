@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { useVideoInjection } from "@/hooks/use-video-injection";
@@ -37,10 +37,22 @@ import {
   COVER_VARIANT_COUNT,
 } from "@/lib/chat/cover-prompt";
 import { persistChatMessageIfAuthenticated } from "@/lib/chat/conversation-sync";
+import { syncGuestPromotionLead } from "@/lib/api/promotion-client";
+import {
+  isWelcomeVideosSettledForMessage,
+  shouldShowGuestEmailCapture,
+  syncGuestOnboardingFromMessages,
+} from "@/lib/chat/welcome-flow";
 import { getUnifiedAssistantPlaceholder } from "@/lib/chat/unified-chat/placeholders";
 import { generateCoverVariantsForChat } from "@/lib/api/cover-client";
 
 const KICKOFF_ASSISTANT_LOADER_MS = 550;
+
+/** Stable id for the title/subtitle/summary kickoff bubble (logged-in empty thread + post-welcome paths). */
+const BOOK_KICKOFF_CHOICE_MESSAGE_ID = "book-kickoff-choice";
+
+const BOOK_KICKOFF_CHOICE_COPY =
+  "Hi! I'm glad you're here.\n\nBefore we dive in, do you already have a working title, subtitle, and a short summary in mind?";
 
 /** When true, cover generates without a $1 PayPal checkout (local/testing). Production: wire checkout then set false. */
 const COVER_PAYMENT_BYPASS =
@@ -70,6 +82,7 @@ function scheduleKickoffAssistantReveal(
 }
 
 type BookKickoffStage =
+  | "before_choice"
   | "choice"
   | "title"
   | "subtitle"
@@ -79,7 +92,6 @@ type BookKickoffStage =
 
 export function ChatPageClient() {
   useVideoInjection();
-  useFullBookChatFlow();
   const router = useRouter();
   const searchParams = useSearchParams();
   const setActiveBookId = usePublishingStore((s) => s.setActiveBookId);
@@ -130,6 +142,34 @@ export function ChatPageClient() {
 
   const bookParam = searchParams.get("book")?.trim() ?? null;
 
+  useLayoutEffect(() => {
+    const paid = searchParams.get("paid") === "1";
+    const withCover = searchParams.get("with_cover") === "1";
+    if (!paid && !withCover) return;
+
+    if (paid) {
+      usePublishingStore.getState().setMockPayment(true);
+    }
+    if (withCover) {
+      usePublishingStore.getState().setPostPayCoverFlowActive(true);
+      usePublishingStore.getState().setPostPayFrontMatterLocked(false);
+      usePublishingStore.getState().removeIncompleteFullBookMessages();
+      usePublishingStore.getState().setAwaitingGate("post_preview");
+    } else if (paid) {
+      usePublishingStore.getState().setAwaitingGate("full");
+    }
+
+    const path =
+      typeof window !== "undefined" ? window.location.pathname : "/chat";
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("paid");
+    params.delete("with_cover");
+    const q = params.toString();
+    router.replace(q ? `${path}?${q}` : path, { scroll: false });
+  }, [searchParams, router]);
+
+  useFullBookChatFlow();
+
   const prevAuthenticated = useRef(isAuthenticated);
   useEffect(() => {
     if (isAuthenticated) {
@@ -174,10 +214,12 @@ export function ChatPageClient() {
     useState(false);
   const lastCooldownPopupSummaryRef = useRef("");
   const [generateFullBusy, setGenerateFullBusy] = useState(false);
-  const [bookKickoffStage, setBookKickoffStage] = useState<BookKickoffStage>("choice");
+  const [bookKickoffStage, setBookKickoffStage] = useState<BookKickoffStage>("before_choice");
   const [bookKickoffTitle, setBookKickoffTitle] = useState("");
   const [bookKickoffSubtitle, setBookKickoffSubtitle] = useState("");
   const kickoffLoaderTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  /** Logged-in first message: inject kickoff once after welcome videos settle on the first assistant reply. */
+  const loggedInPostWelcomeKickoffRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -249,23 +291,59 @@ export function ChatPageClient() {
     }
   }, [fullBookGateMode, fullBookCooldownSummary]);
 
-  /** Guests and first-time signed-in users use the YouTube welcome path; returning signed-in users get the title/summary kickoff. */
+  /**
+   * Kickoff stage baseline: guests stay in `before_choice` until name/email/videos complete, then we
+   * move to `choice`. First-time signed-in users use `before_choice` until after welcome videos on
+   * the first assistant reply; returning users with an empty thread jump straight to `choice`.
+   */
   useEffect(() => {
     if (!listLoaded) return;
     if (!isAuthenticated) {
-      setBookKickoffStage("done");
+      if (messages.length === 0) {
+        setBookKickoffStage("before_choice");
+      }
       return;
     }
     if (conversationCount === 0) {
-      setBookKickoffStage("done");
-    } else if (messages.length === 0) {
+      if (messages.length === 0) {
+        setBookKickoffStage("before_choice");
+      }
+      return;
+    }
+    if (messages.length === 0) {
       setBookKickoffStage("choice");
     }
   }, [listLoaded, isAuthenticated, conversationCount, messages.length]);
 
-  /** Re-opened threads default kickoff stage to "choice" — snap to done once outline/preview exists. */
+  useEffect(() => {
+    if (bookKickoffStage === "before_choice" && messages.length < 2) {
+      loggedInPostWelcomeKickoffRef.current = false;
+    }
+  }, [bookKickoffStage, messages.length]);
+
+  /** After first assistant reply + welcome videos (logged-in, `before_choice`), insert title/summary kickoff. */
   useEffect(() => {
     if (!listLoaded || !isAuthenticated) return;
+    if (bookKickoffStage !== "before_choice") return;
+    if (loggedInPostWelcomeKickoffRef.current) return;
+    const msgs = usePublishingStore.getState().chatMessages;
+    if (msgs.length < 2) return;
+    const last = msgs[msgs.length - 1];
+    if (last.role !== "assistant") return;
+    if (!isWelcomeVideosSettledForMessage(last)) return;
+    if (msgs.some((m) => m.id === BOOK_KICKOFF_CHOICE_MESSAGE_ID)) return;
+    loggedInPostWelcomeKickoffRef.current = true;
+    setBookKickoffStage("choice");
+    scheduleKickoffAssistantReveal(
+      BOOK_KICKOFF_CHOICE_MESSAGE_ID,
+      BOOK_KICKOFF_CHOICE_COPY,
+      kickoffLoaderTimersRef.current,
+    );
+  }, [listLoaded, isAuthenticated, bookKickoffStage, messages]);
+
+  /** Snap to done once outline/preview exists (guest or authed). */
+  useEffect(() => {
+    if (!listLoaded) return;
     if (
       !threadPastBookKickoff({
         awaitingGate,
@@ -280,7 +358,6 @@ export function ChatPageClient() {
     setBookKickoffStage((stage) => (stage !== "done" ? "done" : stage));
   }, [
     listLoaded,
-    isAuthenticated,
     messages,
     awaitingGate,
     bookOutline,
@@ -288,16 +365,18 @@ export function ChatPageClient() {
     composerStep,
   ]);
 
+  /** Returning signed-in user: empty thread shows kickoff immediately (no YouTube prerequisite). */
   useEffect(() => {
     if (messages.length) return;
     if (bookKickoffStage !== "choice") return;
     if (!isAuthenticated || !listLoaded || conversationCount === 0) return;
-    const id = "book-kickoff-choice";
-    const exists = usePublishingStore.getState().chatMessages.some((m) => m.id === id);
+    const exists = usePublishingStore.getState().chatMessages.some(
+      (m) => m.id === BOOK_KICKOFF_CHOICE_MESSAGE_ID,
+    );
     if (exists) return;
     scheduleKickoffAssistantReveal(
-      id,
-      "Hi! I'm glad you're here.\n\nBefore we dive in, do you already have a working title, subtitle, and a short summary in mind?",
+      BOOK_KICKOFF_CHOICE_MESSAGE_ID,
+      BOOK_KICKOFF_CHOICE_COPY,
       kickoffLoaderTimersRef.current,
     );
   }, [messages.length, bookKickoffStage, isAuthenticated, listLoaded, conversationCount]);
@@ -394,6 +473,32 @@ export function ChatPageClient() {
     const value = text.trim();
     if (!value) return;
     const pub = usePublishingStore.getState();
+    if (
+      !isAuthenticated &&
+      shouldShowGuestEmailCapture(pub.chatMessages) &&
+      value.includes("@")
+    ) {
+      pub.pushUserMessage(value);
+      const u = usePublishingStore.getState().chatMessages.at(-1);
+      if (u?.role === "user") void persistChatMessageIfAuthenticated(u);
+      pub.setGuestEmail(value);
+      const after = usePublishingStore.getState().chatMessages;
+      const { userName, guestEmail } = syncGuestOnboardingFromMessages(after);
+      if (userName) pub.setUserName(userName);
+      if (guestEmail) pub.setGuestEmail(guestEmail);
+      void syncGuestPromotionLead(userName, guestEmail ?? value, false);
+      if (
+        !after.some((m) => m.id === BOOK_KICKOFF_CHOICE_MESSAGE_ID)
+      ) {
+        setBookKickoffStage("choice");
+        scheduleKickoffAssistantReveal(
+          BOOK_KICKOFF_CHOICE_MESSAGE_ID,
+          BOOK_KICKOFF_CHOICE_COPY,
+          kickoffLoaderTimersRef.current,
+        );
+      }
+      return;
+    }
     if (pub.awaitingCoverSigningReply) {
       pub.pushUserMessage(value);
       pub.setCoverSigningName(value);
@@ -561,7 +666,10 @@ export function ChatPageClient() {
     }
   };
 
-  const continueFullBookPayPal = (tier: FullBookPackageTier) => {
+  const continueFullBookPayPal = (
+    tier: FullBookPackageTier,
+    opts?: { includeCover?: boolean },
+  ) => {
     clearPayPalErr();
     const id = usePublishingStore.getState().activeBookId;
     if (!id) return;
@@ -579,12 +687,14 @@ export function ChatPageClient() {
         setFullBookPricingOpen(true);
         return;
       }
-      void startCheckout(id, "/chat", tier);
+      void startCheckout(id, "/chat", tier, Boolean(opts?.includeCover));
     })();
   };
   const changePreview = () => {
     setCoverVariantUrls(null);
     const p = usePublishingStore.getState();
+    p.setPostPayCoverFlowActive(false);
+    p.setPostPayFrontMatterLocked(false);
     p.setAwaitingGate(null);
     p.setComposerStep("preview");
     p.setComposerAction("revise");
@@ -600,6 +710,12 @@ export function ChatPageClient() {
     setCoverErr(null);
     setCoverVariantUrls(null);
     const p = usePublishingStore.getState();
+    const keepBundledFrontMatter =
+      p.postPayCoverFlowActive && p.postPayFrontMatterLocked;
+    p.setPostPayCoverFlowActive(false);
+    if (!keepBundledFrontMatter) {
+      p.setPostPayFrontMatterLocked(false);
+    }
     p.setCoverSigningName(null);
     p.setAwaitingCoverSigningReply(false);
     p.setAwaitingGate("full");
@@ -620,6 +736,7 @@ export function ChatPageClient() {
     }
     setCoverVariantUrls(null);
     const pub = usePublishingStore.getState();
+    pub.setPostPayCoverFlowActive(false);
     const msg: ChatMessage = {
       id: crypto.randomUUID(),
       role: "assistant",
@@ -630,7 +747,14 @@ export function ChatPageClient() {
     };
     pub.pushAssistantMessage(msg);
     pub.setAwaitingGate("full");
-    void persistChatMessageIfAuthenticated(msg);
+    void (async () => {
+      const saved = await persistChatMessageIfAuthenticated(msg);
+      if (!saved) {
+        setCoverErr(
+          "We couldn’t save your cover to the server. Check your connection, ensure you’re signed in with a synced chat, then pick a cover again — otherwise the PDF may not include it.",
+        );
+      }
+    })();
   };
 
   const payForCoverPage = () => {
@@ -652,7 +776,7 @@ export function ChatPageClient() {
       );
       return;
     }
-    if (!COVER_PAYMENT_BYPASS) {
+    if (!pub.postPayCoverFlowActive && !COVER_PAYMENT_BYPASS) {
       setCoverPaymentBlockedOpen(true);
       return;
     }
@@ -706,15 +830,14 @@ export function ChatPageClient() {
       >
         <DialogContent className="border-border dark:border-white/10 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Cover art ($1)</DialogTitle>
+            <DialogTitle>Cover generation</DialogTitle>
             <DialogDescription className="text-left text-sm leading-relaxed text-foreground dark:text-zinc-200">
-              PayPal checkout for cover-only purchases is not enabled in this build yet.
-              To test cover generation locally, set{" "}
+              AI cover is purchased with your full book (package dialog). This dialog only appears
+              for legacy paths. To test cover generation locally without that flow, set{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">
                 NEXT_PUBLIC_COVER_PAYMENT_BYPASS=true
-              </code>{" "}
-              in your frontend environment. You can still continue to the full book or change your
-              preview using the other actions.
+              </code>
+              .
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-2">
@@ -755,7 +878,7 @@ export function ChatPageClient() {
         }}
         loading={payPalLoading}
         error={payPalErr}
-        onBuy={continueFullBookPayPal}
+        onBuy={(tier, opts) => continueFullBookPayPal(tier, opts)}
       />
       <ChatShell
         showConversationChrome={showConversationChrome}

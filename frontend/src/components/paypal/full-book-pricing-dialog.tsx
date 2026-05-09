@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils/cn";
 import {
+  FULL_BOOK_COVER_ADDON_LABEL,
   FULL_BOOK_PACKAGES,
   type FullBookPackageTier,
 } from "@/lib/paypal/full-book-packages";
@@ -17,7 +19,7 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   loading?: boolean;
   error?: string | null;
-  onBuy: (tier: FullBookPackageTier) => void;
+  onBuy: (tier: FullBookPackageTier, opts: { includeCover: boolean }) => void;
 };
 
 const NAVY = "#2E2E5C";
@@ -31,8 +33,16 @@ export function FullBookPricingDialog({
   error,
   onBuy,
 }: Props) {
+  const [includeCover, setIncludeCover] = useState(false);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next);
+        if (!next) setIncludeCover(false);
+      }}
+    >
       <DialogContent
         className={cn(
           "max-h-[min(92dvh,880px)] w-[calc(100vw-1rem)] max-w-6xl gap-0 overflow-y-auto p-4 sm:p-6",
@@ -43,9 +53,23 @@ export function FullBookPricingDialog({
             Choose your package
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Select a plan, then continue to PayPal to complete payment for this book.
+            Select a plan, then continue to PayPal for one payment for this book. Optional AI cover
+            is included in the same checkout when selected below.
           </DialogDescription>
         </DialogHeader>
+
+        <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-3 text-left text-sm dark:border-white/15 dark:bg-white/5">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-walker-teal focus:ring-walker-teal"
+            checked={includeCover}
+            disabled={loading}
+            onChange={(e) => setIncludeCover(e.target.checked)}
+          />
+          <span className="leading-snug text-slate-800 dark:text-zinc-100">
+            {FULL_BOOK_COVER_ADDON_LABEL}
+          </span>
+        </label>
 
         {error ? (
           <p
@@ -99,7 +123,7 @@ export function FullBookPricingDialog({
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={() => onBuy(pkg.tier)}
+                  onClick={() => onBuy(pkg.tier, { includeCover })}
                   className={cn(
                     "flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60",
                   )}

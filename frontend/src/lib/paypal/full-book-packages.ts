@@ -8,6 +8,13 @@ export type FullBookPackage = {
   features: string[];
 };
 
+/**
+ * Checkbox copy on the package dialog. The +$1 is applied in PayPal when Go honors
+ * `include_cover` on checkout.
+ */
+export const FULL_BOOK_COVER_ADDON_LABEL =
+  "Add AI cover art — three layout options after checkout ($1 add-on, one generation). You will choose one for your book and PDF.";
+
 /** Display copy; amounts are marketing labels — Go must map tier → PayPal amount / plan. */
 export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
   {
