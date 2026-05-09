@@ -7,8 +7,10 @@ import json
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from api.agents.prompts.chapter import CHAPTER_SYSTEM, SUMMARY_SYSTEM
+from api.config import get_settings
 from api.llm.factory import get_llm
 from api.llm.rate_limit_retry import invoke_with_rate_limit_retry
+from api.llm.response_text import response_text
 
 
 def _approx_word_count(text: str) -> int:
@@ -90,7 +92,7 @@ def run_chapter(
     spec = json.dumps(book_spec, indent=2)
     synopsis = _book_synopsis_paragraph(book_outline)
     plan = json.dumps(chapter_plan, indent=2)
-    prior_summaries = sync_state.get("chapter_summaries") or []
+    prior_summaries = (sync_state.get("chapter_summaries") or [])[-8:]
     summaries = "\n\n".join(prior_summaries) if prior_summaries else "(none yet)"
     continuity = json.dumps(
         {
@@ -100,11 +102,12 @@ def run_chapter(
             "tone_anchors": sync_state.get("tone_anchors", ""),
             "last_chapter_beat": sync_state.get("last_chapter_beat", ""),
             "character_arc": sync_state.get("character_arc", ""),
+            "character_bible": sync_state.get("character_bible", ""),
         },
         indent=2,
     )
     excerpt = (
-        f"\n\nEnd of manuscript so far (exact tail of the last stored chapter; may follow intro-only or mixed preview content):\n{previous_chapter_excerpt[:6000]}\n"
+        f"\n\nEnd of manuscript so far (exact tail of the last stored chapter; may follow intro-only or mixed preview content):\n{previous_chapter_excerpt[:4500]}\n"
         if previous_chapter_excerpt
         else ""
     )
@@ -157,10 +160,10 @@ def run_chapter(
         ),
     ]
     response = invoke_with_rate_limit_retry(lambda: llm.invoke(messages))
-    text = response.content if hasattr(response, "content") else str(response)
-    text = text.strip()
+    text = response_text(response).strip()
     wc = _approx_word_count(text)
-    floor = int(wt * 0.88)
+    floor_ratio = get_settings().chapter_expand_floor_ratio
+    floor = int(wt * floor_ratio)
     if wc < floor and wt >= 800 and text:
         llm_expand = get_llm(provider).bind(
             max_tokens=min(provider_max_completion_tokens, max(4096, int(wt * 3)))
@@ -177,8 +180,7 @@ def run_chapter(
             ),
         ]
         response2 = invoke_with_rate_limit_retry(lambda: llm_expand.invoke(messages2))
-        text2 = response2.content if hasattr(response2, "content") else str(response2)
-        text2 = text2.strip()
+        text2 = response_text(response2).strip()
         if _approx_word_count(text2) > wc:
             text = text2
     return text.strip()
@@ -193,5 +195,5 @@ def summarize_chapter(chapter_markdown: str, provider: str | None = None) -> str
         ),
     ]
     response = invoke_with_rate_limit_retry(lambda: llm.invoke(messages))
-    text = response.content if hasattr(response, "content") else str(response)
+    text = response_text(response)
     return text.strip()

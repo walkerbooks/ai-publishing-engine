@@ -15,6 +15,7 @@ def default_sync_state() -> dict[str, Any]:
         "last_chapter_beat": "",
         "tone_anchors": "",
         "character_arc": "",
+        "character_bible": "",
         "previous_excerpt_tail": "",
     }
 
@@ -35,6 +36,7 @@ def merge_with_defaults(raw: Any) -> dict[str, Any]:
             "last_chapter_beat",
             "tone_anchors",
             "character_arc",
+            "character_bible",
             "previous_excerpt_tail",
         ) and isinstance(raw[k], str):
             base[k] = raw[k]

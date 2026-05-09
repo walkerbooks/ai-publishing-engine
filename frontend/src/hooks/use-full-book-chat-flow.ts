@@ -74,12 +74,14 @@ export function useFullBookChatFlow() {
   const payloadSyncedRef = useRef(false);
   const genRequestedRef = useRef(false);
   const exportRequestedRef = useRef(false);
+  const exportRetryNotReadyUntilRef = useRef(0);
   const pollRef = useRef<number | null>(null);
 
   useEffect(() => {
     payloadSyncedRef.current = false;
     genRequestedRef.current = false;
     exportRequestedRef.current = false;
+    exportRetryNotReadyUntilRef.current = 0;
     messageIdRef.current = null;
   }, [activeBookId]);
 
@@ -270,6 +272,9 @@ export function useFullBookChatFlow() {
       });
 
       if (allWritten && !exportRequestedRef.current) {
+        if (Date.now() < exportRetryNotReadyUntilRef.current) {
+          return;
+        }
         exportRequestedRef.current = true;
         try {
           const current = await getExportStatus(activeBookId, "pdf", token);
@@ -286,7 +291,14 @@ export function useFullBookChatFlow() {
             await requestBookExport(activeBookId, "pdf", token);
           }
         } catch (e) {
-          log.warning("export kickoff failed", e);
+          const msg = e instanceof Error ? e.message.toLowerCase() : "";
+          if (msg.includes("full book generation is not complete yet")) {
+            // Go can return this briefly before the final chapter status flips to complete.
+            exportRetryNotReadyUntilRef.current = Date.now() + 15000;
+            log.debug("export kickoff deferred: generation not complete yet");
+          } else {
+            log.warning("export kickoff failed", e);
+          }
           exportRequestedRef.current = false;
         }
       }

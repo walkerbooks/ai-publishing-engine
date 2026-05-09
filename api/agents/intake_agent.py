@@ -37,7 +37,7 @@ def run_intake(
     Returns dict with keys: content (str), book_spec (dict | None), intake_complete (bool).
     """
     llm = get_llm(provider)
-    structured_llm = llm.with_structured_output(IntakeResponse)
+    structured_llm = llm.with_structured_output(IntakeResponse, method="function_calling")
 
     pages = default_target_pages
     if pages is None:

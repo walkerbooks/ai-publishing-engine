@@ -23,7 +23,7 @@ export function shouldShowCollaborativeFeedback(
   messages: ChatMessage[],
   opts: CollaborativeFeedbackOpts,
 ): boolean {
-  if (!opts.intakeCollaborative || opts.intakeComplete) return false;
+  if (opts.intakeComplete) return false;
   if (opts.busy) return false;
   if (opts.awaitingGate !== null) return false;
   if (opts.composerStep !== "intake") return false;
@@ -44,6 +44,8 @@ export function shouldShowCollaborativeFeedback(
 
   const content = last.content.trim();
   if (!content || content.startsWith("[")) return false;
+  const allowsWithoutCollaborativeMode = isAssistantCheckpointPrompt(content);
+  if (!opts.intakeCollaborative && !allowsWithoutCollaborativeMode) return false;
 
   // Questions / multi-part asks need the dock — must run before pending-brief and before
   // offerCollaborativeFeedback === true (model sometimes sets that wrong while still asking).
@@ -66,6 +68,26 @@ export function shouldShowCollaborativeFeedback(
   return true;
 }
 
+function isAssistantCheckpointPrompt(content: string): boolean {
+  if (isCollaborativeOptionPrompt(content)) return true;
+  if (isPlainConfirmationPrompt(content)) return true;
+  const t = content.trim();
+  if (!/[?？][\s"')\]]*$/u.test(t)) return false;
+  const lastSentence = lastSentenceFromAssistantTurn(t);
+  return isCheckpointConfirmationQuestion(lastSentence);
+}
+
+function isPlainConfirmationPrompt(content: string): boolean {
+  const s = content.trim().toLowerCase();
+  if (!s) return false;
+  return (
+    s.includes("if this looks good") ||
+    s.includes("if this sounds good") ||
+    s.includes("i'll lock these in") ||
+    s.includes("tell me now and i'll adjust")
+  );
+}
+
 /**
  * User should use the dock (not Sounds good / change): discovery questions, multi-ask, etc.
  * Rhetorical check-ins ("Is that a good start?") are NOT typed-only — those show the two options.
@@ -73,6 +95,7 @@ export function shouldShowCollaborativeFeedback(
 function assistantIntakeMessageExpectsTypedReply(content: string): boolean {
   const t = content.trim();
   if (!t) return false;
+  if (isCollaborativeOptionPrompt(t)) return false;
 
   const qMarks = (t.match(/\?|？/g) || []).length;
   if (qMarks >= 2) return true;
@@ -83,6 +106,13 @@ function assistantIntakeMessageExpectsTypedReply(content: string): boolean {
   if (isCheckpointConfirmationQuestion(lastSentence)) return false;
 
   return true;
+}
+
+function isCollaborativeOptionPrompt(content: string): boolean {
+  const s = content.toLowerCase();
+  if (s.includes("option a") && s.includes("option b")) return true;
+  if (s.includes("which would you like to start with")) return true;
+  return false;
 }
 
 function lastSentenceFromAssistantTurn(t: string): string {
