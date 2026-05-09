@@ -87,13 +87,18 @@ export async function promoteActiveGuestConversationToServer(): Promise<void> {
     usePublishingStore.setState({ sessionId: newId });
 
     for (const msg of pub.chatMessages) {
-      const body = chatMessageToAppendBody(msg);
+      const body = chatMessageToAppendBody(
+        msg,
+        msg.kind === "cover" ? pub.activeBookId : null,
+      );
       const text = body.content?.trim() ?? "";
       const hasPayload =
         text.length > 0 ||
         Boolean(body.outline_json) ||
         Boolean(body.videos_json) ||
-        Boolean(body.preview_markdown);
+        Boolean(body.preview_markdown) ||
+        Boolean(body.book_spec_json) ||
+        Boolean(body.cover_image_png);
       if (!hasPayload) continue;
       await appendConversationMessage(token, newId, body);
     }
@@ -166,18 +171,39 @@ export async function ensureServerConversationBeforeSend(): Promise<void> {
   }
 }
 
-export async function persistChatMessageIfAuthenticated(msg: ChatMessage): Promise<void> {
+/**
+ * POSTs the message to Go when the user is authenticated.
+ * @returns true if nothing to do (guest) or append succeeded; false if logged in but the save failed.
+ */
+export async function persistChatMessageIfAuthenticated(msg: ChatMessage): Promise<boolean> {
   const token = getAccessToken();
-  if (!token || !useAuthStore.getState().isAuthenticated) return;
+  if (!token || !useAuthStore.getState().isAuthenticated) {
+    return true;
+  }
   const publicId = useChatDirectoryStore.getState().activeConversationId;
-  if (!publicId) return;
+  if (!publicId) {
+    log.warning("persistChatMessageIfAuthenticated: no activeConversationId");
+    return false;
+  }
   if (!msg.content.trim()) {
     log.warning("persistChatMessageIfAuthenticated: skip empty content");
-    return;
+    return false;
   }
   try {
-    await appendConversationMessage(token, publicId, chatMessageToAppendBody(msg));
+    const linkBook =
+      msg.kind === "cover" ? usePublishingStore.getState().activeBookId : null;
+    const row = await appendConversationMessage(
+      token,
+      publicId,
+      chatMessageToAppendBody(msg, linkBook),
+    );
+    if (!row) {
+      log.warning("persistChatMessageIfAuthenticated: append returned null");
+      return false;
+    }
+    return true;
   } catch (e) {
     log.warning("persistChatMessageIfAuthenticated failed", e);
+    return false;
   }
 }

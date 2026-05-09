@@ -4,9 +4,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { requestFullGeneration } from "@/lib/api/books-client";
 import { createPayPalCheckout } from "@/lib/api/payments-client";
+import {
+  createSubscription,
+  packageTierToSubscriptionPlan,
+} from "@/lib/api/subscriptions-client";
 import { promoteActiveGuestConversationToServer } from "@/lib/chat/conversation-sync";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { getLogger } from "@/lib/log";
+import type { FullBookPackageTier } from "@/lib/paypal/full-book-packages";
 import {
   PAYPAL_BOOK_STORAGE_KEY,
   writePayPalCheckoutContext,
@@ -23,11 +28,35 @@ export function usePayPalCheckout() {
   const [error, setError] = useState<string | null>(null);
 
   const startCheckout = useCallback(
-    async (bookPublicId: string, loginRedirectPath?: string) => {
+    async (
+      bookPublicId: string,
+      loginRedirectPath?: string,
+      packageTier: FullBookPackageTier = "single",
+      includeCover = false,
+    ) => {
       setError(null);
       if (PAYPAL_BYPASS) {
         const token = getAccessToken();
         if (token) {
+          const plan = packageTierToSubscriptionPlan(packageTier);
+          try {
+            await createSubscription(plan, token);
+            log.debug("PayPal bypass: createSubscription succeeded", { plan });
+          } catch (e) {
+            log.warning(
+              "PayPal bypass: createSubscription failed (continuing if you already have credits)",
+              e,
+            );
+          }
+          if (includeCover) {
+            usePublishingStore.getState().setMockPayment(true);
+            usePublishingStore.getState().setPostPayCoverFlowActive(true);
+            usePublishingStore.getState().setPostPayFrontMatterLocked(false);
+            router.push(
+              `/chat?book=${encodeURIComponent(bookPublicId)}&paid=1&with_cover=1`,
+            );
+            return;
+          }
           try {
             await requestFullGeneration(bookPublicId, token);
           } catch (e) {
@@ -61,8 +90,13 @@ export function usePayPalCheckout() {
           v: 1,
           book_public_id: bookPublicId,
           conversation_public_id: convId,
+          package_tier: packageTier,
+          include_cover: includeCover ? true : undefined,
         });
-        const { checkout_url } = await createPayPalCheckout(bookPublicId, token);
+        const { checkout_url } = await createPayPalCheckout(bookPublicId, token, {
+          packageTier,
+          includeCover,
+        });
         try {
           sessionStorage.setItem(PAYPAL_BOOK_STORAGE_KEY, bookPublicId);
         } catch {

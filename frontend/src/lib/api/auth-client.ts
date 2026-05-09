@@ -1,5 +1,5 @@
 import { GO_API_PREFIX, goAuthHeaders } from "@/lib/api/go-api";
-import { throwIfGoResponseFailed } from "@/lib/api/go-response";
+import { readGoErrorMessage } from "@/lib/api/go-response";
 import { getLogger } from "@/lib/log";
 
 const log = getLogger("auth-client");
@@ -9,6 +9,8 @@ export type AuthUser = {
   email: string;
   first_name: string;
   last_name: string;
+  /** From Go `users.role`: `user` (default) or `admin`. */
+  role?: "user" | "admin";
 };
 
 export type AuthResponse = {
@@ -91,7 +93,14 @@ export async function fetchAuthMe(accessToken: string): Promise<MeResponse> {
   });
   if (!res.ok) {
     log.warning(`auth/me failed: HTTP ${res.status}`);
-    await throwIfGoResponseFailed(res);
+    const msg = await readGoErrorMessage(res);
+    /** DB reset / deleted user: JWT still valid but users row is gone → clear client session. */
+    if (res.status === 401 || res.status === 404) {
+      const { invalidateGoSession } = await import("@/lib/auth/invalidate-go-session");
+      invalidateGoSession(msg);
+      throw new Error(msg);
+    }
+    throw new Error(msg);
   }
   log.debug("auth/me succeeded");
   return res.json() as Promise<MeResponse>;

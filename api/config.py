@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # OpenAI (when llm_provider=openai)
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
+    openai_image_model: str = Field(
+        default="gpt-image-1",
+        validation_alias="OPENAI_IMAGE_MODEL",
+    )
 
     # Groq (when llm_provider=groq)
     groq_api_key: str | None = None
@@ -41,6 +45,14 @@ class Settings(BaseSettings):
         ge=2,
         le=400,
         validation_alias="BOOK_WORDS_PER_PAGE",
+    )
+
+    # When set (e.g. 20 for fast local testing), intake infers this target_length_pages if the user omits length.
+    default_target_length_pages: int | None = Field(
+        default=None,
+        ge=1,
+        le=200,
+        validation_alias="DEFAULT_TARGET_LENGTH_PAGES",
     )
 
     # Go API (for internal generation jobs calling back to persist chapters)
@@ -60,6 +72,12 @@ class Settings(BaseSettings):
     pdf_export_storage_dir: str = Field(
         default=str(_REPO_ROOT / "var" / "pdf_exports"),
         validation_alias="PDF_EXPORT_STORAGE_DIR",
+    )
+
+    # Directory where generated cover images are written.
+    cover_image_storage_dir: str = Field(
+        default=str(_REPO_ROOT / "var" / "cover_images"),
+        validation_alias="COVER_IMAGE_STORAGE_DIR",
     )
 
     # Browser-openable prefix before `/exports/pdf/{book_public_id}`.

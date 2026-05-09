@@ -11,7 +11,7 @@ import {
 
 export type { PublishingState } from "@/stores/publishing-types";
 
-/** In-memory only — full refresh starts a new chat (no localStorage). */
+/** In-memory session state; full page reload clears the thread (guests are not restored from disk). */
 export const usePublishingStore = create<PublishingState & PublishingActions>()(
   (set) => ({
     ...createInitialPublishingState(),
@@ -102,6 +102,10 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           bookSpec,
           activeBookId: nextActive,
           bookPreviewRowSynced: sameBook ? s.bookPreviewRowSynced : false,
+          subscriptionFullGenUnlocked: sameBook ? s.subscriptionFullGenUnlocked : false,
+          postPayCoverFlowActive: sameBook ? s.postPayCoverFlowActive : false,
+          postPayFrontMatterLocked: sameBook ? s.postPayFrontMatterLocked : false,
+          intakeCollaborative: s.intakeCollaborative,
         };
       }),
     setActiveBookId: (activeBookId) =>
@@ -109,6 +113,12 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
         activeBookId,
         bookPreviewRowSynced:
           activeBookId === s.activeBookId ? s.bookPreviewRowSynced : false,
+        subscriptionFullGenUnlocked:
+          activeBookId === s.activeBookId ? s.subscriptionFullGenUnlocked : false,
+        postPayCoverFlowActive:
+          activeBookId === s.activeBookId ? s.postPayCoverFlowActive : false,
+        postPayFrontMatterLocked:
+          activeBookId === s.activeBookId ? s.postPayFrontMatterLocked : false,
       })),
     setBookOutline: (bookOutline) => set({ bookOutline }),
     setPreviewContent: (previewContent) => set({ previewContent }),
@@ -119,8 +129,31 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
     clearStreamPreview: () => set({ streamedPreviewContent: "" }),
     setFullBookContent: (fullBookContent) => set({ fullBookContent }),
     setMockPayment: (mockPaymentConfirmed) => set({ mockPaymentConfirmed }),
+    setSubscriptionFullGenUnlocked: (subscriptionFullGenUnlocked) =>
+      set({ subscriptionFullGenUnlocked }),
     setUserName: (userName) => set({ userName }),
     setGuestEmail: (guestEmail) => set({ guestEmail }),
+    setIntakeCollaborative: (intakeCollaborative) => set({ intakeCollaborative }),
+    setCoverSigningName: (coverSigningName) => set({ coverSigningName }),
+    setAwaitingCoverSigningReply: (awaitingCoverSigningReply) =>
+      set({ awaitingCoverSigningReply }),
+    setFullBookIncludeAboutAuthor: (fullBookIncludeAboutAuthor) =>
+      set({ fullBookIncludeAboutAuthor }),
+    setFullBookIncludeAcknowledgement: (fullBookIncludeAcknowledgement) =>
+      set({ fullBookIncludeAcknowledgement }),
+    setFullBookAboutAuthorText: (fullBookAboutAuthorText) =>
+      set({ fullBookAboutAuthorText }),
+    setFullBookAcknowledgementText: (fullBookAcknowledgementText) =>
+      set({ fullBookAcknowledgementText }),
+    setPostPayCoverFlowActive: (postPayCoverFlowActive) => set({ postPayCoverFlowActive }),
+    setPostPayFrontMatterLocked: (postPayFrontMatterLocked) =>
+      set({ postPayFrontMatterLocked }),
+    removeIncompleteFullBookMessages: () =>
+      set((s) => ({
+        chatMessages: s.chatMessages.filter(
+          (m) => m.kind !== "full" || m.fullGenPhase === "complete",
+        ),
+      })),
     patchChatMessage: (messageId, patch) =>
       set((s) => ({
         chatMessages: s.chatMessages.map((m) =>

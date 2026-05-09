@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 
@@ -10,6 +11,8 @@ from fastapi.responses import FileResponse
 
 from api.config import get_settings
 from api.services.chapters_pdf import read_pdf_export_metadata
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["exports"])
 
@@ -65,7 +68,18 @@ def download_full_book_pdf(book_public_id: str) -> FileResponse:
     """
     path = _pdf_path(book_public_id)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="PDF not found or not generated yet")
+        root = Path(get_settings().pdf_export_storage_dir).resolve()
+        log.warning(
+            "PDF download 404: missing file %s (storage root %s). "
+            "Exports are written when full generation finishes or POST /internal/build-export runs; "
+            "GET only serves existing files.",
+            path,
+            root,
+        )
+        raise HTTPException(
+            status_code=404,
+            detail="PDF not found or not generated yet. Re-run export after the manuscript is complete.",
+        )
     return FileResponse(
         path,
         media_type="application/pdf",
@@ -79,8 +93,11 @@ def download_full_book_docx(book_public_id: str) -> FileResponse:
     """Serves the Word document generated alongside the PDF at end of full generation."""
     path = _docx_path(book_public_id)
     if not path.is_file():
+        root = Path(get_settings().pdf_export_storage_dir).resolve()
+        log.warning("DOCX download 404: missing file %s (storage root %s)", path, root)
         raise HTTPException(
-            status_code=404, detail="Word document not found or not generated yet"
+            status_code=404,
+            detail="Word document not found or not generated yet. Re-run export after the manuscript is complete.",
         )
     return FileResponse(
         path,

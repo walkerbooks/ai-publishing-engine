@@ -11,12 +11,15 @@ import {
 import { getBookConversationLinkForApi } from "@/lib/api/sync-server-book";
 import {
   exportFileUrl,
+  exportPreviewUrl,
   getExportStatus,
   requestBookExport,
 } from "@/lib/api/exports-client";
-import { getAccessToken } from "@/lib/auth/access-token";
+import { checkFullGenerationEntitlement } from "@/lib/api/subscriptions-client";
+import { getAccessToken, getUserFirstName } from "@/lib/auth/access-token";
 import { randomFullBookQuip } from "@/lib/chat/full-book-quips";
 import type { FullBookGenPhase } from "@/lib/types/chat";
+import { buildBookDescriptionJson } from "@/lib/book/book-description-payload";
 import { getLogger } from "@/lib/log";
 import { usePublishingStore } from "@/stores/publishing-store";
 
@@ -27,8 +30,8 @@ const PAID_LIKE = new Set(["paid", "generating", "complete"]);
 /** Go only enqueues full generation from these statuses via POST /full-book/request. */
 const FULL_BOOK_POST_STATUSES = new Set(["preview_ready", "awaiting_payment"]);
 
-/** After payment / webhook, the job exists — POST again returns 400. */
-const FULL_BOOK_JOB_UNDERWAY = new Set(["paid", "generating", "complete"]);
+/** Generation started or finished — avoid duplicate POST /full-book/request. */
+const FULL_BOOK_JOB_UNDERWAY = new Set(["generating", "complete"]);
 
 function chapterToMd(c: BackendChapter): string {
   const body = c.content.trim();
@@ -60,6 +63,10 @@ export function useFullBookChatFlow() {
   const bookOutline = usePublishingStore((s) => s.bookOutline);
   const previewContent = usePublishingStore((s) => s.previewContent);
   const mockPaymentConfirmed = usePublishingStore((s) => s.mockPaymentConfirmed);
+  const postPayCoverFlowActive = usePublishingStore((s) => s.postPayCoverFlowActive);
+  const subscriptionFullGenUnlocked = usePublishingStore(
+    (s) => s.subscriptionFullGenUnlocked,
+  );
   const patchChatMessage = usePublishingStore((s) => s.patchChatMessage);
   const pushAssistantMessage = usePublishingStore((s) => s.pushAssistantMessage);
   const setAwaitingGate = usePublishingStore((s) => s.setAwaitingGate);
@@ -87,6 +94,10 @@ export function useFullBookChatFlow() {
       !bookOutline ||
       !previewContent?.trim()
     ) {
+      return;
+    }
+
+    if (usePublishingStore.getState().postPayCoverFlowActive) {
       return;
     }
 
@@ -122,6 +133,9 @@ export function useFullBookChatFlow() {
 
     const tick = async () => {
       if (cancelled) return;
+      if (usePublishingStore.getState().postPayCoverFlowActive) {
+        return;
+      }
 
       let book;
       try {
@@ -132,27 +146,60 @@ export function useFullBookChatFlow() {
       }
 
       const statusNorm = (book.Status || "").trim().toLowerCase();
-      const paid = PAID_LIKE.has(statusNorm) || mockPaymentConfirmed;
-      if (!paid) return;
+      const paid =
+        PAID_LIKE.has(statusNorm) ||
+        mockPaymentConfirmed ||
+        subscriptionFullGenUnlocked;
+      if (!paid) {
+        /* Avoid GET /books/{id} every 4s while still on preview (user hasn't paid / unlocked).
+         * Keep polling only when a payment may flip the row to `paid` (webhook). */
+        if (statusNorm !== "awaiting_payment") {
+          stopPoll();
+        }
+        return;
+      }
 
       setAwaitingGate(null);
 
       const msgId = messageIdRef.current ?? findOrCreateMessageId();
 
       const existing = usePublishingStore.getState().chatMessages.find((m) => m.id === msgId);
+      /* Snapshot restore can show "PDF ready" while Go export row is still queued — re-verify. */
       if (existing?.fullGenPhase === "complete") {
-        stopPoll();
-        return;
+        if (!existing.fullPdfUrl?.trim()) {
+          stopPoll();
+          return;
+        }
+        try {
+          const ex = await getExportStatus(activeBookId, "pdf", token);
+          const st = (ex?.status || "").toLowerCase();
+          const url = ex ? exportFileUrl(ex) : undefined;
+          const exportReady =
+            Boolean(url) &&
+            (st === "ready" ||
+              st === "complete" ||
+              st === "completed" ||
+              st === "success");
+          if (exportReady) {
+            stopPoll();
+            return;
+          }
+          patchChatMessage(msgId, {
+            fullGenPhase: "finishing",
+            fullPdfUrl: null,
+            fullGenStatusText: "Typesetting your PDF…",
+            fullGenError: null,
+          });
+          exportRequestedRef.current = true;
+        } catch {
+          /* Transient errors: leave UI as-is; next tick retries verification. */
+        }
       }
 
       if (!payloadSyncedRef.current) {
         payloadSyncedRef.current = true;
         void patchBook(activeBookId, token, {
-          description: JSON.stringify({
-            book_spec: bookSpec,
-            book_outline: bookOutline,
-            preview_markdown: previewContent,
-          }),
+          description: buildBookDescriptionJson(),
           ...getBookConversationLinkForApi(),
         }).catch(() => {
           payloadSyncedRef.current = false;
@@ -165,10 +212,32 @@ export function useFullBookChatFlow() {
 
         if (jobAlreadyTracked) {
           genRequestedRef.current = true;
-        } else if (canPostFullBook || mockPaymentConfirmed) {
+        } else if (
+          canPostFullBook ||
+          mockPaymentConfirmed ||
+          subscriptionFullGenUnlocked ||
+          statusNorm === "paid"
+        ) {
+          const gate = await checkFullGenerationEntitlement(token);
+          if (!gate.ok) {
+            patchChatMessage(msgId, {
+              fullGenError: gate.message,
+              fullGenStatusText: "",
+            });
+            return;
+          }
+          patchChatMessage(msgId, { fullGenError: null });
           genRequestedRef.current = true;
-          void requestFullGeneration(activeBookId, token).catch(() => {
+          void requestFullGeneration(activeBookId, token).catch((e: unknown) => {
             genRequestedRef.current = false;
+            const msg =
+              e instanceof Error
+                ? e.message
+                : "Full book generation could not be started.";
+            patchChatMessage(msgId, {
+              fullGenError: msg,
+              fullGenStatusText: "",
+            });
           });
         } else {
           genRequestedRef.current = true;
@@ -203,16 +272,29 @@ export function useFullBookChatFlow() {
 
       patchChatMessage(msgId, {
         fullGenPhase: phase,
-        fullChapterMarkdown: firstMd,
         fullBookTitle: book.Title || null,
       });
 
       if (allWritten && !exportRequestedRef.current) {
         exportRequestedRef.current = true;
-        void requestBookExport(activeBookId, "pdf", token).catch((e) => {
-          log.warning("requestBookExport failed", e);
+        try {
+          const current = await getExportStatus(activeBookId, "pdf", token);
+          const curUrl = current ? exportFileUrl(current) : undefined;
+          const curSt = (current?.status || "").toLowerCase();
+          const alreadyServed =
+            Boolean(curUrl) &&
+            ["ready", "complete", "completed", "success"].includes(curSt);
+          const pipelinePending =
+            curSt === "queued" || curSt === "processing";
+          /* POST /exports/request resets the row to queued and clears file_url — never call when:
+           * PDF is already done (alreadyServed), or a worker is already building it (queued/processing). */
+          if (!alreadyServed && !pipelinePending) {
+            await requestBookExport(activeBookId, "pdf", token);
+          }
+        } catch (e) {
+          log.warning("export kickoff failed", e);
           exportRequestedRef.current = false;
-        });
+        }
       }
 
       if (allWritten && exportRequestedRef.current) {
@@ -224,34 +306,20 @@ export function useFullBookChatFlow() {
           }
           const st = (ex.status || "").toLowerCase();
           const url = exportFileUrl(ex);
+          /* Require explicit success status + file_url — do not infer from “not queued”. */
           const looksReady =
-            st === "ready" ||
-            st === "complete" ||
-            st === "completed" ||
-            st === "success" ||
-            (Boolean(url) &&
-              st !== "failed" &&
-              st !== "queued" &&
-              st !== "processing" &&
-              st !== "pending" &&
-              st !== "running");
+            Boolean(url) &&
+            (st === "ready" ||
+              st === "complete" ||
+              st === "completed" ||
+              st === "success");
           if (looksReady) {
-            if (url) {
-              patchChatMessage(msgId, {
-                fullGenPhase: "complete",
-                fullPdfUrl: url,
-                fullGenStatusText: "",
-                fullBookTitle: book.Title || null,
-                fullGenError: null,
-              });
-              stopPoll();
-              return;
-            }
             patchChatMessage(msgId, {
               fullGenPhase: "complete",
-              fullPdfUrl: null,
+              fullPdfUrl: exportPreviewUrl(activeBookId, "pdf"),
               fullGenStatusText: "",
               fullBookTitle: book.Title || null,
+              fullBookAuthorName: getUserFirstName()?.trim() || null,
               fullGenError: null,
             });
             stopPoll();
@@ -287,6 +355,8 @@ export function useFullBookChatFlow() {
     bookOutline,
     previewContent,
     mockPaymentConfirmed,
+    postPayCoverFlowActive,
+    subscriptionFullGenUnlocked,
     patchChatMessage,
     pushAssistantMessage,
     setAwaitingGate,
@@ -295,6 +365,7 @@ export function useFullBookChatFlow() {
 
   useEffect(() => {
     const t = window.setInterval(() => {
+      if (usePublishingStore.getState().postPayCoverFlowActive) return;
       const m = usePublishingStore
         .getState()
         .chatMessages.find((x) => x.kind === "full" && x.fullGenPhase !== "complete");

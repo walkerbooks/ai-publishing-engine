@@ -3,12 +3,16 @@
 Formatting matched to the reference .docx (analysed from XML):
   - 6×9 trade paperback
   - Margins: top 1.03" (26.14 mm) / left+right 0.75" (19.05 mm) / bottom 0.19" (4.94 mm)
+  - Optional illustrated cover (PNG/JPEG): first page, full-bleed (crop to page aspect), when bytes provided
   - Cover: Times New Roman bold, colour #231F20; title 36 pt / subtitle 20 pt; By + author 24 pt
     anchored to the bottom of the page (By second-to-last line, author last)
-  - Chapter headings: Times NR bold 16 pt, centred, 0 pt before / 8 pt after
-  - Body: Times NR 11 pt, justified, NO side indents, 1.15× line spacing,
-    0 pt before / 8 pt after each paragraph
-  - TOC: after About the Author (and optional Dedication), before chapters; dot-leader rows
+  - Copyright page (after cover): 12 pt, centred vertically; © line + All rights reserved
+  - Chapter headings: two lines like DOCX — "Chapter N" then title (16 pt bold centred);
+    4.8 pt before first line, 4 pt between lines, 8 pt after second line
+  - Body: Times NR 11 pt, justified, **0.75 cm first-line indent** per paragraph (matches DOCX),
+    1.15× line spacing, 0 pt before / 8 pt after each paragraph
+  - TOC: after About the Author (and optional Dedication), before chapters; dot leaders across
+    full content width, page numbers flush right, labels truncated like DOCX when overlong
 """
 
 from __future__ import annotations
@@ -17,10 +21,40 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from api.services.illustrated_cover_bytes import image_pixel_dimensions
+
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ManuscriptFrontMatter:
+    """``None`` body = omit that front-matter page. Non-empty strings are rendered as body text."""
+
+    acknowledgement_body: str | None
+    about_the_author_body: str | None
+
+
+def legacy_manuscript_front_matter(author_display: str | None) -> ManuscriptFrontMatter:
+    """Placeholder acknowledgment + about text used when description has no ``front_matter``."""
+    auth = (author_display or "").strip()
+    ack = "The author wishes to thank everyone who supported the creation of this book."
+    about_parts: list[str] = []
+    if auth:
+        about_parts.append(auth)
+    about_parts.append(
+        "This author writes with the goal of connecting with readers through "
+        "honest, vivid storytelling."
+    )
+    return ManuscriptFrontMatter(
+        acknowledgement_body=ack,
+        about_the_author_body="\n\n".join(about_parts),
+    )
+
 
 # Optional bundled DejaVu fonts (avoid Windows Fonts charmap decode errors).
 _BUNDLED_DEJAVU = (
@@ -55,9 +89,15 @@ _COVER_BY_PT    = 24
 _COVER_TEXT_RGB = (35, 31, 32)    # #231F20
 
 _CHAPTER_PT     = 16    # 32 half-pts — Heading1 in reference
+_CHAPTER_BEFORE_PT = 4.8   # 69 twips ÷ 20 — matches DOCX Heading1 space-before
+_CHAPTER_MID_GAP_PT = 4.0  # DOCX gap between "Chapter N" line and title line
+_COPYRIGHT_PT   = 12
 _TOC_HEADING_PT = 16
 _TOC_LINE_PT    = 11    # 22 half-pts — same as body
 _BODY_PT        = 11    # 22 half-pts
+
+# Match ``chapters_docx``: long TOC labels truncated so one line + leaders + page align.
+_TOC_LABEL_MAX_CHARS = 54
 
 # Body spacing — from BodyText paragraph XML:
 #   line=276 auto  →  276/240 ≈ 1.15×  (was 264/240 ≈ 1.10)
@@ -65,10 +105,26 @@ _BODY_PT        = 11    # 22 half-pts
 _BODY_LINE_MULT = 276 / 240   # ≈ 1.15
 _PARA_AFTER_PT  = 8           # 160 twips ÷ 20
 
+# First-line indent for narrative body (matches ``chapters_docx`` Cm(0.75); fpdf uses mm).
+_BODY_FIRST_LINE_INDENT_MM = 0.75 * 10.0
+
 
 # ---------------------------------------------------------------------------
 # Utility helpers (unchanged from original)
 # ---------------------------------------------------------------------------
+
+def _toc_display_label(label: str) -> str:
+    """Shorten very long TOC lines so label + leaders + page fit on one line (PDF + DOCX)."""
+    u = label.strip()
+    if len(u) <= _TOC_LABEL_MAX_CHARS:
+        return u
+    return u[: _TOC_LABEL_MAX_CHARS - 3].rstrip() + "..."
+
+
+def _toc_clean_page_disp(page: str) -> str:
+    """Strip odd characters from TOC page tokens (Roman / arabic display)."""
+    return str(page).strip().replace("|", "")
+
 
 def _int_to_roman_upper(n: int) -> str:
     """Uppercase Roman numerals for front-matter TOC lines (e.g. 3 → III)."""
@@ -190,6 +246,21 @@ def _markdownish_to_plain(text: str) -> str:
     t = re.sub(r"^\s*[-*+]\s+",   "• ",  t, flags=re.MULTILINE)
     t = re.sub(r"\n{3,}", "\n\n", t)
     return t.strip()
+
+
+def _smart_double_quotes(s: str) -> str:
+    """
+    Replace ASCII double quotes with typographic quotes (“ U+201C / ” U+201D).
+    Alternating open/close works for normal dialogue and quoted phrases like "the price".
+    """
+    if '"' not in s:
+        return s
+    parts = s.split('"')
+    out: list[str] = [parts[0]]
+    for i, part in enumerate(parts[1:], start=1):
+        out.append("\u201c" if (i % 2 == 1) else "\u201d")
+        out.append(part)
+    return "".join(out)
 
 
 def _unicode_ttf_path() -> Path | None:
@@ -334,6 +405,7 @@ def _pdf_draw_toc_row(
     link_id: int | None = None,
 ) -> None:
     """One TOC line: left label, dot leaders, right-aligned page label (trade style)."""
+    pdf.set_x(pdf.l_margin)
     pdf.set_font(body_fam, size=_TOC_LINE_PT)
     left  = txt(label_upper)
     right = txt(page_disp)
@@ -354,6 +426,44 @@ def _pdf_draw_toc_row(
 # Main PDF builder
 # ---------------------------------------------------------------------------
 
+def _add_illustrated_cover_bleed_page(pdf: Any, image_bytes: bytes) -> None:
+    """One physical page, image scaled with object-fit *cover* (centered crop)."""
+    pw_mm = float(pdf.w)
+    ph_mm = float(pdf.h)
+    dims = image_pixel_dimensions(image_bytes)
+    if not dims:
+        log.warning(
+            "illustrated cover: could not read PNG/JPEG dimensions; embedding full-page (stretched)"
+        )
+        pdf.add_page()
+        try:
+            pdf.image(BytesIO(image_bytes), x=0.0, y=0.0, w=pw_mm, h=ph_mm)
+        except Exception:
+            log.exception("failed to embed illustrated cover in PDF (fallback stretch)")
+        return
+
+    iw, ih = dims
+    if iw <= 0 or ih <= 0:
+        return
+    ri = iw / ih
+    rp = pw_mm / ph_mm
+    if ri >= rp:
+        h = ph_mm
+        w = ph_mm * ri
+        x = (pw_mm - w) / 2.0
+        y = 0.0
+    else:
+        w = pw_mm
+        h = pw_mm / ri
+        x = 0.0
+        y = (ph_mm - h) / 2.0
+    pdf.add_page()
+    try:
+        pdf.image(BytesIO(image_bytes), x=x, y=y, w=w, h=h)
+    except Exception:
+        log.exception("failed to embed illustrated cover in PDF; skipping that page")
+
+
 def build_manuscript_pdf_bytes(
     chapters: list[dict[str, Any]],
     book_title: str,
@@ -361,17 +471,25 @@ def build_manuscript_pdf_bytes(
     subtitle: str | None = None,
     author_name: str | None = None,
     dedication: str | None = None,
+    front_matter: ManuscriptFrontMatter | None = None,
     toc_lines_out: list[tuple[str, str]] | None = None,
+    illustrated_cover_image: bytes | None = None,
 ) -> bytes:
     """
     Concatenate chapters (sorted by chapter_number) into one PDF.
 
     Formatting mirrors the reference .docx:
       - 6×9, top 1.03" / sides 0.75" / bottom 0.19"
-      - Times New Roman throughout; 11 pt body; 1.15× leading; 8 pt after each para
-      - Front matter then TOC then chapters (TOC Roman labels for pre-chapter sections)
+      - Times New Roman throughout; 11 pt body; 0.75 cm first-line indent; 1.15× leading;
+        8 pt after each para
+      - Optional illustrated cover as the first page (full bleed), then typeset cover page
+      - Cover, copyright page, front matter, TOC, then chapters (TOC Roman labels for
+        pre-chapter sections). Chapter bodies use the same two-line heading as DOCX;
+        outline/TOC labels remain ``CHAPTER N TITLE`` (caps).
     """
     from fpdf import FPDF
+    from fpdf.enums import Align, WrapMode
+    from fpdf.text_region import TextColumns
 
     sorted_rows = sorted(
         [c for c in chapters if isinstance(c, dict)],
@@ -380,10 +498,15 @@ def build_manuscript_pdf_bytes(
     if not sorted_rows:
         raise ValueError("no chapters to render")
 
+    fm = front_matter or legacy_manuscript_front_matter(author_name)
+
     pdf = FPDF(format=(_PAGE_W_MM, _PAGE_H_MM), unit="mm")
     # Asymmetric margins matching reference XML
     pdf.set_margins(_MARGIN_SIDE_MM, _MARGIN_TOP_MM, _MARGIN_SIDE_MM)
     pdf.set_auto_page_break(auto=True, margin=_MARGIN_BOTTOM_MM)
+
+    if illustrated_cover_image:
+        _add_illustrated_cover_bleed_page(pdf, illustrated_cover_image)
 
     title_fam, body_fam, use_unicode, body_has_bold, title_has_bold = (
         _register_manuscript_fonts(pdf)
@@ -396,7 +519,6 @@ def build_manuscript_pdf_bytes(
         return s if use_unicode else _latin1_safe(s)
 
     # Derived measurements
-    body_line_h     = _pt_to_mm(_BODY_PT) * _BODY_LINE_MULT   # ≈ 1.15× body pt
     para_gap        = _pt_to_mm(_PARA_AFTER_PT)                # 8 pt → mm after each para
     chapter_line_h  = _pt_to_mm(_CHAPTER_PT * 1.2)
     toc_line_h      = _pt_to_mm(_TOC_LINE_PT) * 1.2
@@ -483,19 +605,37 @@ def build_manuscript_pdf_bytes(
     pdf.set_text_color(0, 0, 0)
 
     # ------------------------------------------------------------------
+    # Copyright page (second page — matches DOCX _add_copyright_page)
+    # ------------------------------------------------------------------
+    pdf.add_page()
+    copy_author = ((author_name or "").strip()[:300] or "Umer Naeem")
+    line_c1 = txt(f"Copyright © 2025 by {copy_author}")
+    line_c2 = txt("All rights reserved")
+    usable_h_mm = float(pdf.h) - float(pdf.t_margin) - float(pdf.b_margin)
+    copy_line_h = _pt_to_mm(_COPYRIGHT_PT * 1.15)
+    block_h = 2 * copy_line_h
+    y_c = float(pdf.t_margin) + max(0.0, (usable_h_mm - block_h) / 2)
+    pdf.set_y(y_c)
+    pdf.set_x(pdf.l_margin)
+    pdf.set_font(body_fam, size=_COPYRIGHT_PT)
+    pdf.multi_cell(0, copy_line_h, line_c1, align="C")
+    pdf.set_x(pdf.l_margin)
+    pdf.multi_cell(0, copy_line_h, line_c2, align="C")
+
+    # ------------------------------------------------------------------
     # Pre-process chapters
     # ------------------------------------------------------------------
-    chapter_entries: list[tuple[str, str, str]] = []
+    chapter_entries: list[tuple[str, int, str, str]] = []
     for row in sorted_rows:
         num       = int(row.get("chapter_number") or 0)
         raw_title = str(row.get("title") or f"Chapter {num}").strip()[:500]
         raw_body  = strip_leading_chapter_heading_from_markdown(
             str(row.get("content") or ""), num
         )
-        body    = txt(_markdownish_to_plain(raw_body))
-        heading = txt(format_manuscript_chapter_heading(num, raw_title))
+        body    = txt(_smart_double_quotes(_markdownish_to_plain(raw_body)))
+        outline = txt(format_manuscript_chapter_heading(num, raw_title))
         if body or raw_title.strip():
-            chapter_entries.append((heading, heading, body))
+            chapter_entries.append((outline, num, raw_title, body))
 
     printable_w = _CONTENT_W_MM
     ded_raw  = (dedication or "").strip()
@@ -513,16 +653,49 @@ def build_manuscript_pdf_bytes(
         # 8 pt gap after heading (matches Heading1 after=160 twips)
         pdf.ln(_pt_to_mm(_PARA_AFTER_PT))
 
+    def _render_chapter_heading_docx_style(chapter_num: int, raw_title: str) -> None:
+        """Two lines like DOCX ``_add_two_line_chapter_heading``: Chapter N, then title."""
+        line1 = f"Chapter {chapter_num}"
+        line2 = _strip_leading_chapter_prefix(raw_title, chapter_num)
+        if line2.strip().upper() == f"CHAPTER {chapter_num}":
+            line2 = (raw_title or "").strip() or "Untitled"
+        line2_draw = txt(line2)
+        if body_has_bold:
+            pdf.set_font(body_fam, style="B", size=_CHAPTER_PT)
+        else:
+            pdf.set_font(body_fam, size=_CHAPTER_PT)
+        pdf.ln(_pt_to_mm(_CHAPTER_BEFORE_PT))
+        pdf.multi_cell(0, chapter_line_h, line1, align="C")
+        pdf.set_x(pdf.l_margin)
+        pdf.ln(_pt_to_mm(_CHAPTER_MID_GAP_PT))
+        pdf.multi_cell(0, chapter_line_h, line2_draw, align="C")
+        pdf.set_x(pdf.l_margin)
+        pdf.ln(_pt_to_mm(_PARA_AFTER_PT))
+
     # ------------------------------------------------------------------
     # Helper: render body paragraphs (11 pt, justified, 1.15×, 8 pt after)
     # ------------------------------------------------------------------
     def _render_body_paragraphs(body_text: str, trailing_gap_mm: float = 0.0) -> None:
+        """
+        Justified body with first-line indent (fpdf2 ``TextColumns`` + ``Paragraph``;
+        matches DOCX ``Cm(0.75)`` first-line indent).
+        """
         pdf.set_font(body_fam, size=_BODY_PT)
-        for para in _split_paragraphs(body_text) or [body_text]:
-            # before = 0 pt (matches BodyText before=0 twips in reference XML)
-            pdf.multi_cell(0, body_line_h, para, align="J")
-            # after = 8 pt  (matches BodyText after=160 twips)
-            pdf.ln(para_gap)
+        paras = _split_paragraphs(body_text) or [body_text]
+        with TextColumns(
+            pdf,
+            ncols=1,
+            text_align=Align.J,
+            line_height=_BODY_LINE_MULT,
+            wrapmode=WrapMode.WORD,
+        ) as col:
+            for para in paras:
+                with col.paragraph(
+                    first_line_indent=_BODY_FIRST_LINE_INDENT_MM,
+                    line_height=_BODY_LINE_MULT,
+                    bottom_margin=para_gap,
+                ) as p:
+                    p.write(para)
         if trailing_gap_mm:
             pdf.ln(trailing_gap_mm)
 
@@ -538,6 +711,7 @@ def build_manuscript_pdf_bytes(
             0, _pt_to_mm(_TOC_HEADING_PT * 1.2), txt("TABLE OF CONTENTS"), align="C"
         )
         pdf2.ln(_pt_to_mm(10))
+        pdf2.set_x(pdf2.l_margin)
         pdf2.set_font(body_fam, size=_TOC_LINE_PT)
         if not outline:
             return
@@ -563,40 +737,41 @@ def build_manuscript_pdf_bytes(
             else:
                 disp = _int_to_roman_upper(sec.page_number)
             link_id = pdf2.add_link(page=sec.page_number)
+            lab = _toc_display_label(str(sec.name).upper())
+            pag = _toc_clean_page_disp(str(disp))
             _pdf_draw_toc_row(
                 pdf2,
                 body_fam,
-                label_upper=str(sec.name).upper(),
-                page_disp=disp,
+                label_upper=lab,
+                page_disp=pag,
                 printable_w_mm=printable_w,
                 toc_line_h=toc_line_h,
                 txt=txt,
                 link_id=link_id,
             )
             if toc_lines_out is not None:
-                toc_lines_out.append((str(sec.name).upper(), disp))
+                toc_lines_out.append((lab, pag))
 
     # ------------------------------------------------------------------
-    # Front matter (matches DOCX order, without a separate copyright page)
+    # Front matter (matches DOCX order: copyright page already added after cover)
     # ------------------------------------------------------------------
-    pdf.add_page()
-    pdf.start_section("ACKNOWLEDGMENT", level=0)
-    _render_section_heading("ACKNOWLEDGMENT")
-    _render_body_paragraphs(
-        txt("The author wishes to thank everyone who supported the creation of this book.")
-    )
+    if fm.acknowledgement_body is not None:
+        pdf.add_page()
+        pdf.start_section("ACKNOWLEDGMENT", level=0)
+        _render_section_heading("ACKNOWLEDGMENT")
+        ack_plain = txt(
+            _smart_double_quotes(_markdownish_to_plain(fm.acknowledgement_body))
+        )
+        _render_body_paragraphs(ack_plain)
 
-    pdf.add_page()
-    pdf.start_section("ABOUT THE AUTHOR", level=0)
-    _render_section_heading("ABOUT THE AUTHOR")
-    about_lines = []
-    if auth_line:
-        about_lines.append(auth_line)
-    about_lines.append(
-        txt("This author writes with the goal of connecting with readers through "
-            "honest, vivid storytelling.")
-    )
-    _render_body_paragraphs("\n\n".join(about_lines))
+    if fm.about_the_author_body is not None:
+        pdf.add_page()
+        pdf.start_section("ABOUT THE AUTHOR", level=0)
+        _render_section_heading("ABOUT THE AUTHOR")
+        about_plain = txt(
+            _smart_double_quotes(_markdownish_to_plain(fm.about_the_author_body))
+        )
+        _render_body_paragraphs(about_plain)
 
     if ded_raw:
         pdf.add_page()
@@ -614,11 +789,11 @@ def build_manuscript_pdf_bytes(
     # Chapters — start on the page after the TOC reservation
     # ------------------------------------------------------------------
     pdf.add_page()
-    for i, (_line, heading, body) in enumerate(chapter_entries):
+    for i, (outline_heading, chap_num, raw_title, body) in enumerate(chapter_entries):
         if i > 0:
             pdf.add_page()
-        pdf.start_section(heading, level=0)
-        _render_section_heading(heading)
+        pdf.start_section(outline_heading, level=0)
+        _render_chapter_heading_docx_style(chap_num, raw_title)
 
         if body:
             # Extra 8 pt trailing gap after the last paragraph in the chapter

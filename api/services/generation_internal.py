@@ -8,6 +8,15 @@ and a Word file (``api.services.chapters_docx``), write them under
 ``GET /api/exports/docx/{book_public_id}`` (same prefix). Set
 ``STUB_PDF_EXPORT_FAILED_AFTER_FULL_BOOK=true`` to skip PDF generation and mark the export
 failed.
+
+Go has no PDF worker: ``POST /v1/exports/request`` only inserts ``queued``. The same
+``chapters_pdf`` / ``chapters_docx`` build runs on demand via ``POST /internal/build-export``
+(book_id), which Go calls so the row moves to ``ready`` with a browser-openable URL (not S3).
+
+Illustrated cover: ``fetch_book_by_internal_id`` should include ``cover_image_fetch_url``
+(presigned R2 GET) when Go stores the cover in Cloudflare R2, or legacy ``cover_image_png``
+(base64) when bytes remain on the book row; see ``api.services.illustrated_cover_bytes``.
+Export logs distinguish “embedded N bytes” (wire OK) from “no illustrated cover bytes”.
 """
 
 from __future__ import annotations
@@ -24,10 +33,13 @@ from api.agents.sync_state_agent import run_sync_state_update
 from api.config import get_settings
 from api.services.chapters_docx import build_manuscript_docx_bytes, write_docx_to_path
 from api.services.chapters_pdf import (
+    ManuscriptFrontMatter,
     build_manuscript_pdf_bytes,
+    legacy_manuscript_front_matter,
     write_pdf_export_metadata,
     write_pdf_to_path,
 )
+from api.services.illustrated_cover_bytes import extract_illustrated_cover_bytes
 from api.services.go_backend import (
     fetch_book_by_internal_id,
     fetch_internal_chapters,
@@ -211,6 +223,37 @@ def _pdf_title_metadata_from_book(book: dict[str, Any], fallback_title: str) -> 
     return (main, subtitle, author_name)
 
 
+def _manuscript_front_matter_for_book(book: dict[str, Any]) -> ManuscriptFrontMatter:
+    """
+    Reads optional ``front_matter`` from description JSON (set by the chat UI before pay/generate).
+    When absent, returns legacy placeholder acknowledgment + about pages.
+    """
+    desc = str(book.get("description") or "").strip()
+    _main, _sub, author_from_meta = _pdf_title_metadata_from_book(book, "")
+    author_display = (author_from_meta or "").strip() or None
+    try:
+        data = json.loads(desc)
+        fm = data.get("front_matter")
+        if isinstance(fm, dict):
+            ack_on = bool(fm.get("include_acknowledgement"))
+            ack_txt = str(fm.get("acknowledgement_text") or "").strip()
+            ab_on = bool(fm.get("include_about_author"))
+            ab_txt = str(fm.get("about_author_text") or "").strip()
+            ack_body: str | None = None
+            if ack_on:
+                ack_body = ack_txt if ack_txt else " "
+            ab_body: str | None = None
+            if ab_on:
+                ab_body = ab_txt if ab_txt else (author_display or "The author")
+            return ManuscriptFrontMatter(
+                acknowledgement_body=ack_body,
+                about_the_author_body=ab_body,
+            )
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return legacy_manuscript_front_matter(author_display)
+
+
 def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> None:
     """Tell Go the manuscript is done and attach a generated PDF URL (or export failed)."""
     settings = get_settings()
@@ -234,6 +277,21 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
         chapters = fetch_internal_chapters(book_id)
         main_title, subtitle, author_name = _pdf_title_metadata_from_book(book, book_title)
         dedication = _outline_dedication_from_book(book)
+        front_matter = _manuscript_front_matter_for_book(book)
+        cover_bytes = extract_illustrated_cover_bytes(book)
+        if cover_bytes:
+            log.info(
+                "Export %s: illustrated cover embedded (%d bytes)",
+                public_id,
+                len(cover_bytes),
+            )
+        else:
+            log.info(
+                "Export %s: no illustrated cover bytes from internal book payload "
+                "(set cover on the book via chat with link_book_public_id, or ensure "
+                "cover_image_fetch_url / cover_image_png from GET internal/books/{id})",
+                public_id,
+            )
         toc_lines: list[tuple[str, str]] = []
         pdf_bytes = build_manuscript_pdf_bytes(
             chapters,
@@ -241,7 +299,9 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
             subtitle=subtitle,
             author_name=author_name,
             dedication=dedication,
+            front_matter=front_matter,
             toc_lines_out=toc_lines,
+            illustrated_cover_image=cover_bytes,
         )
         out = Path(settings.pdf_export_storage_dir) / f"{public_id}.pdf"
         write_pdf_to_path(out, pdf_bytes)
@@ -253,7 +313,9 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
                 subtitle=subtitle,
                 author_name=author_name,
                 dedication=dedication,
+                front_matter=front_matter,
                 toc_lines=toc_lines,
+                illustrated_cover_image=cover_bytes,
             )
             docx_out = Path(settings.pdf_export_storage_dir) / f"{public_id}.docx"
             write_docx_to_path(docx_out, docx_bytes)
@@ -282,6 +344,17 @@ def _complete_book_callback(book_id: int, public_id: str, book_title: str) -> No
         }
 
     post_ai_callback(body)
+
+
+def run_manuscript_export_for_book(book_id: int) -> None:
+    """
+    Rebuild PDF + DOCX from chapters in Go and POST export status to Go.
+    Used at end of full generation and when Go triggers ``POST /internal/build-export``.
+    """
+    book = fetch_book_by_internal_id(book_id)
+    public_id = str(book["public_id"])
+    book_title = str(book.get("Title") or book.get("title") or "Manuscript").strip() or "Manuscript"
+    _complete_book_callback(book_id, public_id, book_title)
 
 
 def _reconcile_summaries_from_db(

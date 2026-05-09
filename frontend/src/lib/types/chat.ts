@@ -9,6 +9,8 @@ export type ChatBlockKind =
   | "outline"
   | "preview"
   | "gate"
+  /** AI-generated cover image (OpenAI Images API) */
+  | "cover"
   /** Full manuscript: progress, first chapter, then PDF when export is ready */
   | "full";
 
@@ -43,13 +45,22 @@ export type ChatMessage = {
   outline?: BookOutlineLite;
   /** Persisted on intake row as book_spec_json — restores BSO when reopening a thread. */
   bookSpec?: Record<string, unknown> | null;
+  /**
+   * Collaborative intake: whether to show agree/change vs dock composer (from book_spec_ready or heuristics).
+   */
+  offerCollaborativeFeedback?: boolean | null;
   previewMarkdown?: string;
+  /** kind === "cover" — data URL or absolute URL for generated cover art */
+  coverImageDataUrl?: string | null;
+  /** 1-based variant when kind === "cover" (persisted as cover_variant_index). */
+  coverVariantIndex?: number | null;
   /** kind === "full" — in-chat manuscript + export */
   fullGenPhase?: FullBookGenPhase;
   fullGenStatusText?: string;
-  fullChapterMarkdown?: string;
   fullPdfUrl?: string | null;
   fullBookTitle?: string | null;
+  /** Display name for export filename "Author - Title.pdf" (e.g. account first name). */
+  fullBookAuthorName?: string | null;
   fullGenError?: string | null;
 };
 

@@ -18,6 +18,14 @@ function parseJson<T>(raw: string | null | undefined): T | undefined {
   }
 }
 
+/** Strip `data:*;base64,` for JSON fields the Go API decodes as []byte. */
+export function dataUrlToRawBase64(dataUrl: string): string {
+  const t = dataUrl.trim();
+  const m = /^data:[^;]+;base64,(.+)$/i.exec(t);
+  if (m?.[1]) return m[1].replace(/\s/g, "");
+  return t.replace(/\s/g, "");
+}
+
 /** When only the outline was persisted (older chats), synthesize a minimal BSO so preview can run. */
 export function minimalBookSpecFromOutline(
   outline: Record<string, unknown>,
@@ -51,6 +59,22 @@ export function apiMessageToChatMessage(m: ConversationMessageDto): ChatMessage 
   const previewRaw = decodeApiBlob(m.preview_markdown ?? undefined);
   const specRaw = decodeApiBlob(m.book_spec_json ?? undefined);
   const bookSpec = parseJson<Record<string, unknown>>(specRaw ?? undefined);
+  let coverImageDataUrl: string | null | undefined;
+  if (kind === "cover") {
+    const fetchUrl =
+      typeof m.cover_image_fetch_url === "string" && m.cover_image_fetch_url.trim()
+        ? m.cover_image_fetch_url.trim()
+        : "";
+    if (fetchUrl) {
+      coverImageDataUrl = fetchUrl;
+    } else if (typeof m.cover_image_png === "string" && m.cover_image_png.trim()) {
+      const mime =
+        typeof m.cover_image_mime === "string" && m.cover_image_mime.trim()
+          ? m.cover_image_mime.trim()
+          : "image/png";
+      coverImageDataUrl = `data:${mime};base64,${m.cover_image_png.trim()}`;
+    }
+  }
   return {
     id: m.client_message_id || m.id,
     role: m.role,
@@ -60,6 +84,11 @@ export function apiMessageToChatMessage(m: ConversationMessageDto): ChatMessage 
     videos: videos?.length ? videos : undefined,
     bookSpec: bookSpec && Object.keys(bookSpec).length > 0 ? bookSpec : undefined,
     previewMarkdown: previewRaw ?? undefined,
+    coverImageDataUrl,
+    coverVariantIndex:
+      typeof m.cover_variant_index === "number" && Number.isFinite(m.cover_variant_index)
+        ? m.cover_variant_index
+        : undefined,
   };
 }
 
@@ -69,9 +98,13 @@ const APPEND_MESSAGE_KINDS = new Set<ChatBlockKind>([
   "outline",
   "preview",
   "gate",
+  "cover",
 ]);
 
-export function chatMessageToAppendBody(msg: ChatMessage): AppendConversationMessageBody {
+export function chatMessageToAppendBody(
+  msg: ChatMessage,
+  linkBookPublicId?: string | null,
+): AppendConversationMessageBody {
   if (msg.role === "user") {
     return {
       role: "user",
@@ -100,12 +133,33 @@ export function chatMessageToAppendBody(msg: ChatMessage): AppendConversationMes
   if (msg.bookSpec != null && Object.keys(msg.bookSpec).length > 0) {
     body.book_spec_json = utf8ToBase64(JSON.stringify(msg.bookSpec));
   }
+  if (msg.kind === "cover" && msg.coverImageDataUrl?.trim()) {
+    body.cover_image_png = dataUrlToRawBase64(msg.coverImageDataUrl);
+    body.cover_image_mime = "image/png";
+    if (
+      typeof msg.coverVariantIndex === "number" &&
+      Number.isFinite(msg.coverVariantIndex) &&
+      msg.coverVariantIndex >= 1 &&
+      msg.coverVariantIndex <= 3
+    ) {
+      body.cover_variant_index = Math.round(msg.coverVariantIndex);
+    }
+    const bid = linkBookPublicId?.trim();
+    if (bid) body.link_book_public_id = bid;
+  }
   return body;
 }
 
-/** Classify gate copy — check full/payment before "preview" (post-preview gate text also says "preview"). */
-function gateStageFromGateContent(content: string): "outline" | "preview" | "full" {
+/**
+ * Classify gate copy — order matters (post-preview mentions pay + cover + full book + preview).
+ */
+function gateStageFromGateContent(
+  content: string,
+): "outline" | "preview" | "post_preview" | "full" {
   const c = content.toLowerCase();
+  if (c.includes("pay") && (c.includes("cover") || c.includes("$1"))) {
+    return "post_preview";
+  }
   if (
     c.includes("unlock the full") ||
     c.includes("full book") ||
@@ -182,7 +236,9 @@ export function restorePublishingFromApiMessages(
   let awaitingGate: PublishingState["awaitingGate"] = null;
   if (lastGate) {
     const stage = gateStageFromGateContent(lastGate.content || "");
-    if (stage === "preview" && hasPreviewMessage) {
+    if (stage === "post_preview" && hasPreviewMessage) {
+      awaitingGate = "post_preview";
+    } else if (stage === "preview" && hasPreviewMessage) {
       awaitingGate = null;
     } else if (stage === "full") {
       awaitingGate = "full";

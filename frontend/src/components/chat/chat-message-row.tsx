@@ -3,6 +3,7 @@ import { VideoCardRow } from "@/components/chat/video-card-row";
 import { AssistantOutlineBlock } from "@/components/chat/assistant-outline-block";
 import { AssistantPreviewBlock } from "@/components/chat/assistant-preview-block";
 import { AssistantFullBookBlock } from "@/components/chat/assistant-full-book-block";
+import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { cn } from "@/lib/utils/cn";
 
 type Props = {
@@ -50,9 +51,7 @@ export function ChatMessageRow({
           message.outline ? (
             <AssistantOutlineBlock outline={message.outline} chrome="embedded" />
           ) : (
-            <div className="whitespace-pre-wrap break-words">
-              {message.content}
-            </div>
+            <ChatMessageMarkdown>{message.content}</ChatMessageMarkdown>
           )
         ) : null}
 
@@ -60,18 +59,30 @@ export function ChatMessageRow({
           message.previewMarkdown ? (
             <AssistantPreviewBlock markdown={message.previewMarkdown} chrome="embedded" />
           ) : (
-            <div className="whitespace-pre-wrap break-words">
-              {message.content}
-            </div>
+            <ChatMessageMarkdown>{message.content}</ChatMessageMarkdown>
           )
+        ) : null}
+
+        {message.role === "assistant" && kind === "cover" ? (
+          <div className="space-y-2">
+            <ChatMessageMarkdown>{message.content}</ChatMessageMarkdown>
+            {message.coverImageDataUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={message.coverImageDataUrl}
+                alt="Generated book cover"
+                className="max-h-[min(85vh,720px)] w-auto max-w-full rounded-lg border border-slate-200/80 object-contain shadow-md dark:border-white/10"
+              />
+            ) : null}
+          </div>
         ) : null}
 
         {message.role === "assistant" && kind === "full" ? (
           <AssistantFullBookBlock
             phase={message.fullGenPhase ?? "generating"}
             statusLine={message.fullGenStatusText ?? "…"}
-            firstChapterMarkdown={message.fullChapterMarkdown}
             bookTitle={message.fullBookTitle}
+            authorName={message.fullBookAuthorName}
             pdfUrl={message.fullPdfUrl}
             error={message.fullGenError}
             chrome="embedded"
@@ -81,31 +92,29 @@ export function ChatMessageRow({
         {message.role === "assistant" &&
         (kind === "intake" || !message.kind) ? (
           <>
-            <div className="whitespace-pre-wrap break-words">
-              {message.content}
-            </div>
+            <ChatMessageMarkdown>{message.content}</ChatMessageMarkdown>
             {message.videos?.length ? (
               <VideoCardRow videos={message.videos} dark={dark} />
             ) : null}
             {afterVideosBridgeText ? (
-              <p
+              <div
                 className={cn(
                   "mt-4 text-sm leading-relaxed",
                   dark ? "text-zinc-300" : "text-slate-600",
                 )}
               >
-                {afterVideosBridgeText}
-              </p>
+                <ChatMessageMarkdown>{afterVideosBridgeText}</ChatMessageMarkdown>
+              </div>
             ) : null}
           </>
         ) : null}
 
         {message.role === "assistant" && kind === "gate" ? (
-          <div className="whitespace-pre-wrap break-words">{message.content}</div>
+          <ChatMessageMarkdown>{message.content}</ChatMessageMarkdown>
         ) : null}
 
         {message.role === "user" ? (
-          <div className="whitespace-pre-wrap break-words">{message.content}</div>
+          <ChatMessageMarkdown>{message.content}</ChatMessageMarkdown>
         ) : null}
       </div>
     </div>
