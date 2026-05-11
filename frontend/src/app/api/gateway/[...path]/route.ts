@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLogger } from "@/lib/log";
 
-const log = getLogger("api/go/proxy");
+const log = getLogger("api/gateway/proxy");
 
 function backendBase(): string {
   return process.env.BACKEND_API_URL?.replace(/\/$/, "") || "http://127.0.0.1:8080";

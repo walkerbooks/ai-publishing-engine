@@ -30,7 +30,7 @@ let startSessionInFlight: Promise<void> | null = null;
 
 /**
  * Registers (or reuses) a guest session with Go. Sends a stable device token; forwards
- * Set-Cookie via the Next `/api/go` proxy. Server may return `max_conversations` (0 = unlimited).
+ * Set-Cookie via the Next `/api/gateway` proxy. Server may return `max_conversations` (0 = unlimited).
  */
 export function ensureGuestSessionWithServer(): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();

@@ -1,5 +1,5 @@
-/** Browser calls this path; Next.js proxies to the Go API (see `app/api/go/[...path]/route.ts`). */
-export const GO_API_PREFIX = "/api/go";
+/** Browser calls this path; Next.js proxies to the Go API (see `app/api/gateway/[...path]/route.ts`). */
+export const GO_API_PREFIX = "/api/gateway";
 
 /**
  * Headers for authenticated Go API calls from the browser.
