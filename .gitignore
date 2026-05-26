@@ -29,20 +29,9 @@ Thumbs.db
 *.log
 tmp/
 
+# Generated full-book PDFs (FastAPI)
+var/
+
 # Node.js
 frontend/node_modules/
-frontend/dist/
-frontend/build/
 frontend/.next/
-frontend/package-lock.json
-frontend/yarn.lock
-frontend/pnpm-lock.yaml
-frontend/bun.lockb
-frontend/package-lock.json
-frontend/yarn.lock
-frontend/pnpm-lock.yaml
-frontend/bun.lockb
-frontend/package-lock.json
-frontend/yarn.lock
-frontend/pnpm-lock.yaml
-frontend/bun.lockb

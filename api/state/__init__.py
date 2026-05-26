@@ -1,4 +1,4 @@
-"""State schemas for the AI Publishing Engine."""
+"""State schemas for WalkerBook."""
 
 from api.state.schema import (
     BookOutline,
