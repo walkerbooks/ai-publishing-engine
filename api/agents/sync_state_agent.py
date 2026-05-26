@@ -100,14 +100,6 @@ class SyncStateFields(BaseModel):
     def _coerce_character_arc(cls, v: Any) -> CharacterArcFields:
         return CharacterArcFields.from_any(v)
 
-    @field_validator("environmental_pressure", mode="before")
-    @classmethod
-    def _coerce_environmental_pressure(
-        cls, v: Any
-    ) -> EnvironmentalPressureFields:
-        return EnvironmentalPressureFields.from_any(v)
-
-
 def run_sync_state_update(
     sync_state: dict[str, Any],
     chapter_index: int,
