@@ -65,6 +65,18 @@ character_arc:
     compared to the prior character_arc state — this must differ from
     the previous arc_delta or the arc has stalled
 
+character_bible:
+  Short canonical character sheet for major recurring characters.
+  Keep this compact but specific so the chapter agent can preserve
+  voice and depth without drift.
+  For each major character include:
+  - desire
+  - fear
+  - flaw or contradiction
+  - voice markers (speech rhythm/word habits)
+  - current relationship tension
+  Update only what changed this chapter; keep stable traits stable.
+
 environmental_pressure:
   Track how environment is shaping the story across chapters.
   Fields:

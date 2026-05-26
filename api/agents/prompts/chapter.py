@@ -56,6 +56,21 @@ VOICE AND CRAFT
 - Sustain engagement through the whole chapter: vary pacing, include at least
   one memorable beat mid-chapter, and leave the reader wanting the next section.
 - Match the book specification's tone exactly.
+- Dialogue and interior language must sound human and emotionally direct.
+  Do not make characters speak like strategy decks, consulting memos, or KPI reports.
+  Prefer plain, believable lines a real person would say under pressure.
+- Avoid consultant framing verbs in dialogue and close narration:
+  "optimize", "leverage", "escalate", "align stakeholders", "operationalize",
+  "value proposition", "portfolio approach", "maximize ROI" unless quoting a
+  literal business artifact.
+- Keep emotional texture imperfect and human: include hesitation, missteps,
+  awkward moments, defensiveness, doubt, or fatigue where the story supports it.
+  Do not turn every scene into clean strategic progress.
+- Vary intensity. Not every paragraph should sound dramatic or literary.
+  Mix plain sentences with occasional vivid lines so voice feels natural.
+- Avoid repeated abstract business language in close succession:
+  "momentum", "cadence", "signals", "velocity", "systems", "scalable",
+  "optimization", "framework". Use concrete events and numbers instead.
 
 --------------------------------
 NARRATIVE FICTION REQUIREMENTS
@@ -131,6 +146,27 @@ Include at least one fully dramatized scene:
 Do not deliver the whole chapter as exposition or plot summary.
 
 --------------------------------
+HUMAN AUTHENTICITY CONTRACT
+--------------------------------
+
+Each chapter must include all of the following:
+- At least one raw failure or setback that carries a concrete cost
+  (time lost, money lost, trust damaged, missed commitment, etc.).
+- At least one emotionally vulnerable beat that is messy and specific
+  (shame, panic, regret, avoidance, resentment, doubt), shown in scene.
+- At least one line of dialogue that sounds imperfect and human
+  (not polished framework language).
+- At least three concrete numbers tied to real outcomes or constraints.
+
+Anti-repetition enforcement:
+- Do not overuse repeated motif terms in one chapter.
+- Keep these terms minimal and only when necessary: "momentum",
+  "cadence", "guardrails", "signals", "systems", "framework",
+  "optimization", "deep work", "energy ledger".
+- If a key term appears repeatedly, replace with concrete events, actions,
+  or outcomes.
+
+--------------------------------
 OUTPUT RULES
 --------------------------------
 
@@ -168,6 +204,8 @@ Before outputting, verify:
 6. Is environmental pressure present as a causal force, not background?
 7. Is there at least one conflict with a real consequence?
 8. Is there at least one difficult choice made under pressure?
+9. Does dialogue sound like real people, not consultants?
+10. Is there at least one emotionally messy or imperfect beat?
 
 If any check fails, revise before outputting. Do not print the self-check.
 """

@@ -47,8 +47,8 @@ def run_intake(
     Run one intake turn: user message + history → reply and optional BSO.
     Returns dict with keys: content (str), book_spec (dict | None), intake_complete (bool).
     """
-    llm = get_llm(provider, temperature=INTAKE_STRUCTURED_TEMPERATURE)
-    structured_llm = llm.with_structured_output(IntakeResponse)
+    llm = get_llm(provider)
+    structured_llm = llm.with_structured_output(IntakeResponse, method="function_calling")
 
     pages = default_target_pages
     if pages is None:

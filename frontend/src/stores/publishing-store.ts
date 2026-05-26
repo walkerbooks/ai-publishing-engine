@@ -103,8 +103,6 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
           activeBookId: nextActive,
           bookPreviewRowSynced: sameBook ? s.bookPreviewRowSynced : false,
           subscriptionFullGenUnlocked: sameBook ? s.subscriptionFullGenUnlocked : false,
-          postPayCoverFlowActive: sameBook ? s.postPayCoverFlowActive : false,
-          postPayFrontMatterLocked: sameBook ? s.postPayFrontMatterLocked : false,
           intakeCollaborative: s.intakeCollaborative,
         };
       }),
