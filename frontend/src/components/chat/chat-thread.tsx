@@ -39,6 +39,7 @@ type Props = {
   onCollaborativeChangeBack?: () => void;
   onCollaborativeQuickChange?: (message: string) => void;
   onCollaborativeChangeSend?: (text: string) => void;
+  onRetryFullBook?: () => void;
 };
 
 /**
@@ -64,6 +65,7 @@ export function ChatThread({
   onCollaborativeChangeBack,
   onCollaborativeQuickChange,
   onCollaborativeChangeSend,
+  onRetryFullBook,
 }: Props) {
   const lastIdx = messages.length - 1;
   const guestEmailStep = shouldShowGuestEmailCapture(messages);
@@ -106,6 +108,7 @@ export function ChatThread({
               variant={variant}
               className="!mb-0"
               afterVideosBridgeText={guestEmailBridgeText}
+              onRetryFullBook={onRetryFullBook}
             />
             {showGuestEmailField ? (
               <div className="mt-2 flex justify-end">

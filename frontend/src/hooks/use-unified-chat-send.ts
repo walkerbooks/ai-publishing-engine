@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ensureServerConversationBeforeSend,
   persistChatMessageIfAuthenticated,
@@ -14,6 +14,7 @@ import { authGreetingName } from "@/lib/auth/greeting-name";
 import { getAccessToken, getUserEmail, getUserFirstName } from "@/lib/auth/access-token";
 import { syncGuestOnboardingFromMessages } from "@/lib/chat/welcome-flow";
 import { assertGuestMaySendNewThread } from "@/lib/guest/guest-send-guard";
+import { mapUserError, type MappedUserError } from "@/lib/errors/user-error-message";
 import { useAuthStore } from "@/stores/auth-store";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { usePublishingStore } from "@/stores/publishing-store";
@@ -24,48 +25,32 @@ export type UnifiedSendOptions = {
   collaborativeAck?: boolean;
 };
 
+type SendAttempt = {
+  userText: string;
+  opts?: UnifiedSendOptions;
+};
+
+function removeFailedStreamAssistantRows(messageIdsBeforeStream: Set<string>) {
+  usePublishingStore.setState((s) => ({
+    chatMessages: s.chatMessages.filter(
+      (m) => m.role !== "assistant" || messageIdsBeforeStream.has(m.id),
+    ),
+  }));
+}
+
 export function useUnifiedChatSend() {
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<MappedUserError | null>(null);
+  const lastAttemptRef = useRef<SendAttempt | null>(null);
 
   const clearErr = () => setErr(null);
-  const send = useCallback(async (typed: string | null, opts?: UnifiedSendOptions) => {
-    const guestGate = assertGuestMaySendNewThread();
-    if (!guestGate.ok) {
-      setErr(guestGate.message);
-      return;
-    }
-    useChatDirectoryStore.getState().clearGuestGateMessage();
 
-    await ensureServerConversationBeforeSend();
-    const pub = usePublishingStore.getState();
+  const applyError = useCallback((raw: unknown) => {
+    setErr(mapUserError(raw, "chat"));
+  }, []);
 
-    let userText: string;
-    if (pub.pendingPrompt) {
-      userText = pub.pendingPrompt.trim();
-      pub.setPendingPrompt(null);
-      if (!userText) return;
-      pub.pushUserMessage(userText);
-    } else {
-      const t = typed?.trim();
-      if (!t && !opts?.collaborativeAck) return;
-      userText = t || "Yes — that works for me. Please continue.";
-      pub.pushUserMessage(userText);
-    }
-
-    const userMsg = usePublishingStore.getState().chatMessages.at(-1);
-    if (userMsg?.role === "user") {
-      void persistChatMessageIfAuthenticated(userMsg);
-    }
-
-    setBusy(true);
-    clearErr();
-
-    const messageIdsBeforeStream = new Set(
-      usePublishingStore.getState().chatMessages.map((m) => m.id),
-    );
-
-    try {
+  const runStream = useCallback(
+    async (attempt: SendAttempt, messageIdsBeforeStream: Set<string>) => {
       const st = usePublishingStore.getState();
       const msgs = st.chatMessages;
       const history =
@@ -85,7 +70,7 @@ export function useUnifiedChatSend() {
       );
 
       const tryAck =
-        Boolean(opts?.collaborativeAck) &&
+        Boolean(attempt.opts?.collaborativeAck) &&
         st.composerStep === "intake" &&
         st.intakeCollaborative;
       const ackSpec = tryAck ? st.bookSpec : null;
@@ -98,7 +83,7 @@ export function useUnifiedChatSend() {
 
       await streamUnifiedChat(
         {
-          message: userText,
+          message: attempt.userText,
           history,
           sessionId: st.sessionId,
           step: st.composerStep,
@@ -123,38 +108,117 @@ export function useUnifiedChatSend() {
               setBookOutline: st.setBookOutline,
               setAssistantPreview: st.setAssistantPreview,
               setPreviewContent: st.setPreviewContent,
-              setErr,
+              setErr: (msg) => {
+                removeFailedStreamAssistantRows(messageIdsBeforeStream);
+                applyError(msg);
+              },
             },
             getUnifiedAssistantPlaceholder,
           );
         },
       );
-    } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Unified chat failed");
+    },
+    [applyError],
+  );
+
+  const send = useCallback(
+    async (typed: string | null, opts?: UnifiedSendOptions, skipPushUser = false) => {
+      const guestGate = assertGuestMaySendNewThread();
+      if (!guestGate.ok) {
+        setErr(mapUserError(guestGate.message, "chat"));
+        return;
+      }
+      useChatDirectoryStore.getState().clearGuestGateMessage();
+
+      await ensureServerConversationBeforeSend();
+      const pub = usePublishingStore.getState();
+
+      let userText: string;
+      if (pub.pendingPrompt) {
+        userText = pub.pendingPrompt.trim();
+        pub.setPendingPrompt(null);
+        if (!userText) return;
+        if (!skipPushUser) pub.pushUserMessage(userText);
+      } else {
+        const t = typed?.trim();
+        if (!t && !opts?.collaborativeAck) return;
+        userText = t || "Yes — that works for me. Please continue.";
+        if (!skipPushUser) pub.pushUserMessage(userText);
+      }
+
+      const userMsg = usePublishingStore.getState().chatMessages.at(-1);
+      if (userMsg?.role === "user") {
+        void persistChatMessageIfAuthenticated(userMsg);
+      }
+
+      const attempt: SendAttempt = { userText, opts };
+      lastAttemptRef.current = attempt;
+
+      setBusy(true);
+      clearErr();
+
+      const messageIdsBeforeStream = new Set(
+        usePublishingStore.getState().chatMessages.map((m) => m.id),
+      );
+
+      try {
+        await runStream(attempt, messageIdsBeforeStream);
+      } catch (e2) {
+        removeFailedStreamAssistantRows(messageIdsBeforeStream);
+        applyError(e2);
+      } finally {
+        const after = usePublishingStore.getState().chatMessages;
+        for (const m of after) {
+          if (m.role === "assistant" && !messageIdsBeforeStream.has(m.id)) {
+            await persistChatMessageIfAuthenticated(m);
+          }
+        }
+        const { userName, guestEmail } = syncGuestOnboardingFromMessages(after);
+        const pubAfter = usePublishingStore.getState();
+        if (userName) pubAfter.setUserName(userName);
+        if (guestEmail) pubAfter.setGuestEmail(guestEmail);
+        setBusy(false);
+        void syncGuestPromotionLead(
+          userName,
+          guestEmail,
+          useAuthStore.getState().isAuthenticated,
+        );
+      }
+    },
+    [applyError, clearErr, runStream],
+  );
+
+  const retry = useCallback(async () => {
+    const attempt = lastAttemptRef.current;
+    if (!attempt || busy) return;
+    clearErr();
+
+    const messageIdsBeforeStream = new Set(
+      usePublishingStore.getState().chatMessages.map((m) => m.id),
+    );
+
+    setBusy(true);
+    try {
+      await runStream(attempt, messageIdsBeforeStream);
+    } catch (e) {
+      removeFailedStreamAssistantRows(messageIdsBeforeStream);
+      applyError(e);
     } finally {
-      // Persist new assistant rows in chat order (await each append). Parallel appends race on
-      // sequence assignment so the PayPal gate can end up *before* the preview row in DB; restore
-      // then treats the preview bubble as "last assistant" and drops awaitingGate === "full".
       const after = usePublishingStore.getState().chatMessages;
       for (const m of after) {
         if (m.role === "assistant" && !messageIdsBeforeStream.has(m.id)) {
           await persistChatMessageIfAuthenticated(m);
         }
       }
-      const { userName, guestEmail } = syncGuestOnboardingFromMessages(after);
-      const pub = usePublishingStore.getState();
-      if (userName) pub.setUserName(userName);
-      if (guestEmail) pub.setGuestEmail(guestEmail);
-      // End "streaming" state as soon as the assistant message is complete — not after promotion API.
       setBusy(false);
-      void syncGuestPromotionLead(
-        userName,
-        guestEmail,
-        useAuthStore.getState().isAuthenticated,
-      );
     }
-  }, []);
+  }, [applyError, busy, clearErr, runStream]);
 
-  return { send, busy, err, clearErr };
+  return {
+    send,
+    retry,
+    busy,
+    err,
+    clearErr,
+  };
 }
-

@@ -1,14 +1,17 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
+import type { MappedUserError } from "@/lib/errors/user-error-message";
 
 type Props = {
   onCheckout: () => void;
   loading?: boolean;
-  error?: string | null;
+  error?: MappedUserError | null;
+  onRetryCheckout?: () => void;
 };
 
-export function BuyFullBookBar({ onCheckout, loading, error }: Props) {
+export function BuyFullBookBar({ onCheckout, loading, error, onRetryCheckout }: Props) {
   return (
     <div className="mt-8 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
       <h2 className="text-lg font-semibold text-slate-900">Buy full book</h2>
@@ -18,9 +21,13 @@ export function BuyFullBookBar({ onCheckout, loading, error }: Props) {
         <span className="font-medium">awaiting_payment</span> status.
       </p>
       {error ? (
-        <p className="text-sm text-red-600" role="alert">
-          {error}
-        </p>
+        <UserErrorBanner
+          layout="inline"
+          message={error.message}
+          tone={error.tone}
+          retryable={error.retryable}
+          onRetry={onRetryCheckout}
+        />
       ) : null}
       <Button
         type="button"

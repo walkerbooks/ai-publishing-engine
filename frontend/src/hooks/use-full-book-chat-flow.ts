@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   getBook,
   listChapters,
@@ -20,6 +20,7 @@ import { getAccessToken, getUserFirstName } from "@/lib/auth/access-token";
 import { randomFullBookQuip } from "@/lib/chat/full-book-quips";
 import type { FullBookGenPhase } from "@/lib/types/chat";
 import { buildBookDescriptionJson } from "@/lib/book/book-description-payload";
+import { userErrorMessage } from "@/lib/errors/user-error-message";
 import { getLogger } from "@/lib/log";
 import { usePublishingStore } from "@/stores/publishing-store";
 
@@ -223,7 +224,7 @@ export function useFullBookChatFlow() {
           const gate = await checkFullGenerationEntitlement(token);
           if (!gate.ok) {
             patchChatMessage(msgId, {
-              fullGenError: gate.message,
+              fullGenError: userErrorMessage(gate.message, "export"),
               fullGenStatusText: "",
             });
             return;
@@ -232,10 +233,10 @@ export function useFullBookChatFlow() {
           genRequestedRef.current = true;
           void requestFullGeneration(activeBookId, token).catch((e: unknown) => {
             genRequestedRef.current = false;
-            const msg =
-              e instanceof Error
-                ? e.message
-                : "Full book generation could not be started.";
+            const msg = userErrorMessage(
+              e,
+              "export",
+            );
             patchChatMessage(msgId, {
               fullGenError: msg,
               fullGenStatusText: "",
@@ -341,7 +342,7 @@ export function useFullBookChatFlow() {
             patchChatMessage(msgId, {
               fullGenPhase: "complete",
               fullPdfUrl: null,
-              fullGenError: ex.error || "PDF export failed.",
+              fullGenError: userErrorMessage(ex.error || "PDF export failed.", "export"),
               fullBookTitle: book.Title || null,
             });
             stopPoll();
@@ -391,4 +392,25 @@ export function useFullBookChatFlow() {
     }, 3200);
     return () => window.clearInterval(t);
   }, []);
+
+  const retryFullBook = useCallback(() => {
+    const msg =
+      usePublishingStore
+        .getState()
+        .chatMessages.find((m) => m.kind === "full") ?? null;
+    const msgId = msg?.id ?? messageIdRef.current;
+    if (!msgId) return;
+    messageIdRef.current = msgId;
+    genRequestedRef.current = false;
+    exportRequestedRef.current = false;
+    exportRetryNotReadyUntilRef.current = 0;
+    patchChatMessage(msgId, {
+      fullGenError: null,
+      fullGenPhase: "queued",
+      fullGenStatusText: randomFullBookQuip(),
+      fullPdfUrl: null,
+    });
+  }, [patchChatMessage]);
+
+  return { retryFullBook };
 }
