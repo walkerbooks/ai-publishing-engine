@@ -66,7 +66,7 @@ export function PreviewPageClient({ bookId }: Props) {
         <BookSubnav bookId={bookId} />
         <h1 className="text-2xl font-semibold">Preview</h1>
         <UserErrorBanner
-          layout="inline"
+          layout="polite"
           message={previewError.message}
           tone={previewError.tone}
           retryable={previewError.retryable}
@@ -75,6 +75,7 @@ export function PreviewPageClient({ bookId }: Props) {
             onGen();
           }}
           onDismiss={() => reset()}
+          dismissLabel="Not now"
         />
       </div>
     );
@@ -95,6 +96,7 @@ export function PreviewPageClient({ bookId }: Props) {
         loading={checkoutLoading}
         error={checkoutErr}
         onRetryCheckout={checkoutErr?.retryable ? () => retryCheckout() : undefined}
+        onDismissCheckout={clearCheckoutErr}
         onCheckout={() => {
           clearCheckoutErr();
           void startCheckout(bookId, `/book/${bookId}/preview`);

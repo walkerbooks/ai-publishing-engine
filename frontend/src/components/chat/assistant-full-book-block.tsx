@@ -119,7 +119,7 @@ export function AssistantFullBookBlock({
     >
       {generationError ? (
         <UserErrorBanner
-          layout="inline"
+          layout="polite"
           message={generationError.message}
           tone={generationError.tone}
           retryable={generationError.retryable}
@@ -163,7 +163,7 @@ export function AssistantFullBookBlock({
           </div>
           {mappedPdfLoadError ? (
             <UserErrorBanner
-              layout="inline"
+              layout="polite"
               message={mappedPdfLoadError.message}
               retryable
               onRetry={() => {

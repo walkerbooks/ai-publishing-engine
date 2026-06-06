@@ -9,9 +9,16 @@ type Props = {
   loading?: boolean;
   error?: MappedUserError | null;
   onRetryCheckout?: () => void;
+  onDismissCheckout?: () => void;
 };
 
-export function BuyFullBookBar({ onCheckout, loading, error, onRetryCheckout }: Props) {
+export function BuyFullBookBar({
+  onCheckout,
+  loading,
+  error,
+  onRetryCheckout,
+  onDismissCheckout,
+}: Props) {
   return (
     <div className="mt-8 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
       <h2 className="text-lg font-semibold text-slate-900">Buy full book</h2>
@@ -22,11 +29,13 @@ export function BuyFullBookBar({ onCheckout, loading, error, onRetryCheckout }: 
       </p>
       {error ? (
         <UserErrorBanner
-          layout="inline"
+          layout="polite"
           message={error.message}
           tone={error.tone}
           retryable={error.retryable}
           onRetry={onRetryCheckout}
+          onDismiss={onDismissCheckout}
+          dismissLabel="Not now"
         />
       ) : null}
       <Button

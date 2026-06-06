@@ -41,7 +41,7 @@ export function OutlinePageClient({ bookId }: Props) {
         <h1 className="text-2xl font-semibold">Outline</h1>
         {outlineError ? (
           <UserErrorBanner
-            layout="inline"
+            layout="polite"
             message={outlineError.message}
             tone={outlineError.tone}
             retryable={outlineError.retryable}
@@ -50,6 +50,7 @@ export function OutlinePageClient({ bookId }: Props) {
               onGenerate();
             }}
             onDismiss={() => reset()}
+            dismissLabel="Not now"
           />
         ) : null}
         <Button className="mt-4" onClick={onGenerate} disabled={isPending}>

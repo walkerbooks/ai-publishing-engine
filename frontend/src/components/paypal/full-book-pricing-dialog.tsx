@@ -22,6 +22,7 @@ type Props = {
   loading?: boolean;
   error?: MappedUserError | null;
   onRetryPayment?: () => void;
+  onDismissPayment?: () => void;
   onBuy: (tier: FullBookPackageTier, opts: { includeCover: boolean }) => void;
 };
 
@@ -35,6 +36,7 @@ export function FullBookPricingDialog({
   loading,
   error,
   onRetryPayment,
+  onDismissPayment,
   onBuy,
 }: Props) {
   const [includeCover, setIncludeCover] = useState(false);
@@ -77,12 +79,14 @@ export function FullBookPricingDialog({
 
         {error ? (
           <UserErrorBanner
-            layout="inline"
+            layout="polite"
             className="mb-4"
             message={error.message}
             tone={error.tone}
             retryable={error.retryable}
             onRetry={onRetryPayment}
+            onDismiss={onDismissPayment}
+            dismissLabel="Not now"
           />
         ) : null}
 

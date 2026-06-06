@@ -16,6 +16,8 @@ type Props = {
   className?: string;
   /** `banner` = full-width strip; `inline` = rounded card; `polite` = soft inset card for chat */
   layout?: "banner" | "inline" | "polite";
+  /** Dark panels (e.g. admin dashboard). */
+  surface?: "default" | "inverted";
 };
 
 export function UserErrorBanner({
@@ -29,9 +31,11 @@ export function UserErrorBanner({
   dismissLabel = "Dismiss",
   className,
   layout = "banner",
+  surface = "default",
 }: Props) {
   const isWarning = tone === "warning";
   const isPolite = layout === "polite";
+  const isInverted = surface === "inverted";
   const Icon = isWarning ? Info : AlertTriangle;
   const showRetry = retryable && onRetry;
   const politeTitle =
@@ -54,7 +58,9 @@ export function UserErrorBanner({
               ? "border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-50"
               : "border-amber-500/35 bg-amber-500/10 text-amber-950 dark:border-amber-500/25 dark:text-amber-50"
           : layout === "polite"
-            ? "border-slate-200/90 bg-white/95 text-slate-800 dark:border-white/10 dark:bg-walker-nightPanel/95 dark:text-zinc-100"
+            ? isInverted
+              ? "border-slate-700 bg-slate-900/90 text-slate-100"
+              : "border-slate-200/90 bg-white/95 text-slate-800 dark:border-white/10 dark:bg-walker-nightPanel/95 dark:text-zinc-100"
             : layout === "banner"
               ? "border-red-500/25 bg-red-950/35 text-red-100 dark:border-red-500/30 dark:bg-red-950/50 dark:text-red-100"
               : "border-red-500/30 bg-red-500/10 text-red-900 dark:border-red-500/25 dark:bg-red-950/40 dark:text-red-100",
@@ -81,7 +87,11 @@ export function UserErrorBanner({
             <p
               className={cn(
                 "text-sm font-medium leading-snug",
-                isPolite ? "text-slate-900 dark:text-zinc-50" : "font-semibold",
+                isPolite
+                  ? isInverted
+                    ? "text-slate-50"
+                    : "text-slate-900 dark:text-zinc-50"
+                  : "font-semibold",
               )}
             >
               {politeTitle}
@@ -90,7 +100,11 @@ export function UserErrorBanner({
           <p
             className={cn(
               "text-pretty leading-relaxed",
-              isPolite ? "text-sm text-slate-600 dark:text-zinc-300" : "text-sm",
+              isPolite
+                ? isInverted
+                  ? "text-sm text-slate-300"
+                  : "text-sm text-slate-600 dark:text-zinc-300"
+                : "text-sm",
             )}
           >
             {message}
@@ -134,13 +148,15 @@ export function UserErrorBanner({
               variant="ghost"
               className={cn(
                 "h-9 touch-manipulation",
-                isPolite
-                  ? "text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  : isWarning
-                    ? "text-amber-900 dark:text-amber-100"
-                    : layout === "banner"
-                      ? "text-red-200 hover:text-white"
-                      : "text-red-700 dark:text-red-200",
+                isPolite && isInverted
+                  ? "text-slate-400 hover:text-slate-100"
+                  : isPolite
+                    ? "text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                    : isWarning
+                      ? "text-amber-900 dark:text-amber-100"
+                      : layout === "banner"
+                        ? "text-red-200 hover:text-white"
+                        : "text-red-700 dark:text-red-200",
               )}
               onClick={onDismiss}
             >

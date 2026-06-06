@@ -39,6 +39,7 @@ type GateHandlers = {
   payPalLoading?: boolean;
   payPalError?: MappedUserError | null;
   onRetryPayment?: () => void;
+  onDismissPayment?: () => void;
   bookKickoffStage?:
     | "before_choice"
     | "choice"
@@ -107,6 +108,7 @@ export function ChatWorkspace({
   payPalLoading,
   payPalError,
   onRetryPayment,
+  onDismissPayment,
   outlineMobileOpen = false,
   onCloseOutlineMobile,
   bookKickoffStage,
@@ -231,6 +233,16 @@ export function ChatWorkspace({
     }
   }, [bookKickoffStage]);
 
+  const guestNotice = guestGateMessage ? (
+    <UserErrorBanner
+      layout="polite"
+      tone="warning"
+      message={guestGateMessage}
+      onDismiss={clearGuestGateMessage}
+      dismissLabel="Not now"
+    />
+  ) : null;
+
   const threadNotice =
     threadError ? (
       <UserErrorBanner
@@ -244,24 +256,16 @@ export function ChatWorkspace({
       />
     ) : null;
 
+  const dockNotices =
+    guestNotice || threadNotice ? (
+      <div className="space-y-3">
+        {guestNotice}
+        {threadNotice}
+      </div>
+    ) : null;
+
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
-      {guestGateMessage ? (
-        <div
-          className="flex shrink-0 items-start justify-center gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-center text-sm text-amber-950 dark:text-amber-50"
-          role="status"
-        >
-          <span className="min-w-0 flex-1 text-balance">{guestGateMessage}</span>
-          <button
-            type="button"
-            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-amber-900 underline-offset-2 hover:underline dark:text-amber-100"
-            onClick={() => clearGuestGateMessage()}
-          >
-            Dismiss
-          </button>
-        </div>
-      ) : null}
-
       {!hasThread ? (
         <div
           className={cn(
@@ -275,8 +279,11 @@ export function ChatWorkspace({
               disabled={busy}
               onSend={(t) => (clearThreadError(), onSend(t))}
             />
-            {threadNotice ? (
-              <div className="mt-6 w-full max-w-2xl">{threadNotice}</div>
+            {threadNotice || guestNotice ? (
+              <div className="mt-6 w-full max-w-2xl space-y-3">
+                {guestNotice}
+                {threadNotice}
+              </div>
             ) : null}
             {busy ? (
               <div className="mt-8 w-full max-w-2xl space-y-2">
@@ -384,7 +391,7 @@ export function ChatWorkspace({
                   showOutlineColumn && "lg:max-w-none xl:max-w-4xl",
                 )}
               >
-                {threadNotice ? <div className="mb-3">{threadNotice}</div> : null}
+                {dockNotices ? <div className="mb-3">{dockNotices}</div> : null}
                 {awaitingGate ? (
                   <div className="space-y-3">
                     <ChatGatePanel
@@ -408,6 +415,7 @@ export function ChatWorkspace({
                       generateFullBusy={generateFullBusy}
                       payPalError={payPalError}
                       onRetryPayment={onRetryPayment}
+                      onDismissPayment={onDismissPayment}
                       awaitingCoverSigningReply={awaitingCoverSigningReply}
                     />
                     {awaitingGate === "post_preview" && awaitingCoverSigningReply ? (

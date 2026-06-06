@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { useVideoInjection } from "@/hooks/use-video-injection";
@@ -887,6 +887,10 @@ export function ChatPageClient() {
     return null;
   }, [coverErr, err, retry]);
 
+  const clearPaymentErrors = useCallback(() => {
+    clearPayPalErr();
+    setPayPalGateErr(null);
+  }, [clearPayPalErr]);
   const mappedPayPalErr = payPalErr;
   const mappedPayPalGateErr = payPalGateErr;
   const paymentGateError = mappedPayPalGateErr ?? mappedPayPalErr;
@@ -957,6 +961,7 @@ export function ChatPageClient() {
         onRetryPayment={
           mappedPayPalErr?.retryable ? () => retryCheckout() : undefined
         }
+        onDismissPayment={clearPaymentErrors}
         onBuy={(tier, opts) => continueFullBookPayPal(tier, opts)}
       />
       <ChatShell
@@ -997,6 +1002,7 @@ export function ChatPageClient() {
           payPalLoading={payPalLoading}
           payPalError={paymentGateError}
           onRetryPayment={paymentGateRetry}
+          onDismissPayment={clearPaymentErrors}
           bookKickoffStage={bookKickoffStage}
           onBookKickoffOptionSelect={handleBookKickoffOption}
           onBookKickoffInputSend={handleSend}

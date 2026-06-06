@@ -243,6 +243,7 @@ type Props = {
   generateFullBusy?: boolean;
   payPalError?: MappedUserError | null;
   onRetryPayment?: () => void;
+  onDismissPayment?: () => void;
   /** Post-preview: waiting for user to type cover signing name in composer below. */
   awaitingCoverSigningReply?: boolean;
 };
@@ -266,6 +267,7 @@ export function ChatGatePanel({
   generateFullBusy = false,
   payPalError,
   onRetryPayment,
+  onDismissPayment,
   awaitingCoverSigningReply = false,
 }: Props) {
   const postPayCoverFlowActive = usePublishingStore((s) => s.postPayCoverFlowActive);
@@ -549,18 +551,19 @@ export function ChatGatePanel({
               <FullBookFrontMatterCheckboxes />
             </>
           )}
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {payPalError ? (
             <UserErrorBanner
-              layout="inline"
-              className="w-full"
+              layout="polite"
+              className="mb-3 w-full"
               message={payPalError.message}
               tone={payPalError.tone}
               retryable={payPalError.retryable}
               onRetry={onRetryPayment}
-              onDismiss={undefined}
+              onDismiss={onDismissPayment}
+              dismissLabel="Not now"
             />
           ) : null}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {fullBookGateMode === "loading" ? (
             <Button className={cn(btnPrimary)} disabled>
               Checking your plan…

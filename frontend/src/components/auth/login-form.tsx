@@ -17,6 +17,7 @@ import { AuthFormShell } from "@/components/auth/auth-form-shell";
 import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
 import { cn } from "@/lib/utils/cn";
 
 export type LoginFormProps = {
@@ -58,6 +59,7 @@ export function LoginForm({
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
   const reloginPrompt = useAuthStore((s) => s.reloginPrompt);
+  const clearReloginPrompt = useAuthStore((s) => s.clearReloginPrompt);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -143,24 +145,25 @@ export function LoginForm({
     <AuthFormShell title="Log in" variant={shellVariant}>
       <form onSubmit={(e) => void onSubmit(e)} className="min-w-0 space-y-4">
         {reloginPrompt ? (
-          <p
-            className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-950 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-50"
-            role="status"
-          >
-            {reloginPrompt}
-          </p>
+          <UserErrorBanner
+            layout="polite"
+            tone="warning"
+            title="Session expired"
+            message={reloginPrompt}
+            onDismiss={clearReloginPrompt}
+            dismissLabel="Not now"
+          />
         ) : null}
         <p className="text-sm text-muted-foreground sm:text-base">
           Sign in to sync your account, pay for full books, and pick up where you left off.
         </p>
         {showGeneralErr ? (
-          <p
-            className="break-words text-sm text-red-600 dark:text-red-400"
-            role="alert"
-            aria-live="polite"
-          >
-            {err}
-          </p>
+          <UserErrorBanner
+            layout="polite"
+            message={err!}
+            onDismiss={() => setErr(null)}
+            dismissLabel="Not now"
+          />
         ) : null}
         <GoogleAuthButton
           intent="signin"
