@@ -10,12 +10,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChatGatePanel } from "@/components/chat/chat-gate-panel";
 import { ChatOutlineSidecard } from "@/components/chat/chat-outline-sidecard";
 import { ChatOutlineDrawer } from "@/components/chat/shell/chat-outline-drawer";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
 import { useChatScroll } from "@/hooks/use-chat-scroll";
 import { cn } from "@/lib/utils/cn";
 import { useChatDirectoryStore } from "@/stores/chat-directory-store";
 import { usePublishingStore } from "@/stores/publishing-store";
 import { shouldDisableDockComposerForGuestInlineCapture } from "@/lib/chat/welcome-flow";
 import { shouldShowCollaborativeFeedback } from "@/lib/chat/collaborative-feedback";
+import type { MappedUserError } from "@/lib/errors/user-error-message";
 import { threadPastBookKickoff } from "@/lib/chat/book-kickoff";
 import { isTerminalFullBookPdfComplete } from "@/lib/chat/terminal-full-book";
 
@@ -35,7 +37,9 @@ type GateHandlers = {
   fullBookGateMode?: "loading" | "generate" | "cooldown" | "paypal";
   generateFullBusy?: boolean;
   payPalLoading?: boolean;
-  payPalError?: string | null;
+  payPalError?: MappedUserError | null;
+  onRetryPayment?: () => void;
+  onDismissPayment?: () => void;
   bookKickoffStage?:
     | "before_choice"
     | "choice"
@@ -49,18 +53,26 @@ type GateHandlers = {
   onCollaborativeAgree?: () => void;
   onCollaborativeQuickChange?: (message: string) => void;
   onCollaborativeChangeSend?: (text: string) => void;
+  onRetryFullBook?: () => void;
+};
+
+type ThreadError = {
+  message: string;
+  retryable?: boolean;
+  tone?: "error" | "warning";
+  onRetry?: () => void;
 };
 
 type Props = {
   hasThread: boolean;
-  err: string | null;
+  threadError?: ThreadError | null;
   busy: boolean;
   messages: ChatMessage[];
   bookOutline: Record<string, unknown> | null;
   awaitingGate: null | "outline" | "preview" | "post_preview" | "full";
   isAuthenticated: boolean;
   onSend: (text: string) => void;
-  clearErr: () => void;
+  clearThreadError: () => void;
   /** Mobile: controlled slide-over outline panel */
   outlineMobileOpen?: boolean;
   onCloseOutlineMobile?: () => void;
@@ -71,14 +83,14 @@ type Props = {
  */
 export function ChatWorkspace({
   hasThread,
-  err,
+  threadError,
   busy,
   messages,
   bookOutline,
   awaitingGate,
   isAuthenticated,
   onSend,
-  clearErr,
+  clearThreadError,
   proceedToOutline,
   changeRequirements,
   proceedToPreview,
@@ -95,6 +107,8 @@ export function ChatWorkspace({
   generateFullBusy,
   payPalLoading,
   payPalError,
+  onRetryPayment,
+  onDismissPayment,
   outlineMobileOpen = false,
   onCloseOutlineMobile,
   bookKickoffStage,
@@ -103,6 +117,7 @@ export function ChatWorkspace({
   onCollaborativeAgree,
   onCollaborativeQuickChange,
   onCollaborativeChangeSend,
+  onRetryFullBook,
 }: Props) {
   const showOutlineColumn = Boolean(bookOutline);
   const threadScrollRef = useRef<HTMLDivElement>(null);
@@ -218,32 +233,39 @@ export function ChatWorkspace({
     }
   }, [bookKickoffStage]);
 
+  const guestNotice = guestGateMessage ? (
+    <UserErrorBanner
+      layout="polite"
+      tone="warning"
+      message={guestGateMessage}
+      onDismiss={clearGuestGateMessage}
+      dismissLabel="Not now"
+    />
+  ) : null;
+
+  const threadNotice =
+    threadError ? (
+      <UserErrorBanner
+        layout="polite"
+        message={threadError.message}
+        tone={threadError.tone}
+        retryable={threadError.retryable}
+        onRetry={threadError.onRetry}
+        onDismiss={clearThreadError}
+        dismissLabel="Not now"
+      />
+    ) : null;
+
+  const dockNotices =
+    guestNotice || threadNotice ? (
+      <div className="space-y-3">
+        {guestNotice}
+        {threadNotice}
+      </div>
+    ) : null;
+
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
-      {guestGateMessage ? (
-        <div
-          className="flex shrink-0 items-start justify-center gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-center text-sm text-amber-950 dark:text-amber-50"
-          role="status"
-        >
-          <span className="min-w-0 flex-1 text-balance">{guestGateMessage}</span>
-          <button
-            type="button"
-            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-amber-900 underline-offset-2 hover:underline dark:text-amber-100"
-            onClick={() => clearGuestGateMessage()}
-          >
-            Dismiss
-          </button>
-        </div>
-      ) : null}
-      {err ? (
-        <div
-          className="shrink-0 border-b border-red-500/20 bg-red-950/40 px-4 py-2 text-center text-sm text-red-300"
-          role="alert"
-        >
-          {err}
-        </div>
-      ) : null}
-
       {!hasThread ? (
         <div
           className={cn(
@@ -255,8 +277,14 @@ export function ChatWorkspace({
           <div className="flex min-h-full min-w-0 flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
             <ChatHero
               disabled={busy}
-              onSend={(t) => (clearErr(), onSend(t))}
+              onSend={(t) => (clearThreadError(), onSend(t))}
             />
+            {threadNotice || guestNotice ? (
+              <div className="mt-6 w-full max-w-2xl space-y-3">
+                {guestNotice}
+                {threadNotice}
+              </div>
+            ) : null}
             {busy ? (
               <div className="mt-8 w-full max-w-2xl space-y-2">
                 <Skeleton className="mx-auto h-4 w-2/3" />
@@ -294,8 +322,8 @@ export function ChatWorkspace({
                     variant={msgVariant}
                     isAuthenticated={isAuthenticated}
                     busy={busy}
-                    onGuestNameSend={(t) => (clearErr(), onSend(t))}
-                    onGuestEmailSend={(t) => (clearErr(), onSend(t))}
+                    onGuestNameSend={(t) => (clearThreadError(), onSend(t))}
+                    onGuestEmailSend={(t) => (clearThreadError(), onSend(t))}
                     showBookKickoffChoices={showBookKickoffChoices}
                     onBookKickoffOptionSelect={onBookKickoffOptionSelect}
                     showBookKickoffInput={showBookKickoffInput}
@@ -318,6 +346,7 @@ export function ChatWorkspace({
                       setCollaborativeChangeOpen(false);
                       onCollaborativeChangeSend?.(text);
                     }}
+                    onRetryFullBook={onRetryFullBook}
                   />
                   {busy ? (
                     <div className="mt-3 space-y-2 pb-4">
@@ -362,6 +391,7 @@ export function ChatWorkspace({
                   showOutlineColumn && "lg:max-w-none xl:max-w-4xl",
                 )}
               >
+                {dockNotices ? <div className="mb-3">{dockNotices}</div> : null}
                 {awaitingGate ? (
                   <div className="space-y-3">
                     <ChatGatePanel
@@ -384,6 +414,8 @@ export function ChatWorkspace({
                       payPalLoading={payPalLoading}
                       generateFullBusy={generateFullBusy}
                       payPalError={payPalError}
+                      onRetryPayment={onRetryPayment}
+                      onDismissPayment={onDismissPayment}
                       awaitingCoverSigningReply={awaitingCoverSigningReply}
                     />
                     {awaitingGate === "post_preview" && awaitingCoverSigningReply ? (
@@ -396,7 +428,7 @@ export function ChatWorkspace({
                           showCollaborativeFeedback ||
                           assistantKickoffLoader
                         }
-                        onSend={(t) => (clearErr(), onSend(t))}
+                        onSend={(t) => (clearThreadError(), onSend(t))}
                         variant="dock"
                       />
                     ) : null}
@@ -411,7 +443,7 @@ export function ChatWorkspace({
                       showCollaborativeFeedback ||
                       assistantKickoffLoader
                     }
-                    onSend={(t) => (clearErr(), onSend(t))}
+                    onSend={(t) => (clearThreadError(), onSend(t))}
                     variant="dock"
                   />
                 )}

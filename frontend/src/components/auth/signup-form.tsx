@@ -14,6 +14,7 @@ import { AuthFormShell } from "@/components/auth/auth-form-shell";
 import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
 
 export type SignupFormProps = {
   variant?: "page" | "dialog";
@@ -107,13 +108,12 @@ export function SignupForm({
           Create your account to keep your books in one place
         </p>
         {err ? (
-          <p
-            className="break-words text-sm text-red-600 dark:text-red-400"
-            role="alert"
-            aria-live="polite"
-          >
-            {err}
-          </p>
+          <UserErrorBanner
+            layout="polite"
+            message={err}
+            onDismiss={() => setErr(null)}
+            dismissLabel="Not now"
+          />
         ) : null}
         <GoogleAuthButton
           intent="signup"

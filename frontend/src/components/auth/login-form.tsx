@@ -1,10 +1,13 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { authWithGoogle, login } from "@/lib/api/auth-client";
-import { authErrorFromUnknown } from "@/lib/auth/auth-messages";
+import {
+  authErrorFromUnknown,
+  isLoginCredentialError,
+} from "@/lib/auth/auth-messages";
 import {
   completeAuthNavigation,
   resolvePostAuthRedirectPath,
@@ -14,6 +17,8 @@ import { AuthFormShell } from "@/components/auth/auth-form-shell";
 import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
+import { cn } from "@/lib/utils/cn";
 
 export type LoginFormProps = {
   variant?: "page" | "dialog";
@@ -41,6 +46,9 @@ export function LoginFormWithNextFromUrl() {
   );
 }
 
+const CREDENTIAL_FIELD_CLASS =
+  "border-red-500 focus-visible:ring-red-500/40 dark:border-red-500/70 dark:focus-visible:ring-red-500/35";
+
 export function LoginForm({
   variant = "page",
   redirectAfterLogin = "/chat",
@@ -51,14 +59,42 @@ export function LoginForm({
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
   const reloginPrompt = useAuthStore((s) => s.reloginPrompt);
+  const clearReloginPrompt = useAuthStore((s) => s.clearReloginPrompt);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [credentialError, setCredentialError] = useState(false);
+  const [shakeFields, setShakeFields] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const clearFieldError = useCallback(() => {
+    setCredentialError(false);
+    setShakeFields(false);
+    setErr(null);
+  }, []);
+
+  const handleAuthFailure = useCallback((error: unknown) => {
+    const msg = authErrorFromUnknown(error, "login");
+    setErr(msg);
+    if (isLoginCredentialError(msg)) {
+      setCredentialError(true);
+      setShakeFields(false);
+      requestAnimationFrame(() => setShakeFields(true));
+      if (
+        typeof window !== "undefined" &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        navigator.vibrate?.(50);
+      }
+    } else {
+      setCredentialError(false);
+      setShakeFields(false);
+    }
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
+    clearFieldError();
     setLoading(true);
     try {
       const { access_token, user } = await login(email, password);
@@ -73,14 +109,14 @@ export function LoginForm({
         onAuthenticated,
       });
     } catch (e) {
-      setErr(authErrorFromUnknown(e, "login"));
+      handleAuthFailure(e);
     } finally {
       setLoading(false);
     }
   }
 
   async function onGoogleCredential(idToken: string) {
-    setErr(null);
+    clearFieldError();
     setLoading(true);
     try {
       const { access_token, user } = await authWithGoogle(idToken);
@@ -95,36 +131,39 @@ export function LoginForm({
         onAuthenticated,
       });
     } catch (e) {
-      setErr(authErrorFromUnknown(e, "login"));
+      handleAuthFailure(e);
     } finally {
       setLoading(false);
     }
   }
 
   const shellVariant = variant === "dialog" ? "dialog" : "page";
+  const showCredentialErr = credentialError && err;
+  const showGeneralErr = err && !credentialError;
 
   return (
     <AuthFormShell title="Log in" variant={shellVariant}>
       <form onSubmit={(e) => void onSubmit(e)} className="min-w-0 space-y-4">
         {reloginPrompt ? (
-          <p
-            className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-950 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-50"
-            role="status"
-          >
-            {reloginPrompt}
-          </p>
+          <UserErrorBanner
+            layout="polite"
+            tone="warning"
+            title="Session expired"
+            message={reloginPrompt}
+            onDismiss={clearReloginPrompt}
+            dismissLabel="Not now"
+          />
         ) : null}
         <p className="text-sm text-muted-foreground sm:text-base">
           Sign in to sync your account, pay for full books, and pick up where you left off.
         </p>
-        {err ? (
-          <p
-            className="break-words text-sm text-red-600 dark:text-red-400"
-            role="alert"
-            aria-live="polite"
-          >
-            {err}
-          </p>
+        {showGeneralErr ? (
+          <UserErrorBanner
+            layout="polite"
+            message={err!}
+            onDismiss={() => setErr(null)}
+            dismissLabel="Not now"
+          />
         ) : null}
         <GoogleAuthButton
           intent="signin"
@@ -141,29 +180,57 @@ export function LoginForm({
             </span>
           </div>
         </div>
-        <label className="block space-y-1.5 text-sm">
-          <span className="font-medium text-foreground">Email</span>
-          <Input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="h-11 sm:h-10"
-            required
-          />
-        </label>
-        <label className="block space-y-1.5 text-sm">
-          <span className="font-medium text-foreground">Password</span>
-          <Input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="h-11 sm:h-10"
-            required
-            minLength={8}
-          />
-        </label>
+        <div
+          className={cn("space-y-4", shakeFields && "animate-login-shake")}
+          onAnimationEnd={() => setShakeFields(false)}
+        >
+          <label className="block space-y-1.5 text-sm">
+            <span className="font-medium text-foreground">Email</span>
+            <Input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (credentialError) clearFieldError();
+              }}
+              aria-invalid={credentialError}
+              className={cn(
+                "h-11 sm:h-10",
+                credentialError && CREDENTIAL_FIELD_CLASS,
+              )}
+              required
+            />
+          </label>
+          <label className="block space-y-1.5 text-sm">
+            <span className="font-medium text-foreground">Password</span>
+            <Input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (credentialError) clearFieldError();
+              }}
+              aria-invalid={credentialError}
+              className={cn(
+                "h-11 sm:h-10",
+                credentialError && CREDENTIAL_FIELD_CLASS,
+              )}
+              required
+              minLength={8}
+            />
+            {showCredentialErr ? (
+              <p
+                className="text-sm text-red-600 dark:text-red-400"
+                role="alert"
+                aria-live="polite"
+              >
+                {err}
+              </p>
+            ) : null}
+          </label>
+        </div>
         <Button
           type="submit"
           disabled={loading}

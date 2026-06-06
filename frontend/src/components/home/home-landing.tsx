@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TestimonialsCarousel } from "@/components/home/testimonials-carousel";
 import { cn } from "@/lib/utils/cn";
 
 const steps = [
@@ -185,6 +186,8 @@ export function HomeLanding() {
           </div>
         </div>
       </section>
+
+      <TestimonialsCarousel />
     </div>
   );
 }

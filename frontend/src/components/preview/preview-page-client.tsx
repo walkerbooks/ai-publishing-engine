@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePublishingStore } from "@/stores/publishing-store";
@@ -10,7 +10,9 @@ import { MarkdownBody } from "@/components/preview/markdown-body";
 import { BuyFullBookBar } from "@/components/preview/buy-full-book-bar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
 import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
+import { mapUserError } from "@/lib/errors/user-error-message";
 
 type Props = { bookId: string };
 
@@ -23,10 +25,16 @@ export function PreviewPageClient({ bookId }: Props) {
   const { mutate, isPending, isError, error, reset } = usePreviewMutation();
   const {
     startCheckout,
+    retryCheckout,
     loading: checkoutLoading,
     error: checkoutErr,
     clearError: clearCheckoutErr,
   } = usePayPalCheckout();
+
+  const previewError = useMemo(
+    () => (isError && error ? mapUserError(error, "preview") : null),
+    [isError, error],
+  );
 
   useEffect(() => {
     if (!spec) router.replace("/chat");
@@ -52,14 +60,23 @@ export function PreviewPageClient({ bookId }: Props) {
     );
   }
 
-  if (isError) {
+  if (isError && previewError) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-3xl space-y-4 px-4 py-8">
         <BookSubnav bookId={bookId} />
-        <p className="text-red-600">{(error as Error).message}</p>
-        <Button className="mt-4" variant="outline" onClick={() => reset()}>
-          Retry
-        </Button>
+        <h1 className="text-2xl font-semibold">Preview</h1>
+        <UserErrorBanner
+          layout="polite"
+          message={previewError.message}
+          tone={previewError.tone}
+          retryable={previewError.retryable}
+          onRetry={() => {
+            reset();
+            onGen();
+          }}
+          onDismiss={() => reset()}
+          dismissLabel="Not now"
+        />
       </div>
     );
   }
@@ -78,6 +95,8 @@ export function PreviewPageClient({ bookId }: Props) {
       <BuyFullBookBar
         loading={checkoutLoading}
         error={checkoutErr}
+        onRetryCheckout={checkoutErr?.retryable ? () => retryCheckout() : undefined}
+        onDismissCheckout={clearCheckoutErr}
         onCheckout={() => {
           clearCheckoutErr();
           void startCheckout(bookId, `/book/${bookId}/preview`);

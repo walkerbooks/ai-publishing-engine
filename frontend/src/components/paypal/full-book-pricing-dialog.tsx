@@ -7,7 +7,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
 import { cn } from "@/lib/utils/cn";
+import type { MappedUserError } from "@/lib/errors/user-error-message";
 import {
   FULL_BOOK_COVER_ADDON_LABEL,
   FULL_BOOK_PACKAGES,
@@ -18,7 +20,9 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   loading?: boolean;
-  error?: string | null;
+  error?: MappedUserError | null;
+  onRetryPayment?: () => void;
+  onDismissPayment?: () => void;
   onBuy: (tier: FullBookPackageTier, opts: { includeCover: boolean }) => void;
 };
 
@@ -31,6 +35,8 @@ export function FullBookPricingDialog({
   onOpenChange,
   loading,
   error,
+  onRetryPayment,
+  onDismissPayment,
   onBuy,
 }: Props) {
   const [includeCover, setIncludeCover] = useState(false);
@@ -72,12 +78,16 @@ export function FullBookPricingDialog({
         </label>
 
         {error ? (
-          <p
-            className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-200"
-            role="alert"
-          >
-            {error}
-          </p>
+          <UserErrorBanner
+            layout="polite"
+            className="mb-4"
+            message={error.message}
+            tone={error.tone}
+            retryable={error.retryable}
+            onRetry={onRetryPayment}
+            onDismiss={onDismissPayment}
+            dismissLabel="Not now"
+          />
         ) : null}
 
         <div className="grid grid-cols-1 gap-5 pb-2 md:grid-cols-3 md:gap-4">

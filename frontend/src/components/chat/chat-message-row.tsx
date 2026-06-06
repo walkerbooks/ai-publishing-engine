@@ -12,6 +12,7 @@ type Props = {
   className?: string;
   /** Shown after the YouTube row (guest email step) — keeps copy inside the same bubble. */
   afterVideosBridgeText?: string;
+  onRetryFullBook?: () => void;
 };
 
 export function ChatMessageRow({
@@ -19,6 +20,7 @@ export function ChatMessageRow({
   variant = "light",
   className,
   afterVideosBridgeText,
+  onRetryFullBook,
 }: Props) {
   const isUser = message.role === "user";
   const kind = message.kind ?? "intake";
@@ -85,6 +87,7 @@ export function ChatMessageRow({
             authorName={message.fullBookAuthorName}
             pdfUrl={message.fullPdfUrl}
             error={message.fullGenError}
+            onRetryGeneration={onRetryFullBook}
             chrome="embedded"
           />
         ) : null}

@@ -9,6 +9,7 @@ import { fetchAdminStats } from "@/lib/api/admin-client";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
 import { useAuthStore } from "@/stores/auth-store";
 
 function formatCount(n: number): string {
@@ -127,7 +128,7 @@ export function AdminDashboard() {
               {statsQuery.isLoading ? (
                 <p className="text-2xl font-semibold tabular-nums text-slate-500">…</p>
               ) : statsQuery.isError ? (
-                <p className="text-sm text-red-400">Could not load stats.</p>
+                <p className="text-2xl font-semibold tabular-nums text-slate-500">—</p>
               ) : (
                 <p className="text-3xl font-semibold tabular-nums tracking-tight text-teal-300">
                   {formatCount(statsQuery.data?.user_count ?? 0)}
@@ -144,7 +145,7 @@ export function AdminDashboard() {
               {statsQuery.isLoading ? (
                 <p className="text-2xl font-semibold tabular-nums text-slate-500">…</p>
               ) : statsQuery.isError ? (
-                <p className="text-sm text-red-400">Could not load stats.</p>
+                <p className="text-2xl font-semibold tabular-nums text-slate-500">—</p>
               ) : (
                 <p className="text-3xl font-semibold tabular-nums tracking-tight text-teal-300">
                   {formatCount(statsQuery.data?.book_count ?? 0)}
@@ -155,15 +156,15 @@ export function AdminDashboard() {
         </div>
 
         {statsQuery.isError ? (
-          <p className="mt-6 text-sm text-slate-500">
-            <button
-              type="button"
-              className="font-medium text-teal-400 underline-offset-4 hover:underline"
-              onClick={() => void statsQuery.refetch()}
-            >
-              Retry
-            </button>
-          </p>
+          <UserErrorBanner
+            layout="polite"
+            surface="inverted"
+            className="mt-6"
+            message="We couldn't load analytics right now. Please try again in a moment."
+            retryable
+            onRetry={() => void statsQuery.refetch()}
+            dismissLabel="Not now"
+          />
         ) : null}
 
         <AdminBookFunnel />

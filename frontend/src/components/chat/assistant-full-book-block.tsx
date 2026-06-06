@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { goAuthHeaders } from "@/lib/api/go-api";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { buildExportPdfFilename } from "@/lib/book/export-pdf-filename";
+import { mapUserError } from "@/lib/errors/user-error-message";
 import { cn } from "@/lib/utils/cn";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
 import { useAuthStore } from "@/stores/auth-store";
 import type { FullBookGenPhase } from "@/lib/types/chat";
 
@@ -16,6 +18,7 @@ type Props = {
   authorName?: string | null;
   pdfUrl?: string | null;
   error?: string | null;
+  onRetryGeneration?: () => void;
   chrome?: "card" | "embedded";
 };
 
@@ -26,6 +29,7 @@ export function AssistantFullBookBlock({
   authorName,
   pdfUrl,
   error,
+  onRetryGeneration,
   chrome = "card",
 }: Props) {
   const authFirstName = useAuthStore((s) => s.firstName);
@@ -35,10 +39,21 @@ export function AssistantFullBookBlock({
   const showStatusRow = !error && !doneWithPdf && !manuscriptDoneNoPdf;
   const showPulse = phase !== "complete";
 
+  const generationError = useMemo(
+    () => (error ? mapUserError(error, "export") : null),
+    [error],
+  );
+
   /** iframe src= does not send Bearer token; fetch with auth then use a blob URL so PDF renders. */
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfLoadError, setPdfLoadError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfReloadKey, setPdfReloadKey] = useState(0);
+
+  const mappedPdfLoadError = useMemo(
+    () => (pdfLoadError ? mapUserError(pdfLoadError, "pdf") : null),
+    [pdfLoadError],
+  );
 
   useEffect(() => {
     if (!pdfUrl?.trim()) {
@@ -62,15 +77,7 @@ export function AssistantFullBookBlock({
         });
         if (cancelled) return;
         if (!res.ok) {
-          const t = await res.text();
-          let msg = `Could not load PDF (${res.status}).`;
-          try {
-            const j = JSON.parse(t) as { error?: string };
-            if (j.error) msg = j.error;
-          } catch {
-            if (t.trim()) msg = t.trim();
-          }
-          setPdfLoadError(msg);
+          setPdfLoadError(`Could not load PDF (${res.status}).`);
           setPdfLoading(false);
           return;
         }
@@ -96,7 +103,7 @@ export function AssistantFullBookBlock({
       cancelled = true;
       if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
     };
-  }, [pdfUrl]);
+  }, [pdfUrl, pdfReloadKey]);
 
   const authorForFilename =
     authorName?.trim() || authFirstName?.trim() || "Author";
@@ -110,10 +117,14 @@ export function AssistantFullBookBlock({
           "rounded-none border-0 bg-transparent p-0 shadow-none dark:border-0 dark:bg-transparent",
       )}
     >
-      {error ? (
-        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-          {error}
-        </p>
+      {generationError ? (
+        <UserErrorBanner
+          layout="polite"
+          message={generationError.message}
+          tone={generationError.tone}
+          retryable={generationError.retryable}
+          onRetry={onRetryGeneration}
+        />
       ) : null}
 
       {phase === "complete" && !pdfUrl && !error ? (
@@ -141,8 +152,8 @@ export function AssistantFullBookBlock({
             <p>
               Your PDF is ready{bookTitle ? (
                 <>
-                  {' '}
-                  for{' '}
+                  {" "}
+                  for{" "}
                   <span className="font-medium text-walker-teal">&ldquo;{bookTitle}&rdquo;</span>
                 </>
               ) : null}
@@ -150,10 +161,16 @@ export function AssistantFullBookBlock({
               start <span className="font-medium">New book chat</span> from the sidebar.
             </p>
           </div>
-          {pdfLoadError ? (
-            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-              {pdfLoadError}
-            </p>
+          {mappedPdfLoadError ? (
+            <UserErrorBanner
+              layout="polite"
+              message={mappedPdfLoadError.message}
+              retryable
+              onRetry={() => {
+                setPdfLoadError(null);
+                setPdfReloadKey((k) => k + 1);
+              }}
+            />
           ) : null}
           <div className="overflow-hidden rounded-md border border-border/60 dark:border-white/10">
             {pdfLoading ? (
@@ -166,14 +183,14 @@ export function AssistantFullBookBlock({
                 title={bookTitle ? `${bookTitle} PDF preview` : "PDF preview"}
                 className="h-[70vh] w-full bg-white"
               />
-            ) : !pdfLoadError ? (
+            ) : !mappedPdfLoadError ? (
               <div className="flex h-[40vh] items-center justify-center bg-muted/20 text-sm text-muted-foreground">
                 Preparing preview…
               </div>
             ) : null}
           </div>
           <p className="text-xs text-muted-foreground">
-            Use <span className="font-medium">Download PDF</span> for the file name{' '}
+            Use <span className="font-medium">Download PDF</span> for the file name{" "}
             <span className="whitespace-nowrap font-mono text-[11px]">{pdfDownloadName}</span>.
             Your browser&rsquo;s PDF toolbar may save with a generic name instead.
           </p>

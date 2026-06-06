@@ -41,6 +41,33 @@ html {
   html {
     scroll-behavior: auto;
   }
+
+  .animate-login-shake {
+    animation: none;
+  }
+}
+
+@keyframes login-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-login-shake {
+  animation: login-shake 0.35s ease-in-out;
 }
 
 .dark body {
