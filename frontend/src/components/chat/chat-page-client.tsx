@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { useVideoInjection } from "@/hooks/use-video-injection";
@@ -45,6 +45,10 @@ import {
 } from "@/lib/chat/welcome-flow";
 import { getUnifiedAssistantPlaceholder } from "@/lib/chat/unified-chat/placeholders";
 import { generateCoverVariantsForChat } from "@/lib/api/cover-client";
+import {
+  mapUserError,
+  type MappedUserError,
+} from "@/lib/errors/user-error-message";
 
 const KICKOFF_ASSISTANT_LOADER_MS = 550;
 
@@ -123,8 +127,8 @@ export function ChatPageClient() {
     useChatDirectoryStore.setState({ activeConversationId: null });
     usePublishingStore.setState(createInitialPublishingState());
   }, [searchParams, isAuthenticated]);
-  const { send, busy, err, clearErr } = useUnifiedChatSend();
-  const [coverErr, setCoverErr] = useState<string | null>(null);
+  const { send, busy, err, clearErr, retry } = useUnifiedChatSend();
+  const [coverErr, setCoverErr] = useState<MappedUserError | null>(null);
   const [coverGenBusy, setCoverGenBusy] = useState(false);
   const [coverPaymentBlockedOpen, setCoverPaymentBlockedOpen] = useState(false);
   const [coverVariantUrls, setCoverVariantUrls] = useState<string[] | null>(null);
@@ -168,7 +172,7 @@ export function ChatPageClient() {
     router.replace(q ? `${path}?${q}` : path, { scroll: false });
   }, [searchParams, router]);
 
-  useFullBookChatFlow();
+  const { retryFullBook } = useFullBookChatFlow();
 
   const prevAuthenticated = useRef(isAuthenticated);
   useEffect(() => {
@@ -198,11 +202,12 @@ export function ChatPageClient() {
   }, [isAuthenticated, bookParam, hydrateConversationListFromServer, refreshProfile]);
   const {
     startCheckout,
+    retryCheckout,
     loading: payPalLoading,
     error: payPalErr,
     clearError: clearPayPalErr,
   } = usePayPalCheckout();
-  const [payPalGateErr, setPayPalGateErr] = useState<string | null>(null);
+  const [payPalGateErr, setPayPalGateErr] = useState<MappedUserError | null>(null);
   const [fullBookPricingOpen, setFullBookPricingOpen] = useState(false);
   const [fullBookGateMode, setFullBookGateMode] = useState<
     "loading" | "generate" | "cooldown" | "paypal"
@@ -427,7 +432,12 @@ export function ChatPageClient() {
     const outline = pub.bookOutline;
     const bookId = pub.activeBookId;
     if (!spec || !outline) {
-      setCoverErr("Book outline or specification is missing. Try regenerating the preview.");
+      setCoverErr(
+        mapUserError(
+          "Book outline or specification is missing. Try regenerating the preview.",
+          "cover",
+        ),
+      );
       return;
     }
     setCoverGenBusy(true);
@@ -462,7 +472,7 @@ export function ChatPageClient() {
       }
       setCoverVariantUrls(dataUrls);
     } catch (e) {
-      setCoverErr(e instanceof Error ? e.message : "Cover generation failed.");
+      setCoverErr(mapUserError(e, "cover"));
     } finally {
       setCoverGenBusy(false);
       setCoverPaymentBlockedOpen(false);
@@ -582,7 +592,10 @@ export function ChatPageClient() {
     const id = usePublishingStore.getState().activeBookId;
     if (!id) {
       setPayPalGateErr(
-        "We're almost there. Finish the steps until your book is created, then try again.",
+        mapUserError(
+          "We're almost there. Finish the steps until your book is created, then try again.",
+          "payment",
+        ),
       );
       return;
     }
@@ -590,7 +603,10 @@ export function ChatPageClient() {
     if (!token) {
       useAuthDialogRequestStore.getState().requestLogin();
       setPayPalGateErr(
-        "Please sign in or create an account to pay with PayPal, then tap the button again.",
+        mapUserError(
+          "Please sign in or create an account to pay with PayPal, then tap the button again.",
+          "payment",
+        ),
       );
       return;
     }
@@ -598,7 +614,12 @@ export function ChatPageClient() {
       try {
         await persistBookDescriptionToGo(id, token);
       } catch {
-        setPayPalGateErr("Could not save your book details. Check your connection and try again.");
+        setPayPalGateErr(
+          mapUserError(
+            "Could not save your book details. Check your connection and try again.",
+            "payment",
+          ),
+        );
         return;
       }
       setFullBookPricingOpen(true);
@@ -611,21 +632,26 @@ export function ChatPageClient() {
     const id = usePublishingStore.getState().activeBookId;
     if (!id) {
       setPayPalGateErr(
-        "We're almost there. Finish the steps until your book is created, then try again.",
+        mapUserError(
+          "We're almost there. Finish the steps until your book is created, then try again.",
+          "payment",
+        ),
       );
       return;
     }
     const token = getAccessToken();
     if (!token) {
       useAuthDialogRequestStore.getState().requestLogin();
-      setPayPalGateErr("Please sign in to use your subscription credits.");
+      setPayPalGateErr(
+        mapUserError("Please sign in to use your subscription credits.", "payment"),
+      );
       return;
     }
     setGenerateFullBusy(true);
     try {
       const gate = await checkFullGenerationEntitlement(token);
       if (!gate.ok) {
-        setPayPalGateErr(gate.message);
+        setPayPalGateErr(mapUserError(gate.message, "payment"));
         try {
           const ent = await fetchSubscriptionEntitlement(token);
           if (ent.has_entitlement && ent.can_start_full_generation) {
@@ -656,7 +682,12 @@ export function ChatPageClient() {
       try {
         await persistBookDescriptionToGo(id, token);
       } catch {
-        setPayPalGateErr("Could not save your book details. Check your connection and try again.");
+        setPayPalGateErr(
+          mapUserError(
+            "Could not save your book details. Check your connection and try again.",
+            "payment",
+          ),
+        );
         return;
       }
       usePublishingStore.getState().setSubscriptionFullGenUnlocked(true);
@@ -683,7 +714,12 @@ export function ChatPageClient() {
       try {
         await persistBookDescriptionToGo(id, token);
       } catch {
-        setPayPalGateErr("Could not save your book details. Check your connection and try again.");
+        setPayPalGateErr(
+          mapUserError(
+            "Could not save your book details. Check your connection and try again.",
+            "payment",
+          ),
+        );
         setFullBookPricingOpen(true);
         return;
       }
@@ -730,7 +766,10 @@ export function ChatPageClient() {
     const bookId = usePublishingStore.getState().activeBookId?.trim();
     if (!bookId) {
       setCoverErr(
-        "No book is linked to this chat, so your chosen cover cannot be saved on the book for the PDF. Continue from your book or restore the preview flow, then pick a cover again.",
+        mapUserError(
+          "No book is linked to this chat, so your chosen cover cannot be saved on the book for the PDF. Continue from your book or restore the preview flow, then pick a cover again.",
+          "cover",
+        ),
       );
       return;
     }
@@ -751,7 +790,10 @@ export function ChatPageClient() {
       const saved = await persistChatMessageIfAuthenticated(msg);
       if (!saved) {
         setCoverErr(
-          "We couldn’t save your cover to the server. Check your connection, ensure you’re signed in with a synced chat, then pick a cover again — otherwise the PDF may not include it.",
+          mapUserError(
+            "We couldn’t save your cover to the server. Check your connection, ensure you’re signed in with a synced chat, then pick a cover again — otherwise the PDF may not include it.",
+            "cover",
+          ),
         );
       }
     })();
@@ -765,14 +807,17 @@ export function ChatPageClient() {
     if (!getAccessToken()) {
       useAuthDialogRequestStore.getState().requestLogin();
       setPayPalGateErr(
-        "Please sign in to purchase a cover, then try again.",
+        mapUserError("Please sign in to purchase a cover, then try again.", "payment"),
       );
       return;
     }
     const pub = usePublishingStore.getState();
     if (!pub.bookSpec || !pub.bookOutline) {
       setCoverErr(
-        "Book details are missing. Regenerate the preview, then try again.",
+        mapUserError(
+          "Book details are missing. Regenerate the preview, then try again.",
+          "cover",
+        ),
       );
       return;
     }
@@ -818,7 +863,42 @@ export function ChatPageClient() {
     Boolean(fullBookCooldownSummary?.trim()) &&
     !fullBookCooldownPopupDismissed;
 
-  const threadErr = err ?? coverErr;
+  const threadError = useMemo(() => {
+    if (coverErr) {
+      return {
+        message: coverErr.message,
+        retryable: coverErr.retryable,
+        tone: coverErr.tone,
+        onRetry: coverErr.retryable
+          ? () => {
+              void runCoverImageGeneration();
+            }
+          : undefined,
+      };
+    }
+    if (err) {
+      return {
+        message: err.message,
+        retryable: err.retryable,
+        tone: err.tone,
+        onRetry: err.retryable ? () => void retry() : undefined,
+      };
+    }
+    return null;
+  }, [coverErr, err, retry]);
+
+  const clearPaymentErrors = useCallback(() => {
+    clearPayPalErr();
+    setPayPalGateErr(null);
+  }, [clearPayPalErr]);
+  const mappedPayPalErr = payPalErr;
+  const mappedPayPalGateErr = payPalGateErr;
+  const paymentGateError = mappedPayPalGateErr ?? mappedPayPalErr;
+  const paymentGateRetry = mappedPayPalGateErr
+    ? () => void generateFullWithSubscription()
+    : mappedPayPalErr?.retryable
+      ? () => retryCheckout()
+      : undefined;
 
   return (
     <>
@@ -877,7 +957,11 @@ export function ChatPageClient() {
           if (!open) clearPayPalErr();
         }}
         loading={payPalLoading}
-        error={payPalErr}
+        error={mappedPayPalErr}
+        onRetryPayment={
+          mappedPayPalErr?.retryable ? () => retryCheckout() : undefined
+        }
+        onDismissPayment={clearPaymentErrors}
         onBuy={(tier, opts) => continueFullBookPayPal(tier, opts)}
       />
       <ChatShell
@@ -888,7 +972,7 @@ export function ChatPageClient() {
       >
         <ChatWorkspace
           hasThread={hasThread}
-          err={threadErr}
+          threadError={threadError}
           busy={busy}
           messages={messages}
           bookOutline={bookOutline}
@@ -897,7 +981,7 @@ export function ChatPageClient() {
           outlineMobileOpen={outlineMobileOpen}
           onCloseOutlineMobile={() => setOutlineMobileOpen(false)}
           onSend={handleSend}
-          clearErr={() => {
+          clearThreadError={() => {
             clearErr();
             setCoverErr(null);
           }}
@@ -916,13 +1000,16 @@ export function ChatPageClient() {
           generateFullBusy={generateFullBusy}
           changePreview={changePreview}
           payPalLoading={payPalLoading}
-          payPalError={payPalGateErr ?? payPalErr}
+          payPalError={paymentGateError}
+          onRetryPayment={paymentGateRetry}
+          onDismissPayment={clearPaymentErrors}
           bookKickoffStage={bookKickoffStage}
           onBookKickoffOptionSelect={handleBookKickoffOption}
           onBookKickoffInputSend={handleSend}
           onCollaborativeAgree={handleCollaborativeAgree}
           onCollaborativeQuickChange={handleCollaborativeQuickChange}
           onCollaborativeChangeSend={handleCollaborativeChangeSend}
+          onRetryFullBook={retryFullBook}
         />
       </ChatShell>
     </>

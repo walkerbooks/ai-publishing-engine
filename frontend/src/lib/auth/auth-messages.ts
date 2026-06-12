@@ -2,35 +2,49 @@
  * Turns API / network errors into short, user-facing copy (no stack traces).
  */
 
+import { mapUserError } from "@/lib/errors/user-error-message";
+
+export const LOGIN_CREDENTIAL_ERROR_MESSAGE =
+  "Incorrect email or password. Please try again.";
+
+function isRawLoginCredentialFailure(low: string): boolean {
+  return (
+    low.includes("invalid credentials") ||
+    low.includes("no rows in result set") ||
+    low.includes("no rows") ||
+    low.includes("record not found") ||
+    low.includes("user not found") ||
+    low.includes("wrong password") ||
+    low.includes("incorrect password") ||
+    low.includes("authentication failed")
+  );
+}
+
+/** True when the mapped message is a wrong-email/password case (field shake UX). */
+export function isLoginCredentialError(message: string): boolean {
+  const low = message.trim().toLowerCase();
+  return (
+    low === LOGIN_CREDENTIAL_ERROR_MESSAGE.toLowerCase() ||
+    isRawLoginCredentialFailure(low)
+  );
+}
+
 export function mapAuthApiError(message: string, flow: "login" | "signup"): string {
   const m = message.trim();
   const low = m.toLowerCase();
 
+  if (flow === "login" && isRawLoginCredentialFailure(low)) {
+    return LOGIN_CREDENTIAL_ERROR_MESSAGE;
+  }
+
   if (
-    low.includes("failed to fetch") ||
-    low.includes("networkerror") ||
-    low.includes("load failed") ||
-    low === "network request failed" ||
-    low.includes("upstream unreachable")
-  ) {
-    return "We couldn’t reach the server. Check your connection and that the API is running, then try again.";
-  }
-
-  if (flow === "login") {
-    if (low.includes("invalid credentials")) {
-      return "Incorrect email or password. Please try again.";
-    }
-  }
-
-  if (flow === "signup") {
-    if (
-      low.includes("23505") ||
+    flow === "signup" &&
+    (low.includes("23505") ||
       low.includes("duplicate key") ||
       low.includes("unique constraint") ||
-      low.includes("already exists")
-    ) {
-      return "An account with this email already exists. Log in or use a different email.";
-    }
+      low.includes("already exists"))
+  ) {
+    return "An account with this email already exists. Log in or use a different email.";
   }
 
   if (low.includes("google sign-in is not configured")) {
@@ -59,10 +73,7 @@ export function mapAuthApiError(message: string, flow: "login" | "signup"): stri
     return "Please check your details and try again.";
   }
 
-  if (m.length > 280) {
-    return `${m.slice(0, 240)}…`;
-  }
-  return m;
+  return mapUserError(m, "auth").message;
 }
 
 export function authErrorFromUnknown(err: unknown, flow: "login" | "signup"): string {

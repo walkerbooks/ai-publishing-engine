@@ -9,7 +9,9 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
 import { cn } from "@/lib/utils/cn";
+import type { MappedUserError } from "@/lib/errors/user-error-message";
 import { usePublishingStore } from "@/stores/publishing-store";
 
 /** Shared checkboxes + text areas; values persist in the publishing store for PATCH to Go. */
@@ -239,7 +241,9 @@ type Props = {
   fullBookGateMode?: FullGateMode;
   payPalLoading?: boolean;
   generateFullBusy?: boolean;
-  payPalError?: string | null;
+  payPalError?: MappedUserError | null;
+  onRetryPayment?: () => void;
+  onDismissPayment?: () => void;
   /** Post-preview: waiting for user to type cover signing name in composer below. */
   awaitingCoverSigningReply?: boolean;
 };
@@ -262,6 +266,8 @@ export function ChatGatePanel({
   payPalLoading,
   generateFullBusy = false,
   payPalError,
+  onRetryPayment,
+  onDismissPayment,
   awaitingCoverSigningReply = false,
 }: Props) {
   const postPayCoverFlowActive = usePublishingStore((s) => s.postPayCoverFlowActive);
@@ -545,12 +551,19 @@ export function ChatGatePanel({
               <FullBookFrontMatterCheckboxes />
             </>
           )}
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {payPalError ? (
-            <p className="w-full text-sm text-red-600" role="alert">
-              {payPalError}
-            </p>
+            <UserErrorBanner
+              layout="polite"
+              className="mb-3 w-full"
+              message={payPalError.message}
+              tone={payPalError.tone}
+              retryable={payPalError.retryable}
+              onRetry={onRetryPayment}
+              onDismiss={onDismissPayment}
+              dismissLabel="Not now"
+            />
           ) : null}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {fullBookGateMode === "loading" ? (
             <Button className={cn(btnPrimary)} disabled>
               Checking your plan…
