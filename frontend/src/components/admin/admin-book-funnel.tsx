@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { fetchBookFunnel } from "@/lib/api/admin-client";
 import { getAccessToken } from "@/lib/auth/access-token";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
 
 const PAGE_SIZE = 50;
 
@@ -73,7 +74,15 @@ export function AdminBookFunnel() {
       {q.isLoading ? (
         <p className="mt-6 text-sm text-slate-500">Loading funnel…</p>
       ) : q.isError ? (
-        <p className="mt-6 text-sm text-red-400">Could not load book funnel.</p>
+        <UserErrorBanner
+          layout="polite"
+          surface="inverted"
+          className="mt-6"
+          message="We couldn't load the book pipeline right now."
+          retryable
+          onRetry={() => void q.refetch()}
+          dismissLabel="Not now"
+        />
       ) : data ? (
         <>
           <div className="mt-8 space-y-3">

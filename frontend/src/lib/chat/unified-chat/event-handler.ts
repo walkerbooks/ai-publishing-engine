@@ -1,5 +1,6 @@
 import type { ChatBlockKind } from "@/lib/types/chat";
 import { syncBookToServerAfterPreview } from "@/lib/api/sync-server-book";
+import { userErrorMessage } from "@/lib/errors/user-error-message";
 
 type Handlers = {
   pushAssistantMessage: (msg: any) => void;
@@ -108,7 +109,7 @@ export function handleUnifiedChatSseEvent(
   }
 
   if (event === "error") {
-    handlers.setErr(String(data.message ?? "Unified chat failed"));
+    handlers.setErr(userErrorMessage(data.message ?? "Unified chat failed", "chat"));
     return;
   }
 }

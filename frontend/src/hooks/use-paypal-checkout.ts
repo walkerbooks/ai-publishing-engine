@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { requestFullGeneration } from "@/lib/api/books-client";
 import { createPayPalCheckout } from "@/lib/api/payments-client";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/subscriptions-client";
 import { promoteActiveGuestConversationToServer } from "@/lib/chat/conversation-sync";
 import { getAccessToken } from "@/lib/auth/access-token";
+import { mapUserError, type MappedUserError } from "@/lib/errors/user-error-message";
 import { getLogger } from "@/lib/log";
 import type { FullBookPackageTier } from "@/lib/paypal/full-book-packages";
 import {
@@ -22,10 +23,18 @@ import { usePublishingStore } from "@/stores/publishing-store";
 const log = getLogger("use-paypal-checkout");
 const PAYPAL_BYPASS = process.env.NEXT_PUBLIC_PAYPAL_BYPASS === "true";
 
+type CheckoutParams = {
+  bookPublicId: string;
+  loginRedirectPath?: string;
+  packageTier: FullBookPackageTier;
+  includeCover: boolean;
+};
+
 export function usePayPalCheckout() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<MappedUserError | null>(null);
+  const lastCheckoutRef = useRef<CheckoutParams | null>(null);
 
   const startCheckout = useCallback(
     async (
@@ -34,6 +43,13 @@ export function usePayPalCheckout() {
       packageTier: FullBookPackageTier = "single",
       includeCover = false,
     ) => {
+      const params: CheckoutParams = {
+        bookPublicId,
+        loginRedirectPath,
+        packageTier,
+        includeCover,
+      };
+      lastCheckoutRef.current = params;
       setError(null);
       if (PAYPAL_BYPASS) {
         const token = getAccessToken();
@@ -61,7 +77,7 @@ export function usePayPalCheckout() {
             await requestFullGeneration(bookPublicId, token);
           } catch (e) {
             log.warning("PayPal bypass: requestFullGeneration failed", e);
-            setError(e instanceof Error ? e.message : "Could not start full book generation");
+            setError(mapUserError(e, "payment"));
             return;
           }
         }
@@ -106,12 +122,29 @@ export function usePayPalCheckout() {
         window.location.href = checkout_url;
       } catch (e) {
         log.warning("checkout failed", e);
-        setError(e instanceof Error ? e.message : "Checkout failed");
+        setError(mapUserError(e, "payment"));
         setLoading(false);
       }
     },
     [router],
   );
 
-  return { startCheckout, loading, error, clearError: () => setError(null) };
+  const retryCheckout = useCallback(() => {
+    const p = lastCheckoutRef.current;
+    if (!p) return;
+    void startCheckout(
+      p.bookPublicId,
+      p.loginRedirectPath,
+      p.packageTier,
+      p.includeCover,
+    );
+  }, [startCheckout]);
+
+  return {
+    startCheckout,
+    retryCheckout,
+    loading,
+    error,
+    clearError: () => setError(null),
+  };
 }

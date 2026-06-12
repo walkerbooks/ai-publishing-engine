@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { X } from "lucide-react";
 import {
   fetchSubscriptionEntitlement,
   formatNextFullGenerationSlot,
@@ -9,7 +8,7 @@ import {
 } from "@/lib/api/subscriptions-client";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { useAuthStore } from "@/stores/auth-store";
-import { Button } from "@/components/ui/button";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
 import { cn } from "@/lib/utils/cn";
 
 const DISMISS_NO_CREDITS = "ai_pub_subscription_notice_no_credits_dismissed";
@@ -19,7 +18,7 @@ type BannerMode = "hidden" | "no_credits" | "cooldown";
 
 /**
  * Uses GET /subscriptions/entitlement: depleted credits vs 24h cooldown; skips the
-   * no-credits strip when the user likely never purchased (same API flag as exhausted).
+ * no-credits strip when the user likely never purchased (same API flag as exhausted).
  * Dismissal is per-notice kind, tab session only (sessionStorage).
  */
 export function SubscriptionInactiveBanner() {
@@ -51,7 +50,6 @@ export function SubscriptionInactiveBanner() {
     try {
       const ent = await fetchSubscriptionEntitlement(token);
       if (!ent.has_entitlement) {
-        // New sign-ins have no plan yet — same flag as "credits used"; do not imply they "used" a plan.
         if (isLikelyNeverPurchasedEntitlement(ent)) {
           setMode("hidden");
           setCooldownWhen(null);
@@ -118,22 +116,19 @@ export function SubscriptionInactiveBanner() {
 
   return (
     <div
-      role="status"
       className={cn(
-        "fixed bottom-4 left-4 right-4 z-50 mx-auto flex max-w-md items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-950 shadow-md dark:border-amber-900/60 dark:bg-amber-950/90 dark:text-amber-50 sm:left-auto sm:right-4 sm:mx-0",
+        "fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md sm:left-auto sm:right-4 sm:mx-0",
       )}
     >
-      <p className="min-w-0 flex-1 leading-snug pt-0.5">{body}</p>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-8 w-8 shrink-0 p-0 text-amber-900 hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/50"
-        onClick={close}
-        aria-label="Dismiss"
-      >
-        <X className="h-4 w-4" />
-      </Button>
+      <UserErrorBanner
+        layout="polite"
+        tone="warning"
+        title={showCooldown ? "Plan cooldown" : "No credits left"}
+        message={body}
+        onDismiss={close}
+        dismissLabel="Not now"
+        className="shadow-md"
+      />
     </div>
   );
 }

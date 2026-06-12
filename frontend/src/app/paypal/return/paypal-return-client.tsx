@@ -16,9 +16,9 @@ import {
   subscriptionPostedStorageKey,
 } from "@/lib/paypal/checkout-session";
 import { PayPalFlowCard } from "@/components/paypal/paypal-flow-card";
+import { UserErrorBanner } from "@/components/ui/user-error-banner";
 import { Button } from "@/components/ui/button";
 import { getLogger } from "@/lib/log";
-import { cn } from "@/lib/utils/cn";
 
 const log = getLogger("paypal-return");
 
@@ -121,29 +121,36 @@ export function PayPalReturnClient() {
 
   const showSignInLink = mounted && !getAccessToken();
   const confirming = message === "Confirming payment…";
-  const isError =
+  const isHardError =
     message.startsWith("No book context") ||
     message.startsWith("Sign in to refresh");
+  const isSlowConfirm = message.startsWith("Payment can take a moment");
 
   return (
     <PayPalFlowCard title="Payment status">
-      <div className="flex min-w-0 items-start gap-3">
-        {confirming ? (
+      {confirming ? (
+        <div className="flex min-w-0 items-start gap-3">
           <Loader2
             className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-muted-foreground"
             aria-hidden
           />
-        ) : null}
-        <p
-          role={isError ? "alert" : undefined}
-          className={cn(
-            "min-w-0 flex-1 text-sm leading-relaxed break-words sm:text-base",
-            isError ? "text-red-600 dark:text-red-400" : "text-muted-foreground",
-          )}
-        >
+          <p className="min-w-0 flex-1 text-sm leading-relaxed text-muted-foreground sm:text-base">
+            {message}
+          </p>
+        </div>
+      ) : isHardError || isSlowConfirm ? (
+        <UserErrorBanner
+          layout="polite"
+          tone={isHardError ? "error" : "warning"}
+          title={isHardError ? "We couldn't confirm payment" : "Still confirming"}
+          message={message}
+          dismissLabel="Not now"
+        />
+      ) : (
+        <p className="min-w-0 text-sm leading-relaxed text-muted-foreground sm:text-base">
           {message}
         </p>
-      </div>
+      )}
 
       <div className="flex min-w-0 flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap sm:items-center">
         {showSignInLink ? (
