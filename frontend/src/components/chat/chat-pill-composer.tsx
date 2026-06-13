@@ -58,7 +58,7 @@ export function ChatPillComposer({
     >
       <button
         type="button"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
+        className="flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-muted-foreground transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
         aria-label="Attach (coming soon)"
       >
         <Plus className="h-5 w-5 stroke-[1.5]" />
@@ -74,7 +74,7 @@ export function ChatPillComposer({
       />
       <button
         type="button"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
+        className="flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-muted-foreground transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
         aria-label="Voice input (coming soon)"
       >
         <Mic className="h-5 w-5 stroke-[1.5]" />

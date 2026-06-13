@@ -105,7 +105,7 @@ export function ChatOutlineSidecard({
           "chat-pane-scroll mt-4 min-h-0 pr-1",
           isSidebar
             ? "flex-1 overflow-y-auto overscroll-contain"
-            : "max-h-[50vh] overflow-y-auto overscroll-contain sm:max-h-[55vh]",
+            : "max-h-[50dvh] overflow-y-auto overscroll-contain sm:max-h-[55dvh]",
         )}
       >
         <OutlineChapters chapters={safe.chapters} />
