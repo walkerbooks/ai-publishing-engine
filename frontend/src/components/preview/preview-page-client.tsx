@@ -85,7 +85,7 @@ export function PreviewPageClient({ bookId }: Props) {
     <div className="mx-auto max-w-3xl px-4 py-8">
       <BookSubnav bookId={bookId} />
       <h1 className="text-2xl font-semibold">Preview</h1>
-      <div className="mt-6 max-h-[70vh] overflow-y-auto rounded-lg border border-slate-200 p-4">
+      <div className="mt-6 max-h-[70dvh] overflow-y-auto rounded-lg border border-slate-200 p-4">
         {showStream || preview ? (
           <MarkdownBody markdown={showStream ? stream : preview} />
         ) : (

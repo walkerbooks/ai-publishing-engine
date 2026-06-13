@@ -77,14 +77,14 @@ export function HomeLanding() {
                 asChild
                 size="lg"
                 className={cn(
-                  "group h-12 w-full whitespace-nowrap rounded-xl border-0 bg-walker-teal px-6 text-base font-semibold text-walker-charcoal shadow-lg shadow-black/20 sm:px-8",
+                  "group h-12 w-full rounded-xl border-0 bg-walker-teal px-6 text-base font-semibold text-walker-charcoal shadow-lg shadow-black/20 sm:px-8 sm:whitespace-nowrap",
                   "transition-all duration-200 hover:bg-walker-teal hover:brightness-110 hover:shadow-xl hover:shadow-walker-teal/20",
                   "dark:bg-walker-teal dark:text-walker-charcoal dark:hover:bg-walker-teal dark:hover:brightness-110",
                   "focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2 focus-visible:ring-offset-walker-mist dark:focus-visible:ring-offset-walker-charcoal",
                   "sm:w-auto sm:min-w-0",
                 )}
               >
-                <Link href="/chat?new=1" className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+                <Link href="/chat?new=1" className="inline-flex items-center justify-center gap-2 sm:whitespace-nowrap">
                   Start your book in chat
                   <ChevronRight
                     className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5"

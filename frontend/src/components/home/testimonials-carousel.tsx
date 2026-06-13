@@ -188,10 +188,10 @@ export function TestimonialsCarousel() {
                   aria-label={`Show testimonial from ${t.name}`}
                   onClick={() => scrollToIndex(i)}
                   className={cn(
-                    "h-2.5 rounded-full transition-all touch-manipulation",
+                    "h-3 rounded-full transition-all touch-manipulation",
                     i === activeIndex
-                      ? "w-7 bg-walker-teal"
-                      : "w-2.5 bg-walker-navy/25 hover:bg-walker-navy/40 dark:bg-white/25 dark:hover:bg-white/40",
+                      ? "w-8 bg-walker-teal"
+                      : "w-3 bg-walker-navy/25 hover:bg-walker-navy/40 dark:bg-white/25 dark:hover:bg-white/40",
                   )}
                 />
               ))}
