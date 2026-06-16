@@ -8,7 +8,11 @@ import {
   Eye,
   ListOrdered,
   MessageCircle,
+  Palette,
+  ShieldCheck,
   Sparkles,
+  Wand2,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TestimonialsCarousel } from "@/components/home/testimonials-carousel";
@@ -18,7 +22,7 @@ const steps = [
   {
     icon: MessageCircle,
     title: "Tell us your vision",
-    body: "Genre, audience, tone, and goals — a quick chat so we understand the book you want.",
+    body: "Genre, audience, tone, and goals, plus a quick chat so we understand the book you want.",
   },
   {
     icon: ListOrdered,
@@ -32,8 +36,31 @@ const steps = [
   },
   {
     icon: BookOpen,
-    title: "Publish-ready path",
-    body: "Move from idea to full manuscript with a guided workflow built for indie authors.",
+    title: "Publish ready path",
+    body: "Move from idea to full manuscript with a guided workflow that fits real life, not just ideal weekends.",
+  },
+] as const;
+
+const whyFeatures = [
+  {
+    icon: Wand2,
+    title: "Coauthor, not autopilot",
+    body: "WalkerBook nudges structure, voice, and pacing while you steer, so drafts feel like yours, not a template.",
+  },
+  {
+    icon: Palette,
+    title: "Covers that turn heads",
+    body: "Spin up cover directions fast, iterate on mood and typography, and land a look that belongs on a real shelf.",
+  },
+  {
+    icon: Zap,
+    title: "Progress you can feel",
+    body: "Outline, sample chapter, full manuscript, and each hop is visible, so momentum beats the blank page spiral.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Your book, your keys",
+    body: "You keep ownership of what you create. We’re the workshop lights, and you walk out with the manuscript.",
   },
 ] as const;
 
@@ -47,7 +74,7 @@ export function HomeLanding() {
           */}
           <div className="w-full max-w-lg leading-none">
             <Image
-              src="/walkerbook/Walkerbook-transparent.png"
+              src="/walkerbook/walkerbook-transparent.png"
               alt="WalkerBook — Where stories begin their journey"
               width={360}
               height={120}
@@ -130,53 +157,111 @@ export function HomeLanding() {
 
       <section
         id="how-it-works"
-        className="scroll-mt-[calc(3.5rem+0.125rem)] sm:scroll-mt-[calc(5rem+0.125rem)] relative bg-background px-4 py-16 sm:py-20"
+        className="scroll-mt-[calc(3.5rem+0.125rem)] sm:scroll-mt-[calc(5rem+0.125rem)] relative bg-background px-4 py-10 sm:py-12"
       >
         <div className="mx-auto max-w-5xl">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
               How your book comes to life
             </h2>
-            <p className="mt-3 text-muted-foreground">
-              Same journey you&apos;ll see in chat — clear stages, no guesswork.
+            <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+              Same journey you&apos;ll see in chat, with clear stages and no guesswork.
             </p>
           </div>
 
-          <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+          <ul className="mt-7 grid gap-4 sm:grid-cols-2 sm:gap-4 lg:mt-8 lg:grid-cols-4 lg:gap-4">
             {steps.map(({ icon: Icon, title, body }, i) => (
               <li key={title}>
                 <article
                   className={cn(
-                    "group relative flex h-full flex-col rounded-2xl border border-border bg-walker-mist/60 p-5 shadow-sm",
+                    "group relative flex h-full flex-col rounded-2xl border border-border bg-walker-mist/60 p-4 shadow-sm",
                     "transition-all duration-200 hover:border-walker-navy/25 hover:bg-background hover:shadow-md",
                     "dark:bg-muted/40 dark:hover:border-walker-slate/35",
                   )}
                 >
-                  <div className="mb-3 flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-walker-navy text-walker-mist shadow-md shadow-walker-navy/25 transition-transform duration-200 group-hover:scale-105">
-                      <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
+                  <div className="mb-2 flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-walker-navy text-walker-mist shadow-md shadow-walker-navy/25 transition-transform duration-200 group-hover:scale-105">
+                      <Icon className="h-4 w-4" strokeWidth={2} aria-hidden />
                     </span>
                     <span className="text-xs font-bold uppercase tracking-wide text-walker-slate dark:text-walker-slate">
                       Step {i + 1}
                     </span>
                   </div>
                   <h3 className="text-base font-semibold text-foreground">{title}</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{body}</p>
+                  <p className="mt-1.5 flex-1 text-sm leading-relaxed text-muted-foreground">{body}</p>
                 </article>
               </li>
             ))}
           </ul>
+        </div>
+      </section>
 
-          <div className="mt-14 flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-walker-navy/20 bg-walker-mist/70 px-6 py-8 text-center dark:border-walker-slate/30 dark:bg-walker-navy/25 sm:flex-row sm:px-10">
-            <p className="max-w-md text-sm leading-relaxed text-muted-foreground sm:text-left">
-              <span className="font-semibold text-foreground">Ready when you are.</span> Open chat
-              and describe your dream book — we&apos;ll meet you there.
+      <section
+        id="why-walkerbook"
+        className="bg-background px-4 pb-12 pt-8 sm:pb-16 sm:pt-10"
+      >
+        <div className="mx-auto max-w-5xl">
+          <div className="grid gap-12 lg:grid-cols-2 lg:items-start lg:gap-14 xl:gap-16">
+            <div className="max-w-lg lg:mx-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-walker-teal dark:text-walker-teal">
+                Why WalkerBook
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-walker-charcoal dark:text-walker-mist sm:text-4xl">
+                Publishing help that actually fits your life
+              </h2>
+              <p className="mt-4 text-pretty text-base leading-relaxed text-walker-navy/90 dark:text-walker-mist/85 sm:text-lg">
+                Most of us juggle day jobs, doubt, and crowded calendars. WalkerBook is built for that reality, with fast
+                wins, honest guardrails, and a workflow that respects your voice from day one.
+              </p>
+            </div>
+
+            <ul className="grid gap-8 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-10 lg:mt-6">
+              {whyFeatures.map(({ icon: Icon, title, body }) => (
+                <li key={title}>
+                  <article className="flex h-full flex-col bg-transparent py-1">
+                    <div
+                      className={cn(
+                        "mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-violet-200 text-walker-navy",
+                        "dark:bg-walker-slate/40 dark:text-walker-mist",
+                      )}
+                    >
+                      <Icon className="h-6 w-6" strokeWidth={2} aria-hidden />
+                    </div>
+                    <h3 className="text-sm font-bold uppercase leading-snug tracking-wide text-walker-charcoal dark:text-walker-mist">
+                      {title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
+                  </article>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section
+        aria-label="Start your book in chat"
+        className="bg-background px-4 pb-16 pt-8 sm:pb-20 sm:pt-10"
+      >
+        <div className="mx-auto max-w-5xl">
+          <div
+            className={cn(
+              "flex flex-col items-stretch justify-between gap-6 rounded-2xl border border-dashed border-white/20",
+              "bg-walker-night px-6 py-8 text-center shadow-lg shadow-black/20 sm:flex-row sm:items-center sm:px-10 sm:text-left",
+            )}
+          >
+            <p className="max-w-xl text-sm leading-relaxed text-walker-mist/90 sm:flex-1">
+              <span className="font-semibold text-white">Ready when you are.</span>{" "}
+              Open chat and describe your dream book, and we&apos;ll meet you there.
             </p>
             <Button
               asChild
               variant="outline"
               size="lg"
-              className="shrink-0 rounded-xl"
+              className={cn(
+                "shrink-0 self-center rounded-xl border-white/35 bg-transparent text-white",
+                "hover:bg-white/10 hover:text-white sm:self-auto",
+              )}
             >
               <Link href="/chat" className="inline-flex items-center gap-2">
                 Open chat

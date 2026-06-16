@@ -120,10 +120,7 @@ export function SubscriptionInactiveBanner() {
   return (
     <div
       className={cn(
-        "fixed left-4 right-4 z-50 mx-auto max-w-md",
-        isChatRoute
-          ? "top-[calc(4rem+0.125rem)] sm:top-[calc(5rem+0.125rem)]"
-          : "bottom-4 sm:left-auto sm:right-4 sm:mx-0",
+        "fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md sm:left-auto sm:right-4 sm:mx-0",
       )}
     >
       <UserErrorBanner
