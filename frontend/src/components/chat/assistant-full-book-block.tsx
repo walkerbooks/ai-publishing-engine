@@ -174,14 +174,14 @@ export function AssistantFullBookBlock({
           ) : null}
           <div className="overflow-hidden rounded-md border border-border/60 dark:border-white/10">
             {pdfLoading ? (
-              <div className="flex h-[70vh] items-center justify-center bg-muted/30 text-sm text-muted-foreground">
+              <div className="flex h-[70dvh] items-center justify-center bg-muted/30 text-sm text-muted-foreground">
                 Loading PDF…
               </div>
             ) : pdfBlobUrl ? (
               <iframe
                 src={pdfBlobUrl}
                 title={bookTitle ? `${bookTitle} PDF preview` : "PDF preview"}
-                className="h-[70vh] w-full bg-white"
+                className="h-[70dvh] w-full bg-white"
               />
             ) : !mappedPdfLoadError ? (
               <div className="flex h-[40vh] items-center justify-center bg-muted/20 text-sm text-muted-foreground">

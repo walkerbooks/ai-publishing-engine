@@ -18,7 +18,7 @@ export function AssistantPreviewBlock({ markdown, chrome = "card" }: Props) {
           "rounded-none border-0 bg-transparent p-0 shadow-none dark:border-0 dark:bg-transparent",
       )}
     >
-      <div className="max-h-[60vh] overflow-y-auto rounded-md">
+      <div className="max-h-[60dvh] overflow-y-auto rounded-md">
         <MarkdownBody markdown={markdown} />
       </div>
     </div>

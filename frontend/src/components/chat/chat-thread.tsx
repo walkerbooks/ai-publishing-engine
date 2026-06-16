@@ -138,17 +138,17 @@ export function ChatThread({
               </div>
             ) : null}
             {showBookKickoffChoices && i === lastIdx ? (
-              <div className="mt-2 flex justify-end gap-2">
+              <div className="mt-2 flex w-full max-w-[min(100%,36rem)] flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  className="rounded-xl bg-[#1e3a5f] px-3 py-2 text-sm text-white shadow transition hover:bg-[#274b79] dark:bg-zinc-700 dark:hover:bg-zinc-600"
+                  className="rounded-xl bg-[#1e3a5f] px-3 py-2.5 text-sm text-white shadow transition hover:bg-[#274b79] dark:bg-zinc-700 dark:hover:bg-zinc-600 sm:py-2"
                   onClick={() => onBookKickoffOptionSelect?.("start_together")}
                 >
                   No, let's build it together
                 </button>
                 <button
                   type="button"
-                  className="rounded-xl bg-[#1e3a5f] px-3 py-2 text-sm text-white shadow transition hover:bg-[#274b79] dark:bg-zinc-700 dark:hover:bg-zinc-600"
+                  className="rounded-xl bg-[#1e3a5f] px-3 py-2.5 text-sm text-white shadow transition hover:bg-[#274b79] dark:bg-zinc-700 dark:hover:bg-zinc-600 sm:py-2"
                   onClick={() => onBookKickoffOptionSelect?.("complete_idea")}
                 >
                   I have a full concept ready

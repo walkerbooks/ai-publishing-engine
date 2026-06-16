@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
   fetchSubscriptionEntitlement,
@@ -22,6 +23,8 @@ type BannerMode = "hidden" | "no_credits" | "cooldown";
  * Dismissal is per-notice kind, tab session only (sessionStorage).
  */
 export function SubscriptionInactiveBanner() {
+  const pathname = usePathname();
+  const isChatRoute = pathname === "/chat" || pathname.startsWith("/chat/");
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [hydrated, setHydrated] = useState(false);
   const [dismissedNoCredits, setDismissedNoCredits] = useState(false);
