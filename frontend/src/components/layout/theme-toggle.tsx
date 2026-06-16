@@ -37,7 +37,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         type="button"
         onClick={() => setTheme("light")}
         className={cn(
-          "flex h-8 w-9 items-center justify-center rounded-md text-sm transition-colors",
+          "flex h-9 w-10 touch-manipulation items-center justify-center rounded-md text-sm transition-colors",
           !isDark
             ? "bg-background text-foreground shadow-sm"
             : "text-muted-foreground hover:text-foreground",
@@ -51,7 +51,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         type="button"
         onClick={() => setTheme("dark")}
         className={cn(
-          "flex h-8 w-9 items-center justify-center rounded-md text-sm transition-colors",
+          "flex h-9 w-10 touch-manipulation items-center justify-center rounded-md text-sm transition-colors",
           isDark
             ? "bg-background text-foreground shadow-sm"
             : "text-muted-foreground hover:text-foreground",

@@ -73,7 +73,7 @@ export function ChatMessageRow({
               <img
                 src={message.coverImageDataUrl}
                 alt="Generated book cover"
-                className="max-h-[min(85vh,720px)] w-auto max-w-full rounded-lg border border-slate-200/80 object-contain shadow-md dark:border-white/10"
+                className="max-h-[min(85dvh,720px)] w-auto max-w-full rounded-lg border border-slate-200/80 object-contain shadow-md dark:border-white/10"
               />
             ) : null}
           </div>

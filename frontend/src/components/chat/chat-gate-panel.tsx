@@ -203,7 +203,7 @@ function CoverVariantMobileStack({
                 setActive(i);
               }}
               className={cn(
-                "h-2.5 w-2.5 rounded-full transition-colors",
+                "h-3 w-3 rounded-full transition-colors touch-manipulation",
                 i === active
                   ? "bg-slate-800 dark:bg-zinc-100"
                   : "bg-slate-300 hover:bg-slate-400 dark:bg-white/25 dark:hover:bg-white/40",

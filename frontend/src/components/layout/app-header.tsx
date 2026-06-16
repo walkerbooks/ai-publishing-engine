@@ -2,11 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { Menu, X } from "lucide-react";
 import { LoginForm } from "@/components/auth/login-form";
 import { SignupForm } from "@/components/auth/signup-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { useAppNavItems } from "@/components/layout/use-app-nav-items";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,13 +21,17 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useAuthDialogRequestStore } from "@/stores/auth-dialog-request-store";
 import { cn } from "@/lib/utils/cn";
 
-export function AppHeader() {
+type Props = {
+  mobileNavOpen?: boolean;
+  onMobileNavToggle?: () => void;
+};
+
+export function AppHeader({ mobileNavOpen = false, onMobileNavToggle }: Props) {
   const router = useRouter();
-  const pathname = usePathname();
+  const navItems = useAppNavItems();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const email = useAuthStore((s) => s.email);
   const firstName = useAuthStore((s) => s.firstName);
-  const role = useAuthStore((s) => s.role);
   const logout = useAuthStore((s) => s.logout);
   const reloginPrompt = useAuthStore((s) => s.reloginPrompt);
   const clearReloginPrompt = useAuthStore((s) => s.clearReloginPrompt);
@@ -70,8 +76,8 @@ export function AppHeader() {
 
   const navLinkClass = (active: boolean) =>
     cn(
-      "shrink-0 whitespace-nowrap rounded-lg text-left font-medium touch-manipulation transition-colors",
-      "px-1.5 py-1.5 text-[11px] leading-tight min-[380px]:px-2 min-[380px]:text-xs sm:px-3 sm:py-2 sm:text-sm",
+      "inline-flex min-h-[44px] shrink-0 items-center whitespace-nowrap rounded-lg text-left text-sm font-medium touch-manipulation transition-colors",
+      "px-3 py-2",
       active
         ? "bg-slate-200/90 text-[#1f4c85] dark:bg-white/15 dark:text-white"
         : "text-walker-navy/90 hover:bg-slate-100/80 hover:text-walker-charcoal dark:text-walker-mist/85 dark:hover:bg-white/10 dark:hover:text-white",
@@ -80,11 +86,30 @@ export function AppHeader() {
   return (
     <header
       data-app-header
-      className="min-h-16 shrink-0 border-b border-walker-navy/15 bg-walker-mist/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-walker-mist/85 dark:border-walker-navy/40 dark:bg-walker-night supports-[backdrop-filter]:dark:bg-walker-night sm:min-h-18 sm:py-2"
+      className="relative z-50 min-h-16 shrink-0 border-b border-walker-navy/15 bg-walker-mist/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-walker-mist/85 dark:border-walker-navy/40 dark:bg-walker-night supports-[backdrop-filter]:dark:bg-walker-night sm:min-h-18 sm:py-2"
     >
       <div className="mx-auto min-h-0 min-w-0 w-full max-w-5xl px-2 min-[380px]:px-3 sm:px-4">
-        <div className="flex min-h-0 min-w-0 flex-nowrap items-center justify-between gap-1.5 min-[380px]:gap-2 sm:gap-4">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-nowrap items-center justify-start gap-1.5 overflow-hidden min-[380px]:gap-2 sm:gap-3">
+        <div className="flex min-h-0 min-w-0 flex-nowrap items-center justify-between gap-2 sm:gap-4">
+          <div className="flex min-h-0 min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              className={cn(
+                "flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-xl border transition-colors sm:hidden",
+                mobileNavOpen
+                  ? "border-walker-teal/40 bg-walker-teal/15 text-walker-navy dark:border-walker-teal/50 dark:bg-walker-teal/20 dark:text-walker-mist"
+                  : "border-walker-navy/20 bg-white/60 text-walker-navy hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-walker-mist dark:hover:bg-white/10",
+              )}
+              aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileNavOpen}
+              onClick={onMobileNavToggle}
+            >
+              {mobileNavOpen ? (
+                <X className="h-5 w-5" strokeWidth={1.75} />
+              ) : (
+                <Menu className="h-5 w-5" strokeWidth={1.75} />
+              )}
+            </button>
+
             <Link
               href="/"
               className={cn(
@@ -101,96 +126,76 @@ export function AppHeader() {
                 priority
               />
             </Link>
+
             <nav
-              className={cn(
-                "flex min-h-0 min-w-0 flex-1 flex-nowrap items-center justify-start gap-x-0 overflow-x-auto overscroll-x-contain",
-                "touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] min-[380px]:gap-x-0.5 sm:gap-x-1 [&::-webkit-scrollbar]:hidden",
-              )}
+              className="hidden min-h-0 min-w-0 flex-1 flex-nowrap items-center gap-1 sm:flex"
               aria-label="Primary"
             >
-              <Link href="/" className={navLinkClass(pathname === "/")}>
-                Home
-              </Link>
-              <Link
-                href={role === "admin" ? "/chat?app=1&new=1" : "/chat?new=1"}
-                className={navLinkClass(pathname === "/chat")}
-              >
-                Chat
-              </Link>
-              {role === "admin" ? (
-                <Link href="/admin" className={navLinkClass(pathname.startsWith("/admin"))}>
-                  Dashboard
+              {navItems.map((item) => (
+                <Link
+                  key={`${item.href}-${item.label}`}
+                  href={item.href}
+                  className={navLinkClass(item.active)}
+                  onClick={item.onClick}
+                >
+                  {item.label}
                 </Link>
-              ) : null}
-              <Link
-                href="/#how-it-works"
-                className={navLinkClass(false)}
-                onClick={(e) => {
-                  if (pathname !== "/") return;
-                  e.preventDefault();
-                  const id = "how-it-works";
-                  const el = document.getElementById(id);
-                  el?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  if (typeof window !== "undefined") {
-                    window.history.pushState(null, "", `${window.location.pathname}#${id}`);
-                  }
-                }}
-              >
-                How it works
-              </Link>
+              ))}
             </nav>
           </div>
 
           <div className="flex shrink-0 items-center justify-end gap-1 min-[380px]:gap-1.5 sm:gap-3">
-            <ThemeToggle className="origin-right scale-[0.88] min-[380px]:scale-95 sm:scale-100" />
-            {isAuthenticated ? (
-              <>
-                <span
-                  className={cn(
-                    "hidden min-[420px]:inline max-w-[min(7rem,22vw)] truncate text-[11px] text-muted-foreground sm:max-w-[220px] sm:text-sm",
-                    greetingName ? "" : "italic",
-                  )}
-                  title={email ?? undefined}
-                >
-                  {greetingName ? `Hi, ${greetingName}` : "Signed in"}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  className="h-8 shrink-0 touch-manipulation px-2 text-[11px] min-[380px]:h-9 min-[380px]:px-2.5 min-[380px]:text-xs sm:h-10 sm:px-4 sm:text-sm"
-                  onClick={onLogout}
-                >
-                  Log out
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  className="h-8 shrink-0 touch-manipulation px-2 text-[11px] min-[380px]:h-9 min-[380px]:px-2.5 min-[380px]:text-xs sm:h-10 sm:px-4 sm:text-sm"
-                  onClick={() => {
-                    setSignupOpen(false);
-                    setLoginOpen(true);
-                  }}
-                >
-                  Log in
-                </Button>
-                <Button
-                  size="sm"
-                  type="button"
-                  className="h-8 shrink-0 touch-manipulation px-2 text-[11px] min-[380px]:h-9 min-[380px]:px-2.5 min-[380px]:text-xs sm:h-10 sm:px-4 sm:text-sm"
-                  onClick={() => {
-                    setLoginOpen(false);
-                    setSignupOpen(true);
-                  }}
-                >
-                  Sign up
-                </Button>
-              </>
-            )}
+            <ThemeToggle className="hidden sm:inline-flex" />
+            <div className="flex items-center gap-1 min-[380px]:gap-1.5 sm:gap-3">
+              {isAuthenticated ? (
+                <>
+                  <span
+                    className={cn(
+                      "hidden min-[420px]:inline max-w-[min(7rem,22vw)] truncate text-xs text-muted-foreground sm:max-w-[220px] sm:text-sm",
+                      greetingName ? "" : "italic",
+                    )}
+                    title={email ?? undefined}
+                  >
+                    {greetingName ? `Hi, ${greetingName}` : "Signed in"}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    className="h-9 min-h-[44px] shrink-0 touch-manipulation px-2.5 text-xs min-[380px]:px-3 sm:h-10 sm:px-4 sm:text-sm"
+                    onClick={onLogout}
+                  >
+                    Log out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    className="h-9 min-h-[44px] shrink-0 touch-manipulation px-2.5 text-xs min-[380px]:px-3 sm:h-10 sm:px-4 sm:text-sm"
+                    onClick={() => {
+                      setSignupOpen(false);
+                      setLoginOpen(true);
+                    }}
+                  >
+                    Log in
+                  </Button>
+                  <Button
+                    size="sm"
+                    type="button"
+                    className="h-9 min-h-[44px] shrink-0 touch-manipulation px-2.5 text-xs min-[380px]:px-3 sm:h-10 sm:px-4 sm:text-sm"
+                    onClick={() => {
+                      setLoginOpen(false);
+                      setSignupOpen(true);
+                    }}
+                  >
+                    Sign up
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
