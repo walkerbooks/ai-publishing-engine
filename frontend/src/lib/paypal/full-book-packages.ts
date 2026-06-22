@@ -49,7 +49,7 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
   },
   {
     tier: "triple",
-    name: "Triple Pack",
+    name: "WalkerBook Club",
     priceLabel: "$29.99",
     frequencyLabel: "One Time",
     features: [

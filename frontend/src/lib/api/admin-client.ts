@@ -64,3 +64,73 @@ export async function fetchBookFunnel(
   log.debug("admin book-funnel succeeded");
   return res.json() as Promise<BookFunnelResponse>;
 }
+
+export type FeedbackCategory = "general" | "product" | "bug" | "feature" | "other";
+
+export type AdminFeedbackItem = {
+  id: string;
+  category: FeedbackCategory;
+  message: string;
+  name?: string | null;
+  email?: string | null;
+  user_id?: number | null;
+  user_email?: string | null;
+  guest_session_id?: string | null;
+  client_ip?: string | null;
+  user_agent?: string | null;
+  has_video: boolean;
+  video_mime_type?: string | null;
+  video_size_bytes?: number | null;
+  video_original_name?: string | null;
+  video_download_url?: string | null;
+  video_download_expires_in?: string | null;
+  email_sent_at?: string | null;
+  created_at: string;
+};
+
+export type AdminFeedbackListResponse = {
+  items: AdminFeedbackItem[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type FetchAdminFeedbackOpts = {
+  limit?: number;
+  offset?: number;
+  category?: FeedbackCategory | "";
+};
+
+export async function fetchAdminFeedback(
+  accessToken: string,
+  opts?: FetchAdminFeedbackOpts,
+): Promise<AdminFeedbackListResponse> {
+  const params = new URLSearchParams();
+  if (opts?.limit != null) params.set("limit", String(opts.limit));
+  if (opts?.offset != null) params.set("offset", String(opts.offset));
+  if (opts?.category) params.set("category", opts.category);
+  const q = params.toString();
+  const url = `${GO_API_PREFIX}/v1/admin/feedback${q ? `?${q}` : ""}`;
+  const res = await fetch(url, { headers: goAuthHeaders(accessToken) });
+  if (!res.ok) {
+    log.warning(`admin/feedback list failed: HTTP ${res.status}`);
+    await throwIfGoResponseFailed(res);
+  }
+  log.debug("admin/feedback list succeeded");
+  return res.json() as Promise<AdminFeedbackListResponse>;
+}
+
+export async function fetchAdminFeedbackById(
+  accessToken: string,
+  id: string,
+): Promise<AdminFeedbackItem> {
+  const res = await fetch(`${GO_API_PREFIX}/v1/admin/feedback/${encodeURIComponent(id)}`, {
+    headers: goAuthHeaders(accessToken),
+  });
+  if (!res.ok) {
+    log.warning(`admin/feedback get failed: HTTP ${res.status}`);
+    await throwIfGoResponseFailed(res);
+  }
+  log.debug("admin/feedback get succeeded");
+  return res.json() as Promise<AdminFeedbackItem>;
+}
