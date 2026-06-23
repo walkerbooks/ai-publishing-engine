@@ -15,6 +15,8 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HomeFeedbackSection } from "@/components/home/home-feedback-section";
+import { HomePricingSection } from "@/components/home/home-pricing-section";
 import { TestimonialsCarousel } from "@/components/home/testimonials-carousel";
 import { cn } from "@/lib/utils/cn";
 
@@ -273,6 +275,8 @@ export function HomeLanding() {
       </section>
 
       <TestimonialsCarousel />
+      <HomePricingSection />
+      <HomeFeedbackSection />
     </div>
   );
 }

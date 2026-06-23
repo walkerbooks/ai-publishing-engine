@@ -35,6 +35,11 @@ export function useAppNavItems(): AppNavItem[] {
         active: pathname === "/chat",
       },
     ];
+    items.push({
+      href: "/pricing",
+      label: "Pricing",
+      active: pathname === "/pricing",
+    });
     if (role === "admin") {
       items.push({
         href: "/admin",

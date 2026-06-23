@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { AdminBookFunnel } from "@/components/admin/admin-book-funnel";
+import { AdminFeedback } from "@/components/admin/admin-feedback";
 import { fetchAdminStats } from "@/lib/api/admin-client";
 import { getAccessToken } from "@/lib/auth/access-token";
 import { Button } from "@/components/ui/button";
@@ -169,11 +170,12 @@ export function AdminDashboard() {
 
         <AdminBookFunnel />
 
+        <AdminFeedback />
+
         <section className="mt-14 border-t border-slate-800 pt-10">
           <h3 className="text-lg font-semibold text-slate-200">Suggested next metrics</h3>
           <p className="mt-2 max-w-2xl text-sm text-slate-400">
-            Ideas for later: revenue / PayPal totals, conversation volume, generation job health,
-            promotion signups.
+            Ideas for later: revenue / PayPal totals, conversation volume, generation job health.
           </p>
         </section>
       </main>
