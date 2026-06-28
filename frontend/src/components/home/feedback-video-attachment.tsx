@@ -367,7 +367,12 @@ function FeedbackVideoRecorderDialog({ open, onOpenChange, onRecorded }: Recorde
                 Start recording
               </Button>
             ) : (
-              <Button type="button" variant="destructive" onClick={stopRecording} className="rounded-xl">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={stopRecording}
+                className="rounded-xl border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
+              >
                 <Square className="mr-2 h-4 w-4 fill-current" aria-hidden />
                 Stop
               </Button>
