@@ -57,6 +57,11 @@ export function TestimonialsCarousel() {
       const reduced =
         typeof window !== "undefined" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      setActiveIndex(next);
+      const next = Math.max(0, Math.min(count - 1, index));
+      const reduced =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       el.scrollTo({
         left: next * el.clientWidth,
         behavior: reduced ? "auto" : "smooth",
@@ -160,6 +165,10 @@ export function TestimonialsCarousel() {
               className={cn(
                 "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
                 "hover:border-walker-teal/40 hover:bg-walker-mist/80",
+              disabled={!canScrollPrev}
+              className={cn(
+                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
+                "hover:border-walker-teal/40 hover:bg-walker-mist/80",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2",
                 "dark:border-white/15 dark:bg-walker-night dark:hover:bg-walker-nightPanel",
                 "touch-manipulation",
@@ -195,6 +204,10 @@ export function TestimonialsCarousel() {
             <button
               type="button"
               onClick={goNext}
+              className={cn(
+                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
+                "hover:border-walker-teal/40 hover:bg-walker-mist/80",
+              disabled={!canScrollNext}
               className={cn(
                 "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
                 "hover:border-walker-teal/40 hover:bg-walker-mist/80",

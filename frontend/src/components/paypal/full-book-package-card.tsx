@@ -9,6 +9,7 @@ const PRICE_LAVENDER = "#C9B8E8";
 type Props = {
   pkg: FullBookPackage;
   ctaLabel?: string;
+  ctaLabel: string;
   onCtaClick?: () => void;
   ctaHref?: string;
   loading?: boolean;
@@ -88,6 +89,9 @@ export function FullBookPackageCard({
                 : "bg-slate-50 dark:bg-white/5",
             )}
           >
+      <ul className="flex flex-1 flex-col divide-y divide-slate-200 bg-white px-1 py-0 text-center text-[13px] leading-snug text-slate-600 dark:divide-white/10 dark:bg-zinc-950 dark:text-zinc-300 sm:text-sm">
+        {pkg.features.map((line) => (
+          <li key={line} className="px-3 py-2.5">
             {line}
           </li>
         ))}
@@ -133,6 +137,7 @@ export function FullBookPackageCard({
               aria-hidden
             />
             {resolvedCtaLabel}
+            {ctaLabel}
           </Link>
         ) : (
           <button
@@ -147,6 +152,7 @@ export function FullBookPackageCard({
               aria-hidden
             />
             {loading ? "Opening PayPal…" : resolvedCtaLabel}
+            {loading ? "Opening PayPal…" : ctaLabel}
           </button>
         )}
       </div>

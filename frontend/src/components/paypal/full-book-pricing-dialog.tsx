@@ -92,6 +92,7 @@ export function FullBookPricingDialog({
             <FullBookPackageCard
               key={pkg.tier}
               pkg={pkg}
+              ctaLabel="Buy now"
               loading={loading}
               disabled={loading}
               onCtaClick={() => onBuy(pkg.tier, { includeCover })}
