@@ -10,7 +10,7 @@ export const TESTIMONIALS: Testimonial[] = [
   {
     id: "maya",
     quote:
-      "I had notes everywhere and no clear path. The chat pulled out a title, audience, and chapter plan in one sitting — I finally felt like I was writing a real book, not just dreaming about one.",
+      "I had notes everywhere and no clear path. The chat pulled out a title, audience, and chapter plan in one sitting. I finally felt like I was writing a real book, not just dreaming about one.",
     name: "Maya R.",
     role: "Memoir author",
     book: "Letters I Never Sent",
@@ -26,7 +26,7 @@ export const TESTIMONIALS: Testimonial[] = [
   {
     id: "elena",
     quote:
-      "Outline first, then preview, then the full book — each step had a clear yes/no moment. I never felt pushed, and I could revise without starting over.",
+      "Outline first, then preview, then the full book. Each step had a clear yes/no moment. I never felt pushed, and I could revise without starting over.",
     name: "Elena V.",
     role: "First-time novelist",
     book: "The Lighthouse Keeper's Daughter",
@@ -42,7 +42,7 @@ export const TESTIMONIALS: Testimonial[] = [
   {
     id: "priya",
     quote:
-      "From rough idea to a PDF I could share with beta readers — the whole flow lived in one place. The cover step and full manuscript felt like natural next steps, not surprises.",
+      "From rough idea to a PDF I could share with beta readers, the whole flow lived in one place. The cover step and full manuscript felt like natural next steps, not surprises.",
     name: "Priya S.",
     role: "Wellness writer",
     book: "Small Rituals, Big Calm",

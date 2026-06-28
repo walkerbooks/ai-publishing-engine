@@ -15,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FaqSection } from "@/components/home/faq-section";
 import { HomeFeedbackSection } from "@/components/home/home-feedback-section";
 import { HomePricingSection } from "@/components/home/home-pricing-section";
 import { TestimonialsCarousel } from "@/components/home/testimonials-carousel";
@@ -77,7 +78,7 @@ export function HomeLanding() {
           <div className="w-full max-w-lg leading-none">
             <Image
               src="/walkerbook/walkerbook-transparent.png"
-              alt="WalkerBook — Where stories begin their journey"
+              alt="WalkerBook, where stories begin their journey"
               width={360}
               height={120}
               className="mx-auto block h-auto w-full max-w-sm sm:max-w-md dark:drop-shadow-[0_4px_28px_rgba(0,0,0,0.35)]"
@@ -88,7 +89,7 @@ export function HomeLanding() {
           <div className="mt-8 flex w-full max-w-3xl flex-col items-center gap-4 sm:mt-10 sm:gap-5">
             <p className="inline-flex items-center gap-2 rounded-full border border-walker-navy/20 bg-white/90 px-3 py-0.5 text-xs font-medium uppercase tracking-widest text-walker-navy shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-walker-navy/30 dark:text-walker-mist">
               <Sparkles className="h-3.5 w-3.5 text-walker-slate dark:text-walker-mist/90" aria-hidden />
-              AI-assisted publishing
+              From idea to manuscript
             </p>
 
             <h1 className="text-balance text-4xl font-semibold tracking-tight text-walker-charcoal dark:text-walker-mist sm:text-5xl lg:text-[3.25rem] lg:leading-[1.06]">
@@ -97,7 +98,7 @@ export function HomeLanding() {
 
             <p className="max-w-xl text-pretty text-base leading-snug text-walker-navy/90 dark:text-walker-mist/85 sm:text-lg sm:leading-relaxed">
               Chat through your idea, lock an outline, preview your voice, then grow it into a full
-              manuscript — one friendly flow, no blank-page panic.
+              manuscript. One friendly flow, no blank-page panic.
             </p>
 
             <div className="flex w-full flex-col items-center gap-4 pt-2 sm:gap-5 sm:pt-4">
@@ -241,6 +242,11 @@ export function HomeLanding() {
         </div>
       </section>
 
+      <TestimonialsCarousel />
+      <HomePricingSection />
+      <FaqSection />
+      <HomeFeedbackSection />
+
       <section
         aria-label="Start your book in chat"
         className="bg-background px-4 pb-16 pt-8 sm:pb-20 sm:pt-10"
@@ -273,10 +279,6 @@ export function HomeLanding() {
           </div>
         </div>
       </section>
-
-      <TestimonialsCarousel />
-      <HomePricingSection />
-      <HomeFeedbackSection />
     </div>
   );
 }

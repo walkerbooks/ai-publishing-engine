@@ -57,7 +57,6 @@ export function TestimonialsCarousel() {
       const reduced =
         typeof window !== "undefined" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      setActiveIndex(next);
       el.scrollTo({
         left: next * el.clientWidth,
         behavior: reduced ? "auto" : "smooth",

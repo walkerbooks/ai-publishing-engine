@@ -1,11 +1,25 @@
 export type FullBookPackageTier = "single" | "double" | "triple";
 
+export type FullBookPackageBonusLink = {
+  prefix: string;
+  label: string;
+  href: string;
+};
+
+export type FullBookPackageBonusSection = {
+  title: string;
+  items: string[];
+  link?: FullBookPackageBonusLink;
+};
+
 export type FullBookPackage = {
   tier: FullBookPackageTier;
   name: string;
   priceLabel: string;
   frequencyLabel: string;
   features: string[];
+  bonusSections?: FullBookPackageBonusSection[];
+  ctaLabel: string;
 };
 
 /**
@@ -13,53 +27,87 @@ export type FullBookPackage = {
  * `include_cover` on checkout.
  */
 export const FULL_BOOK_COVER_ADDON_LABEL =
-  "Add AI cover art — three layout options after checkout ($1 add-on, one generation). You will choose one for your book and PDF.";
+  "Add AI cover art, three layout options after checkout ($1 add-on, one generation). You will choose one for your book and PDF.";
 
 /** Display copy; amounts are marketing labels — Go must map tier → PayPal amount / plan. */
 export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
   {
     tier: "single",
     name: "Single Book",
-    priceLabel: "$19.98",
-    frequencyLabel: "One Time",
+    priceLabel: "$19",
+    frequencyLabel: "One-Time",
+    ctaLabel: "Buy Now",
     features: [
       "1 fully personalized book",
-      "100+ pages per book",
+      "100+ professionally written pages",
       "Delivered in under 1 hour",
       "You define the topic, tone, and style",
       "Ready to publish, sell, or share (Amazon, Google Play, Apple Books)",
-      "Full ownership — 100% yours",
+      "Full ownership, 100% yours",
       "Includes .DOC (editable) and .PDF (ready-to-read)",
     ],
   },
   {
-    tier: "double",
-    name: "Double Book",
-    priceLabel: "$24.97",
-    frequencyLabel: "One Time",
+    tier: "triple",
+    name: "Triple Pack",
+    priceLabel: "$19",
+    frequencyLabel: "Per Month",
+    ctaLabel: "Subscribe",
     features: [
-      "2 fully personalized books",
+      "3 fully personalized books",
       "100+ pages per book",
-      "Delivered in under 1 hour each",
-      "You define topic, tone, and style per book",
+      "Delivered in under 1 hour",
+      "You define the topic, tone, and style",
       "Ready to publish, sell, or share (Amazon, Google Play, Apple Books)",
-      "Full ownership — 100% yours",
-      "Includes .DOC and .PDF for each title",
+      "Full ownership, 100% yours",
+      "Includes .DOC (editable) and .PDF (ready-to-read)",
+    ],
+    bonusSections: [
+      {
+        title: "BONUS",
+        items: [
+          "Access to your private member area: Triple Club Access",
+          "Welcome Guide: Triple Pack Welcome PDF",
+        ],
+      },
     ],
   },
   {
-    tier: "triple",
-    name: "WalkerBook Club",
-    priceLabel: "$29.99",
-    frequencyLabel: "One Time",
+    tier: "double",
+    name: "Daily Club",
+    priceLabel: "$49",
+    frequencyLabel: "Per Month",
+    ctaLabel: "Join Now",
     features: [
-      "3 fully personalized books",
-      "100+ professional written pages",
-      "Delivered in under 1 hour each",
-      "You define topic, tone, and style per book",
+      "Up to 31 fully personalized books (1 per day)",
+      "Up to 186 book covers (6 per day)",
+      "100+ pages per book",
+      "Delivered in under 1 hour",
+      "You define the topic, tone, and style",
       "Ready to publish, sell, or share (Amazon, Google Play, Apple Books)",
-      "Full ownership — 100% yours",
-      "Includes .DOC and .PDF for each title",
+      "Full ownership, 100% yours",
+      "Includes .DOC (editable) and .PDF (ready-to-read)",
+    ],
+    bonusSections: [
+      {
+        title: "Covers Bonus",
+        items: [
+          "6 professional cover designs per day, up to 186 per month!",
+          "Save time and money with ready-to-use, high-impact visuals for every book.",
+        ],
+        link: {
+          prefix: "See examples: ",
+          label: "Cover Pack Presentation",
+          href: "#cover-pack-presentation",
+        },
+      },
+      {
+        title: "Bonus",
+        items: [
+          "Access to your private member area: Daily Club Access",
+          "Welcome Guide: Daily Club Welcome PDF",
+        ],
+      },
     ],
   },
 ];
