@@ -69,7 +69,7 @@ const whyFeatures = [
 
 export function HomeLanding() {
   return (
-    <div className="min-h-[calc(100dvh-3.5rem)] sm:min-h-[calc(100dvh-5rem)]">
+    <div className="flex min-h-[calc(100dvh-3.5rem)] flex-col sm:min-h-[calc(100dvh-5rem)]">
       <section className="relative overflow-hidden border-b border-walker-navy/15 bg-walker-signature-soft dark:border-white/10 dark:[background-image:none] dark:bg-walker-night">
         <div className="relative mx-auto flex max-w-3xl flex-col items-center px-4 pt-10 pb-16 text-center sm:pt-12 sm:pb-20">
           {/*
@@ -249,13 +249,13 @@ export function HomeLanding() {
 
       <section
         aria-label="Start your book in chat"
-        className="bg-background px-4 pb-16 pt-8 sm:pb-20 sm:pt-10"
+        className="mt-auto flex flex-1 flex-col bg-walker-night px-4 pt-8 sm:pt-10"
       >
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col pb-8 sm:pb-10">
           <div
             className={cn(
-              "flex flex-col items-stretch justify-between gap-6 rounded-2xl border border-dashed border-white/20",
-              "bg-walker-night px-6 py-8 text-center shadow-lg shadow-black/20 sm:flex-row sm:items-center sm:px-10 sm:text-left",
+              "flex flex-1 flex-col items-stretch justify-center gap-6 rounded-2xl border border-dashed border-white/20",
+              "bg-walker-night px-6 py-8 text-center shadow-lg shadow-black/20 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:text-left",
             )}
           >
             <p className="max-w-xl text-sm leading-relaxed text-walker-mist/90 sm:flex-1">
@@ -279,10 +279,6 @@ export function HomeLanding() {
           </div>
         </div>
       </section>
-
-      <TestimonialsCarousel />
-      <HomePricingSection />
-      <HomeFeedbackSection />
     </div>
   );
 }
