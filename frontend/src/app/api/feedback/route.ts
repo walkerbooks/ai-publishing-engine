@@ -18,13 +18,17 @@ type FeedbackPayload = {
   video?: File;
 };
 
+type ParseFieldsResult =
+  | { error: string }
+  | { payload: FeedbackPayload };
+
 function parseFields(raw: {
   message?: string;
   category?: string;
   name?: string;
   email?: string;
   video?: File;
-}) {
+}): ParseFieldsResult {
   const message = raw.message?.trim() ?? "";
   const category = raw.category?.trim() ?? "general";
   const name = raw.name?.trim() || undefined;
@@ -32,20 +36,20 @@ function parseFields(raw: {
   const video = raw.video && raw.video.size > 0 ? raw.video : undefined;
 
   if (message.length < 10) {
-    return { error: "Please share at least 10 characters of feedback." as const };
+    return { error: "Please share at least 10 characters of feedback." };
   }
   if (message.length > 5000) {
-    return { error: "Feedback must be 5,000 characters or fewer." as const };
+    return { error: "Feedback must be 5,000 characters or fewer." };
   }
   if (!CATEGORIES.has(category)) {
-    return { error: "Please choose a valid feedback category." as const };
+    return { error: "Please choose a valid feedback category." };
   }
   if (email && !email.includes("@")) {
-    return { error: "Please enter a valid email address." as const };
+    return { error: "Please enter a valid email address." };
   }
   if (video) {
     const videoErr = validateFeedbackVideoFile(video);
-    if (videoErr) return { error: videoErr as const };
+    if (videoErr) return { error: videoErr };
   }
 
   return {
