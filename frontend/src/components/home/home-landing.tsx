@@ -279,10 +279,6 @@ export function HomeLanding() {
           </div>
         </div>
       </section>
-
-      <TestimonialsCarousel />
-      <HomePricingSection />
-      <HomeFeedbackSection />
     </div>
   );
 }
