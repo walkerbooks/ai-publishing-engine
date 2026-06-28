@@ -21,6 +21,14 @@ function StarRow() {
   );
 }
 
+const navButtonClass = cn(
+  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
+  "hover:border-walker-teal/40 hover:bg-walker-mist/80",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2",
+  "dark:border-white/15 dark:bg-walker-night dark:hover:bg-walker-nightPanel",
+  "touch-manipulation",
+);
+
 export function TestimonialsCarousel() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -54,11 +62,6 @@ export function TestimonialsCarousel() {
       const el = scrollerRef.current;
       if (!el) return;
       const next = ((index % count) + count) % count;
-      const reduced =
-        typeof window !== "undefined" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      setActiveIndex(next);
-      const next = Math.max(0, Math.min(count - 1, index));
       const reduced =
         typeof window !== "undefined" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -162,17 +165,7 @@ export function TestimonialsCarousel() {
             <button
               type="button"
               onClick={goPrev}
-              className={cn(
-                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
-                "hover:border-walker-teal/40 hover:bg-walker-mist/80",
-              disabled={!canScrollPrev}
-              className={cn(
-                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
-                "hover:border-walker-teal/40 hover:bg-walker-mist/80",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2",
-                "dark:border-white/15 dark:bg-walker-night dark:hover:bg-walker-nightPanel",
-                "touch-manipulation",
-              )}
+              className={navButtonClass}
               aria-label="Previous testimonial"
             >
               <ChevronLeft className="h-5 w-5" aria-hidden />
@@ -204,17 +197,7 @@ export function TestimonialsCarousel() {
             <button
               type="button"
               onClick={goNext}
-              className={cn(
-                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
-                "hover:border-walker-teal/40 hover:bg-walker-mist/80",
-              disabled={!canScrollNext}
-              className={cn(
-                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
-                "hover:border-walker-teal/40 hover:bg-walker-mist/80",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2",
-                "dark:border-white/15 dark:bg-walker-night dark:hover:bg-walker-nightPanel",
-                "touch-manipulation",
-              )}
+              className={navButtonClass}
               aria-label="Next testimonial"
             >
               <ChevronRight className="h-5 w-5" aria-hidden />
