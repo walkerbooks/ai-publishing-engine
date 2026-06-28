@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/layout/app-header";
+import { AppFooter } from "@/components/layout/app-footer";
 import { AppMobileNavSidebar } from "@/components/layout/app-mobile-nav-sidebar";
 import { authGreetingName } from "@/lib/auth/greeting-name";
 import { useAuthStore } from "@/stores/auth-store";
@@ -66,6 +67,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           aria-hidden
         />
         <main className="flex min-h-0 flex-1 flex-col bg-background text-foreground">{children}</main>
+        <AppFooter />
       </div>
     </div>
   );
