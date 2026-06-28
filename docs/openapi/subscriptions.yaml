@@ -3,7 +3,7 @@ info:
   title: WalkerBook — Subscriptions (contract)
   description: >
     Mounted under /api/v1 on the Go backend. Browser calls these via Next.js
-    /api/go/v1/subscriptions/...
+    /api/gateway/v1/subscriptions/...
   version: 1.0.0
 
 paths:

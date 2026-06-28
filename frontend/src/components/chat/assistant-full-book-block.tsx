@@ -184,7 +184,7 @@ export function AssistantFullBookBlock({
                 className="h-[70dvh] w-full bg-white"
               />
             ) : !mappedPdfLoadError ? (
-              <div className="flex h-[40dvh] items-center justify-center bg-muted/20 text-sm text-muted-foreground">
+              <div className="flex h-[40vh] items-center justify-center bg-muted/20 text-sm text-muted-foreground">
                 Preparing preview…
               </div>
             ) : null}

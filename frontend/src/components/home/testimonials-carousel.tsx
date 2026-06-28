@@ -24,8 +24,6 @@ function StarRow() {
 export function TestimonialsCarousel() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [canScrollPrev, setCanScrollPrev] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(true);
   const count = TESTIMONIALS.length;
 
   const syncFromScroll = useCallback(() => {
@@ -36,8 +34,6 @@ export function TestimonialsCarousel() {
     const index = Math.round(el.scrollLeft / slideWidth);
     const clamped = Math.max(0, Math.min(count - 1, index));
     setActiveIndex(clamped);
-    setCanScrollPrev(clamped > 0);
-    setCanScrollNext(clamped < count - 1);
   }, [count]);
 
   useEffect(() => {
@@ -57,10 +53,11 @@ export function TestimonialsCarousel() {
     (index: number) => {
       const el = scrollerRef.current;
       if (!el) return;
-      const next = Math.max(0, Math.min(count - 1, index));
+      const next = ((index % count) + count) % count;
       const reduced =
         typeof window !== "undefined" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      setActiveIndex(next);
       el.scrollTo({
         left: next * el.clientWidth,
         behavior: reduced ? "auto" : "smooth",
@@ -161,10 +158,9 @@ export function TestimonialsCarousel() {
             <button
               type="button"
               onClick={goPrev}
-              disabled={!canScrollPrev}
               className={cn(
                 "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
-                "hover:border-walker-teal/40 hover:bg-walker-mist/80 disabled:pointer-events-none disabled:opacity-40",
+                "hover:border-walker-teal/40 hover:bg-walker-mist/80",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2",
                 "dark:border-white/15 dark:bg-walker-night dark:hover:bg-walker-nightPanel",
                 "touch-manipulation",
@@ -188,10 +184,10 @@ export function TestimonialsCarousel() {
                   aria-label={`Show testimonial from ${t.name}`}
                   onClick={() => scrollToIndex(i)}
                   className={cn(
-                    "h-3 rounded-full transition-all touch-manipulation",
+                    "h-2.5 rounded-full transition-all touch-manipulation",
                     i === activeIndex
-                      ? "w-8 bg-walker-teal"
-                      : "w-3 bg-walker-navy/25 hover:bg-walker-navy/40 dark:bg-white/25 dark:hover:bg-white/40",
+                      ? "w-7 bg-walker-teal"
+                      : "w-2.5 bg-walker-navy/25 hover:bg-walker-navy/40 dark:bg-white/25 dark:hover:bg-white/40",
                   )}
                 />
               ))}
@@ -200,10 +196,9 @@ export function TestimonialsCarousel() {
             <button
               type="button"
               onClick={goNext}
-              disabled={!canScrollNext}
               className={cn(
                 "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
-                "hover:border-walker-teal/40 hover:bg-walker-mist/80 disabled:pointer-events-none disabled:opacity-40",
+                "hover:border-walker-teal/40 hover:bg-walker-mist/80",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2",
                 "dark:border-white/15 dark:bg-walker-night dark:hover:bg-walker-nightPanel",
                 "touch-manipulation",
