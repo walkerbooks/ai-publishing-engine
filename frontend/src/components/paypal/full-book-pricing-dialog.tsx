@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { UserErrorBanner } from "@/components/ui/user-error-banner";
+import { FullBookPackageCard } from "@/components/paypal/full-book-package-card";
 import { cn } from "@/lib/utils/cn";
 import type { MappedUserError } from "@/lib/errors/user-error-message";
 import {
@@ -25,10 +26,6 @@ type Props = {
   onDismissPayment?: () => void;
   onBuy: (tier: FullBookPackageTier, opts: { includeCover: boolean }) => void;
 };
-
-const NAVY = "#2E2E5C";
-const ORANGE = "#FFA500";
-const PRICE_LAVENDER = "#C9B8E8";
 
 export function FullBookPricingDialog({
   open,
@@ -92,61 +89,14 @@ export function FullBookPricingDialog({
 
         <div className="grid grid-cols-1 gap-5 pb-2 md:grid-cols-3 md:gap-4">
           {FULL_BOOK_PACKAGES.map((pkg) => (
-            <article
+            <FullBookPackageCard
               key={pkg.tier}
-              className="flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md dark:border-white/10 dark:bg-zinc-950"
-            >
-              <div
-                className="relative px-4 pb-10 pt-6 text-center"
-                style={{ backgroundColor: NAVY }}
-              >
-                <h3 className="text-lg font-semibold tracking-tight text-white">
-                  {pkg.name}
-                </h3>
-                <p
-                  className="mt-3 text-4xl font-bold tabular-nums sm:text-[2.75rem]"
-                  style={{ color: PRICE_LAVENDER }}
-                >
-                  {pkg.priceLabel}
-                </p>
-                <p
-                  className="mt-1 text-sm font-semibold uppercase tracking-wide"
-                  style={{ color: ORANGE }}
-                >
-                  {pkg.frequencyLabel}
-                </p>
-                <div
-                  className="pointer-events-none absolute -bottom-px left-1/2 z-10 h-0 w-0 -translate-x-1/2 translate-y-[1px] border-x-[18px] border-t-[14px] border-x-transparent border-t-white dark:border-t-zinc-950"
-                  aria-hidden
-                />
-              </div>
-
-              <ul className="flex flex-1 flex-col divide-y divide-slate-200 bg-white px-1 py-0 text-center text-[13px] leading-snug text-slate-600 dark:divide-white/10 dark:bg-zinc-950 dark:text-zinc-300 sm:text-sm">
-                {pkg.features.map((line) => (
-                  <li key={line} className="px-3 py-2.5">
-                    {line}
-                  </li>
-                ))}
-              </ul>
-
-              <div className="border-t border-slate-100 bg-white p-4 dark:border-white/10 dark:bg-zinc-950">
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => onBuy(pkg.tier, { includeCover })}
-                  className={cn(
-                    "flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60",
-                  )}
-                  style={{ backgroundColor: ORANGE }}
-                >
-                  <span
-                    className="h-0 w-0 shrink-0 border-y-[6px] border-l-[10px] border-y-transparent border-l-white"
-                    aria-hidden
-                  />
-                  {loading ? "Opening PayPal…" : "Buy now"}
-                </button>
-              </div>
-            </article>
+              pkg={pkg}
+              ctaLabel="Buy now"
+              loading={loading}
+              disabled={loading}
+              onCtaClick={() => onBuy(pkg.tier, { includeCover })}
+            />
           ))}
         </div>
       </DialogContent>

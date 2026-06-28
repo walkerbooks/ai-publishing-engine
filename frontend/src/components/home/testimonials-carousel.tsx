@@ -57,6 +57,11 @@ export function TestimonialsCarousel() {
     (index: number) => {
       const el = scrollerRef.current;
       if (!el) return;
+      const next = ((index % count) + count) % count;
+      const reduced =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      setActiveIndex(next);
       const next = Math.max(0, Math.min(count - 1, index));
       const reduced =
         typeof window !== "undefined" &&
@@ -161,6 +166,9 @@ export function TestimonialsCarousel() {
             <button
               type="button"
               onClick={goPrev}
+              className={cn(
+                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
+                "hover:border-walker-teal/40 hover:bg-walker-mist/80",
               disabled={!canScrollPrev}
               className={cn(
                 "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
@@ -200,6 +208,9 @@ export function TestimonialsCarousel() {
             <button
               type="button"
               onClick={goNext}
+              className={cn(
+                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
+                "hover:border-walker-teal/40 hover:bg-walker-mist/80",
               disabled={!canScrollNext}
               className={cn(
                 "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
