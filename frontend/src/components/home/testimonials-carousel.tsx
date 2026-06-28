@@ -24,6 +24,8 @@ function StarRow() {
 export function TestimonialsCarousel() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(true);
   const count = TESTIMONIALS.length;
 
   const syncFromScroll = useCallback(() => {
@@ -34,6 +36,8 @@ export function TestimonialsCarousel() {
     const index = Math.round(el.scrollLeft / slideWidth);
     const clamped = Math.max(0, Math.min(count - 1, index));
     setActiveIndex(clamped);
+    setCanScrollPrev(clamped > 0);
+    setCanScrollNext(clamped < count - 1);
   }, [count]);
 
   useEffect(() => {
@@ -58,6 +62,10 @@ export function TestimonialsCarousel() {
         typeof window !== "undefined" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       setActiveIndex(next);
+      const next = Math.max(0, Math.min(count - 1, index));
+      const reduced =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       el.scrollTo({
         left: next * el.clientWidth,
         behavior: reduced ? "auto" : "smooth",
@@ -161,6 +169,10 @@ export function TestimonialsCarousel() {
               className={cn(
                 "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
                 "hover:border-walker-teal/40 hover:bg-walker-mist/80",
+              disabled={!canScrollPrev}
+              className={cn(
+                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
+                "hover:border-walker-teal/40 hover:bg-walker-mist/80 disabled:pointer-events-none disabled:opacity-40",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2",
                 "dark:border-white/15 dark:bg-walker-night dark:hover:bg-walker-nightPanel",
                 "touch-manipulation",
@@ -199,6 +211,10 @@ export function TestimonialsCarousel() {
               className={cn(
                 "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
                 "hover:border-walker-teal/40 hover:bg-walker-mist/80",
+              disabled={!canScrollNext}
+              className={cn(
+                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm transition",
+                "hover:border-walker-teal/40 hover:bg-walker-mist/80 disabled:pointer-events-none disabled:opacity-40",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2",
                 "dark:border-white/15 dark:bg-walker-night dark:hover:bg-walker-nightPanel",
                 "touch-manipulation",
