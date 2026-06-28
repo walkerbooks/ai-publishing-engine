@@ -8,6 +8,7 @@ const PRICE_LAVENDER = "#C9B8E8";
 
 type Props = {
   pkg: FullBookPackage;
+  ctaLabel?: string;
   ctaLabel: string;
   onCtaClick?: () => void;
   ctaHref?: string;
@@ -27,6 +28,7 @@ export function FullBookPackageCard({
   highlighted = false,
   badge,
 }: Props) {
+  const resolvedCtaLabel = ctaLabel ?? pkg.ctaLabel;
   const ctaDisabled = disabled || loading;
   const ctaClassName = cn(
     "flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60",
@@ -76,6 +78,17 @@ export function FullBookPackageCard({
         />
       </div>
 
+      <ul className="bg-white px-1 py-0 text-center text-[13px] leading-snug text-slate-600 dark:bg-zinc-950 dark:text-zinc-300 sm:text-sm">
+        {pkg.features.map((line, i) => (
+          <li
+            key={line}
+            className={cn(
+              "px-3 py-2.5",
+              i % 2 === 0
+                ? "bg-white dark:bg-zinc-950"
+                : "bg-slate-50 dark:bg-white/5",
+            )}
+          >
       <ul className="flex flex-1 flex-col divide-y divide-slate-200 bg-white px-1 py-0 text-center text-[13px] leading-snug text-slate-600 dark:divide-white/10 dark:bg-zinc-950 dark:text-zinc-300 sm:text-sm">
         {pkg.features.map((line) => (
           <li key={line} className="px-3 py-2.5">
@@ -83,6 +96,33 @@ export function FullBookPackageCard({
           </li>
         ))}
       </ul>
+
+      {pkg.bonusSections?.map((section) => (
+        <div
+          key={section.title}
+          className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-center dark:border-white/10 dark:bg-white/5"
+        >
+          <p className="text-xs font-bold uppercase tracking-wide text-walker-navy dark:text-walker-teal">
+            {section.title}:
+          </p>
+          <ul className="mt-2 space-y-1.5 text-[13px] leading-snug text-slate-600 dark:text-zinc-300 sm:text-sm">
+            {section.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          {section.link ? (
+            <p className="mt-2 text-[13px] leading-snug text-slate-600 dark:text-zinc-300 sm:text-sm">
+              {section.link.prefix}
+              <Link
+                href={section.link.href}
+                className="font-semibold text-walker-navy underline underline-offset-2 hover:text-walker-teal dark:text-walker-teal"
+              >
+                {section.link.label}
+              </Link>
+            </p>
+          ) : null}
+        </div>
+      ))}
 
       <div className="border-t border-slate-100 bg-white p-4 dark:border-white/10 dark:bg-zinc-950">
         {ctaHref ? (
@@ -96,6 +136,7 @@ export function FullBookPackageCard({
               className="h-0 w-0 shrink-0 border-y-[6px] border-l-[10px] border-y-transparent border-l-white"
               aria-hidden
             />
+            {resolvedCtaLabel}
             {ctaLabel}
           </Link>
         ) : (
@@ -110,6 +151,7 @@ export function FullBookPackageCard({
               className="h-0 w-0 shrink-0 border-y-[6px] border-l-[10px] border-y-transparent border-l-white"
               aria-hidden
             />
+            {loading ? "Opening PayPal…" : resolvedCtaLabel}
             {loading ? "Opening PayPal…" : ctaLabel}
           </button>
         )}
