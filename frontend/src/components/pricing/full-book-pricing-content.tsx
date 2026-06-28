@@ -1,3 +1,5 @@
+import { FullBookPackageCard } from "@/components/paypal/full-book-package-card";
+import { FULL_BOOK_PACKAGES } from "@/lib/paypal/full-book-packages";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { FullBookPackageCard } from "@/components/paypal/full-book-package-card";
@@ -30,6 +32,11 @@ export function FullBookPricingContent({
           id={headingId}
           className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl"
         >
+          Choose the plan that fits your publishing goals
+        </Heading>
+      </div>
+
+      <div className="mt-10 grid grid-cols-1 items-start gap-5 sm:mt-12 md:grid-cols-3 md:gap-4 lg:gap-5">
           One payment. A book you can publish.
         </Heading>
         <p className="mt-3 text-pretty text-muted-foreground">

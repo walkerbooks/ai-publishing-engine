@@ -87,7 +87,7 @@ export function FullBookPricingDialog({
           />
         ) : null}
 
-        <div className="grid grid-cols-1 gap-5 pb-2 md:grid-cols-3 md:gap-4">
+        <div className="grid grid-cols-1 items-start gap-5 pb-2 md:grid-cols-3 md:gap-4">
           {FULL_BOOK_PACKAGES.map((pkg) => (
             <FullBookPackageCard
               key={pkg.tier}
