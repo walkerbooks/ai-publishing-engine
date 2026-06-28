@@ -78,6 +78,10 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
     priceLabel: "$49",
     frequencyLabel: "Per Month",
     ctaLabel: "Join Now",
+    tier: "triple",
+    name: "WalkerBook Club",
+    priceLabel: "$29.99",
+    frequencyLabel: "One Time",
     features: [
       "Up to 31 fully personalized books (1 per day)",
       "Up to 186 book covers (6 per day)",
