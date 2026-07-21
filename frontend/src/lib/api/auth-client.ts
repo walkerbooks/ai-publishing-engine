@@ -22,13 +22,24 @@ export type MeResponse = { user: AuthUser };
 
 async function readErrorMessage(res: Response): Promise<string> {
   const t = await res.text();
+  const trimmed = t.trim();
   try {
-    const j = JSON.parse(t) as { error?: string };
+    const j = JSON.parse(trimmed) as { error?: string };
     if (j.error) return j.error;
   } catch {
     /* */
   }
-  return t || `Request failed: ${res.status}`;
+  if (
+    trimmed.startsWith("<!DOCTYPE") ||
+    trimmed.startsWith("<html") ||
+    /<html[\s>]/i.test(trimmed)
+  ) {
+    if (res.status === 404) {
+      return "API unavailable (404). Is the Next.js proxy and Go backend running?";
+    }
+    return `API request failed (HTTP ${res.status}). Try again in a moment.`;
+  }
+  return trimmed || `Request failed: ${res.status}`;
 }
 
 export async function login(email: string, password: string): Promise<AuthResponse> {

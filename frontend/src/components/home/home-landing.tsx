@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import {
   BookOpen,
@@ -18,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { FaqSection } from "@/components/home/faq-section";
 import { HomeFeedbackSection } from "@/components/home/home-feedback-section";
 import { HomePricingSection } from "@/components/home/home-pricing-section";
+import { ArtStylesGallery } from "@/components/home/art-styles-gallery";
 import { TestimonialsCarousel } from "@/components/home/testimonials-carousel";
 import { cn } from "@/lib/utils/cn";
 
@@ -71,29 +71,16 @@ export function HomeLanding() {
   return (
     <div className="flex min-h-[calc(100dvh-3.5rem)] flex-col sm:min-h-[calc(100dvh-5rem)]">
       <section className="relative overflow-hidden border-b border-walker-navy/15 bg-walker-signature-soft dark:border-white/10 dark:[background-image:none] dark:bg-walker-night">
-        <div className="relative mx-auto flex max-w-3xl flex-col items-center px-4 pt-10 pb-16 text-center sm:pt-12 sm:pb-20">
-          {/*
-            Transparent logo only — walkerbook-main.png has an opaque black plate behind the art.
-          */}
-          <div className="w-full max-w-lg leading-none">
-            <Image
-              src="/walkerbook/walkerbook-transparent.png"
-              alt="WalkerBook, where stories begin their journey"
-              width={360}
-              height={120}
-              className="mx-auto block h-auto w-full max-w-sm sm:max-w-md dark:drop-shadow-[0_4px_28px_rgba(0,0,0,0.35)]"
-              priority
-            />
-          </div>
-
-          <div className="mt-8 flex w-full max-w-3xl flex-col items-center gap-4 sm:mt-10 sm:gap-5">
+        <div className="relative mx-auto flex max-w-3xl flex-col items-center px-4 pt-8 pb-12 text-center min-[380px]:pt-10 sm:pt-12 sm:pb-20">
+          <div className="flex w-full min-w-0 max-w-3xl flex-col items-center gap-4 sm:gap-5">
             <p className="inline-flex items-center gap-2 rounded-full border border-walker-navy/20 bg-white/90 px-3 py-0.5 text-xs font-medium uppercase tracking-widest text-walker-navy shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-walker-navy/30 dark:text-walker-mist">
               <Sparkles className="h-3.5 w-3.5 text-walker-slate dark:text-walker-mist/90" aria-hidden />
               From idea to manuscript
             </p>
 
-            <h1 className="text-balance text-4xl font-semibold tracking-tight text-walker-charcoal dark:text-walker-mist sm:text-5xl lg:text-[3.25rem] lg:leading-[1.06]">
-              Turn the book in your head into something readers can hold
+            <h1 className="w-full max-w-full text-balance text-[1.75rem] font-semibold leading-tight tracking-tight text-walker-charcoal dark:text-walker-mist min-[380px]:text-[1.875rem] sm:text-5xl sm:leading-tight lg:text-[3.25rem] lg:leading-[1.06]">
+              <span className="block sm:whitespace-nowrap">Turn the book in your head</span>
+              <span className="block sm:whitespace-nowrap">into something readers can hold</span>
             </h1>
 
             <p className="max-w-xl text-pretty text-base leading-snug text-walker-navy/90 dark:text-walker-mist/85 sm:text-lg sm:leading-relaxed">
@@ -160,7 +147,7 @@ export function HomeLanding() {
 
       <section
         id="how-it-works"
-        className="scroll-mt-[calc(3.5rem+0.125rem)] sm:scroll-mt-[calc(5rem+0.125rem)] relative bg-background px-4 py-10 sm:py-12"
+        className="scroll-mt-[calc(3.5rem+0.125rem)] sm:scroll-mt-[calc(5rem+0.125rem)] relative bg-background px-4 py-16 sm:py-20"
       >
         <div className="mx-auto max-w-5xl">
           <div className="mx-auto max-w-2xl text-center">
@@ -201,7 +188,7 @@ export function HomeLanding() {
 
       <section
         id="why-walkerbook"
-        className="bg-background px-4 pb-12 pt-8 sm:pb-16 sm:pt-10"
+        className="border-t border-border bg-walker-mist/40 px-4 py-16 dark:bg-walker-nightPanel/30 sm:py-20"
       >
         <div className="mx-auto max-w-5xl">
           <div className="grid gap-12 lg:grid-cols-2 lg:items-start lg:gap-14 xl:gap-16">
@@ -209,7 +196,7 @@ export function HomeLanding() {
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-walker-teal dark:text-walker-teal">
                 Why WalkerBook
               </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-walker-charcoal dark:text-walker-mist sm:text-4xl">
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-walker-charcoal dark:text-walker-mist sm:text-4xl">
                 Publishing help that actually fits your life
               </h2>
               <p className="mt-4 text-pretty text-base leading-relaxed text-walker-navy/90 dark:text-walker-mist/85 sm:text-lg">
@@ -242,6 +229,8 @@ export function HomeLanding() {
         </div>
       </section>
 
+      <ArtStylesGallery />
+
       <TestimonialsCarousel />
       <HomePricingSection />
       <FaqSection />
@@ -249,17 +238,21 @@ export function HomeLanding() {
 
       <section
         aria-label="Start your book in chat"
-        className="mt-auto flex flex-1 flex-col bg-walker-night px-4 pt-8 sm:pt-10"
+        className="mt-auto flex flex-1 flex-col bg-walker-mist px-4 pt-8 dark:bg-walker-night sm:pt-10"
       >
         <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col pb-8 sm:pb-10">
           <div
             className={cn(
-              "flex flex-1 flex-col items-stretch justify-center gap-6 rounded-2xl border border-dashed border-white/20",
-              "bg-walker-night px-6 py-8 text-center shadow-lg shadow-black/20 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:text-left",
+              "flex flex-1 flex-col items-stretch justify-center gap-6 rounded-2xl border border-dashed",
+              "border-walker-navy/25 bg-walker-mist px-6 py-8 text-center shadow-lg shadow-walker-navy/5",
+              "dark:border-white/20 dark:bg-walker-night dark:shadow-black/20",
+              "sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:text-left",
             )}
           >
-            <p className="max-w-xl text-sm leading-relaxed text-walker-mist/90 sm:flex-1">
-              <span className="font-semibold text-white">Ready when you are.</span>{" "}
+            <p className="max-w-xl text-sm leading-relaxed text-walker-navy/90 dark:text-walker-mist/90 sm:flex-1">
+              <span className="font-semibold text-walker-charcoal dark:text-white">
+                Ready when you are.
+              </span>{" "}
               Open chat and describe your dream book, and we&apos;ll meet you there.
             </p>
             <Button
@@ -267,8 +260,10 @@ export function HomeLanding() {
               variant="outline"
               size="lg"
               className={cn(
-                "shrink-0 self-center rounded-xl border-white/35 bg-transparent text-white",
-                "hover:bg-white/10 hover:text-white sm:self-auto",
+                "shrink-0 self-center rounded-xl border-walker-navy/35 bg-transparent text-walker-navy",
+                "hover:bg-walker-navy/5 hover:text-walker-charcoal",
+                "dark:border-white/35 dark:text-white dark:hover:bg-white/10 dark:hover:text-white",
+                "sm:self-auto",
               )}
             >
               <Link href="/chat" className="inline-flex items-center gap-2">

@@ -24,6 +24,7 @@ import {
 import { getAccessToken } from "@/lib/auth/access-token";
 import { guestConversationLimitCopy, getGuestMaxConversations } from "@/lib/guest/guest-config";
 import { getLogger } from "@/lib/log";
+import { newId } from "@/lib/utils/id";
 import { createInitialPublishingState, type PublishingState } from "@/stores/publishing-types";
 import { useAuthStore } from "@/stores/auth-store";
 import { usePublishingStore } from "@/stores/publishing-store";
@@ -191,7 +192,7 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
             state.bookSpec != null ||
             state.intakeComplete;
           if (needsId) {
-            activeConversationId = crypto.randomUUID();
+            activeConversationId = newId();
             set({ activeConversationId });
           }
         } else if (state.chatMessages.length > 0) {
@@ -204,7 +205,7 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
               return;
             }
           }
-          activeConversationId = crypto.randomUUID();
+          activeConversationId = newId();
           set({ activeConversationId });
         }
       }
@@ -348,15 +349,15 @@ export const useChatDirectoryStore = create<ChatDirectoryState & ChatDirectoryAc
         }
       }
 
-      const newId = crypto.randomUUID();
+      const conversationId = newId();
       const initial = createInitialPublishingState();
       applyPublishingSnapshot(usePublishingStore.setState, initial);
       set((s) => ({
         guestGateMessage: null,
-        activeConversationId: newId,
+        activeConversationId: conversationId,
         conversations: sortConversations([
           {
-            id: newId,
+            id: conversationId,
             title: "New conversation",
             updatedAt: Date.now(),
             snapshot: publishingToSnapshot(usePublishingStore.getState()),

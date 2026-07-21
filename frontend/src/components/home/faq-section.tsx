@@ -18,17 +18,14 @@ export function FaqSection() {
     >
       <div className="mx-auto max-w-3xl">
         <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-walker-slate dark:text-walker-slate">
-            Frequently Asked Questions
-          </p>
           <h2
             id="faq-heading"
-            className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl"
+            className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl"
           >
-            Everything you need to know about WalkerBook
+            Frequently Asked Questions
           </h2>
-          <p className="mt-3 text-pretty text-muted-foreground">
-            Quick answers about how we help you go from idea to manuscript.
+          <p className="mt-2 text-xs font-semibold tracking-widest text-walker-slate dark:text-walker-slate">
+            Everything you need to know about WalkerBook
           </p>
         </div>
 
