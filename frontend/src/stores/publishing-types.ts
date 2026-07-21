@@ -1,4 +1,5 @@
 import type { BookOutlineLite, ChatMessage, VideoMeta } from "@/lib/types/chat";
+import { newId } from "@/lib/utils/id";
 
 export type PublishingState = {
   sessionId: string;
@@ -111,7 +112,7 @@ export type PublishingActions = {
 
 export function createInitialPublishingState(): PublishingState {
   return {
-    sessionId: crypto.randomUUID(),
+    sessionId: newId(),
     activeBookId: null,
     bookPreviewRowSynced: false,
     chatMessages: [],

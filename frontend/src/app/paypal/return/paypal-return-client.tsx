@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { getBook } from "@/lib/api/books-client";
+import { capturePayPalOrder } from "@/lib/api/payments-client";
 import {
   createSubscription,
   packageTierToSubscriptionPlan,
@@ -19,14 +20,22 @@ import { PayPalFlowCard } from "@/components/paypal/paypal-flow-card";
 import { UserErrorBanner } from "@/components/ui/user-error-banner";
 import { Button } from "@/components/ui/button";
 import { getLogger } from "@/lib/log";
+import { mapUserError } from "@/lib/errors/user-error-message";
 
 const log = getLogger("paypal-return");
 
 const PAID_LIKE = new Set(["paid", "generating", "complete"]);
 
+function captureAttemptedKey(orderId: string) {
+  return `ai_pub_paypal_capture_attempted_${orderId}`;
+}
+
 export function PayPalReturnClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const orderToken = (searchParams.get("token") ?? "").trim();
   const [message, setMessage] = useState("Confirming payment…");
+  const [hardError, setHardError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -38,93 +47,138 @@ export function PayPalReturnClient() {
     } catch {
       /* */
     }
+    const checkoutCtx = readPayPalCheckoutContext();
+    if (!bookId && checkoutCtx?.book_public_id) {
+      bookId = checkoutCtx.book_public_id;
+    }
+
     if (!bookId) {
-      log.warning("no book id in sessionStorage after PayPal return");
-      setMessage("No book context. Open your book from the app and try again.");
+      log.warning("no book id after PayPal return");
+      setHardError("No book context. Open your book from the app and try again.");
+      setMessage("We couldn't confirm payment");
       return;
     }
     if (!token) {
       log.warning("no access token on PayPal return page");
-      setMessage("Sign in to refresh your book status after PayPal.");
+      setHardError("Sign in to refresh your book status after PayPal.");
+      setMessage("We couldn't confirm payment");
+      return;
+    }
+    if (!orderToken) {
+      log.warning("no PayPal order token on return URL");
+      setHardError(
+        "Missing PayPal order details. If you completed payment, open your book from chat — status may still update.",
+      );
+      setMessage("We couldn't confirm payment");
       return;
     }
 
     let cancelled = false;
     let attempts = 0;
     const maxAttempts = 20;
+    const id = bookId;
 
-    const tick = async () => {
+    const finishPaid = async (accessToken: string) => {
+      try {
+        sessionStorage.removeItem(PAYPAL_BOOK_STORAGE_KEY);
+      } catch {
+        /* */
+      }
+      const ctx = readPayPalCheckoutContext();
+      const postedKey = subscriptionPostedStorageKey(id);
+      let alreadyPosted = false;
+      try {
+        alreadyPosted = sessionStorage.getItem(postedKey) === "1";
+      } catch {
+        /* */
+      }
+      if (!alreadyPosted) {
+        const plan = packageTierToSubscriptionPlan(ctx?.package_tier ?? "single");
+        try {
+          await createSubscription(plan, accessToken);
+          try {
+            sessionStorage.setItem(postedKey, "1");
+          } catch {
+            /* */
+          }
+        } catch (e) {
+          log.warning("createSubscription after PayPal failed (non-blocking)", e);
+        }
+      }
+      if (cancelled) return;
+      const withCover = ctx?.include_cover ? "&with_cover=1" : "";
+      router.replace(`/chat?book=${encodeURIComponent(id)}&paid=1${withCover}`);
+    };
+
+    const pollUntilPaid = async (accessToken: string) => {
       if (cancelled) return;
       attempts += 1;
       try {
-        const book = await getBook(bookId!, token);
+        const book = await getBook(id, accessToken);
         if (PAID_LIKE.has(book.Status)) {
-          try {
-            sessionStorage.removeItem(PAYPAL_BOOK_STORAGE_KEY);
-          } catch {
-            /* */
-          }
-          const checkoutCtx = readPayPalCheckoutContext();
-          const postedKey = subscriptionPostedStorageKey(bookId!);
-          let alreadyPosted = false;
-          try {
-            alreadyPosted = sessionStorage.getItem(postedKey) === "1";
-          } catch {
-            /* */
-          }
-          if (!alreadyPosted) {
-            const plan = packageTierToSubscriptionPlan(
-              checkoutCtx?.package_tier ?? "single",
-            );
-            try {
-              await createSubscription(plan, token);
-              try {
-                sessionStorage.setItem(postedKey, "1");
-              } catch {
-                /* */
-              }
-            } catch (e) {
-              log.warning("createSubscription after PayPal failed (non-blocking)", e);
-            }
-          }
-          log.debug("book paid-like; redirecting to full book", {
-            bookId,
+          log.debug("book paid-like; redirecting to chat", {
+            bookId: id,
             status: book.Status,
           });
-          const withCover = checkoutCtx?.include_cover ? "&with_cover=1" : "";
-          router.replace(
-            `/chat?book=${encodeURIComponent(bookId!)}&paid=1${withCover}`,
-          );
+          await finishPaid(accessToken);
           return;
         }
       } catch {
-        /* webhook may lag; retry */
+        /* status may lag; retry */
       }
+      if (cancelled) return;
       if (attempts >= maxAttempts) {
-        log.warning("poll max attempts reached; status may still be updating", {
-          bookId,
-          attempts: maxAttempts,
-        });
-        setMessage(
+        log.warning("poll max attempts reached", { bookId: id, attempts: maxAttempts });
+        setMessage("Still confirming");
+        setHardError(
           "Payment can take a moment. Open your book page to see the latest status.",
         );
         return;
       }
-      window.setTimeout(tick, 1500);
+      window.setTimeout(() => {
+        void pollUntilPaid(accessToken);
+      }, 1500);
     };
 
-    void tick();
+    const run = async () => {
+      const attemptedKey = captureAttemptedKey(orderToken);
+      let alreadyAttempted = false;
+      try {
+        alreadyAttempted = sessionStorage.getItem(attemptedKey) === "1";
+      } catch {
+        /* */
+      }
+      if (!alreadyAttempted) {
+        setMessage("Capturing PayPal payment…");
+        try {
+          sessionStorage.setItem(attemptedKey, "1");
+        } catch {
+          /* */
+        }
+        try {
+          await capturePayPalOrder(orderToken, token);
+          log.debug("PayPal capture succeeded", { orderToken, bookId: id });
+        } catch (e) {
+          log.warning("PayPal capture failed; will poll book status", e);
+          void mapUserError(e, "payment");
+        }
+      }
+      if (cancelled) return;
+      setMessage("Confirming payment…");
+      await pollUntilPaid(token);
+    };
+
+    void run();
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [orderToken, router]);
 
   const showSignInLink = mounted && !getAccessToken();
-  const confirming = message === "Confirming payment…";
-  const isHardError =
-    message.startsWith("No book context") ||
-    message.startsWith("Sign in to refresh");
-  const isSlowConfirm = message.startsWith("Payment can take a moment");
+  const confirming =
+    !hardError &&
+    (message === "Confirming payment…" || message === "Capturing PayPal payment…");
+  const isSlowConfirm = hardError?.startsWith("Payment can take a moment") ?? false;
 
   return (
     <PayPalFlowCard title="Payment status">
@@ -138,12 +192,12 @@ export function PayPalReturnClient() {
             {message}
           </p>
         </div>
-      ) : isHardError || isSlowConfirm ? (
+      ) : hardError ? (
         <UserErrorBanner
           layout="polite"
-          tone={isHardError ? "error" : "warning"}
-          title={isHardError ? "We couldn't confirm payment" : "Still confirming"}
-          message={message}
+          tone={isSlowConfirm ? "warning" : "error"}
+          title={isSlowConfirm ? "Still confirming" : "We couldn't confirm payment"}
+          message={hardError}
           dismissLabel="Not now"
         />
       ) : (

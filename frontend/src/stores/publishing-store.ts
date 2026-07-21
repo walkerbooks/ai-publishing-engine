@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { VIDEO_BLOCK_HEADING } from "@/lib/constants/welcome";
 import type { ChatMessage } from "@/lib/types/chat";
+import { newId } from "@/lib/utils/id";
 import {
   createInitialPublishingState,
   type PublishingActions,
@@ -19,7 +20,7 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
       set((s) => ({
         chatMessages: [
           ...s.chatMessages,
-          { id: crypto.randomUUID(), role: "user", content },
+          { id: newId(), role: "user", content },
         ],
       })),
     pushAssistantMessage: (msg) =>
@@ -91,11 +92,11 @@ export const usePublishingStore = create<PublishingState & PublishingActions>()(
     resetFlow: () =>
       set({
         ...createInitialPublishingState(),
-        sessionId: crypto.randomUUID(),
+        sessionId: newId(),
       }),
     setIntakeResult: (intakeComplete, bookSpec, bookId) =>
       set((s) => {
-        const nextActive = bookId ?? s.activeBookId ?? crypto.randomUUID();
+        const nextActive = bookId ?? s.activeBookId ?? newId();
         const sameBook = nextActive === s.activeBookId;
         return {
           intakeComplete,

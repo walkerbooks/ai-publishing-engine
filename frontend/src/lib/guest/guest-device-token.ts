@@ -1,3 +1,5 @@
+import { newId } from "@/lib/utils/id";
+
 const KEY = "ai_pub_guest_device_token";
 
 let memoryToken: string | null = null;
@@ -11,12 +13,12 @@ export function getOrCreateGuestDeviceToken(): string {
   try {
     let t = sessionStorage.getItem(KEY);
     if (!t?.trim()) {
-      t = crypto.randomUUID();
+      t = newId();
       sessionStorage.setItem(KEY, t);
     }
     return t;
   } catch {
-    if (!memoryToken) memoryToken = crypto.randomUUID();
+    if (!memoryToken) memoryToken = newId();
     return memoryToken;
   }
 }
