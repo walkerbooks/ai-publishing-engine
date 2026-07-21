@@ -1,7 +1,6 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { useVideoInjection } from "@/hooks/use-video-injection";
 import { useUnifiedChatSend } from "@/hooks/use-unified-chat-send";
 import { getAccessToken } from "@/lib/auth/access-token";
@@ -21,9 +20,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FullBookPricingDialog } from "@/components/paypal/full-book-pricing-dialog";
-import type { FullBookPackageTier } from "@/lib/paypal/full-book-packages";
 import type { ChatMessage } from "@/lib/types/chat";
+import { newId } from "@/lib/utils/id";
 import {
   checkFullGenerationEntitlement,
   fetchSubscriptionEntitlement,
@@ -200,15 +198,7 @@ export function ChatPageClient() {
     }
     prevAuthenticated.current = isAuthenticated;
   }, [isAuthenticated, bookParam, hydrateConversationListFromServer, refreshProfile]);
-  const {
-    startCheckout,
-    retryCheckout,
-    loading: payPalLoading,
-    error: payPalErr,
-    clearError: clearPayPalErr,
-  } = usePayPalCheckout();
   const [payPalGateErr, setPayPalGateErr] = useState<MappedUserError | null>(null);
-  const [fullBookPricingOpen, setFullBookPricingOpen] = useState(false);
   const [fullBookGateMode, setFullBookGateMode] = useState<
     "loading" | "generate" | "cooldown" | "paypal"
   >("paypal");
@@ -410,7 +400,7 @@ export function ChatPageClient() {
     if (option === "complete_idea") {
       pub.pushUserMessage("I have a full concept ready.");
       scheduleKickoffAssistantReveal(
-        crypto.randomUUID(),
+        newId(),
         "What's the working title for your book?",
         kickoffLoaderTimersRef.current,
       );
@@ -419,7 +409,7 @@ export function ChatPageClient() {
     }
     pub.pushUserMessage("No, let's build it together.");
     scheduleKickoffAssistantReveal(
-      crypto.randomUUID(),
+      newId(),
       "What's the book about in a sentence or two?",
       kickoffLoaderTimersRef.current,
     );
@@ -516,7 +506,7 @@ export function ChatPageClient() {
       const u = usePublishingStore.getState().chatMessages.at(-1);
       if (u?.role === "user") void persistChatMessageIfAuthenticated(u);
       const ack: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: newId(),
         role: "assistant",
         kind: "gate",
         content: "Thanks — generating three cover directions now.",
@@ -530,7 +520,7 @@ export function ChatPageClient() {
       pub.pushUserMessage(value);
       setBookKickoffTitle(value);
       scheduleKickoffAssistantReveal(
-        crypto.randomUUID(),
+        newId(),
         "Nice. What subtitle would you like?",
         kickoffLoaderTimersRef.current,
       );
@@ -541,7 +531,7 @@ export function ChatPageClient() {
       pub.pushUserMessage(value);
       setBookKickoffSubtitle(value);
       scheduleKickoffAssistantReveal(
-        crypto.randomUUID(),
+        newId(),
         "Great. Give me a 2-3 sentence summary of the book.",
         kickoffLoaderTimersRef.current,
       );
@@ -587,7 +577,6 @@ export function ChatPageClient() {
     usePublishingStore.getState().setComposerStep("outline"),
     usePublishingStore.getState().setComposerAction("revise"));
   const payForFullBook = () => {
-    clearPayPalErr();
     setPayPalGateErr(null);
     const id = usePublishingStore.getState().activeBookId;
     if (!id) {
@@ -622,12 +611,11 @@ export function ChatPageClient() {
         );
         return;
       }
-      setFullBookPricingOpen(true);
+      router.push(`/paypal/checkout?book=${encodeURIComponent(id)}`);
     })();
   };
 
   const generateFullWithSubscription = async () => {
-    clearPayPalErr();
     setPayPalGateErr(null);
     const id = usePublishingStore.getState().activeBookId;
     if (!id) {
@@ -697,35 +685,6 @@ export function ChatPageClient() {
     }
   };
 
-  const continueFullBookPayPal = (
-    tier: FullBookPackageTier,
-    opts?: { includeCover?: boolean },
-  ) => {
-    clearPayPalErr();
-    const id = usePublishingStore.getState().activeBookId;
-    if (!id) return;
-    const token = getAccessToken();
-    if (!token) {
-      useAuthDialogRequestStore.getState().requestLogin();
-      return;
-    }
-    setFullBookPricingOpen(false);
-    void (async () => {
-      try {
-        await persistBookDescriptionToGo(id, token);
-      } catch {
-        setPayPalGateErr(
-          mapUserError(
-            "Could not save your book details. Check your connection and try again.",
-            "payment",
-          ),
-        );
-        setFullBookPricingOpen(true);
-        return;
-      }
-      void startCheckout(id, "/chat", tier, Boolean(opts?.includeCover));
-    })();
-  };
   const changePreview = () => {
     setCoverVariantUrls(null);
     const p = usePublishingStore.getState();
@@ -777,7 +736,7 @@ export function ChatPageClient() {
     const pub = usePublishingStore.getState();
     pub.setPostPayCoverFlowActive(false);
     const msg: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: newId(),
       role: "assistant",
       kind: "cover",
       content: `Here's your book cover (option ${index + 1} of ${COVER_VARIANT_COUNT}).`,
@@ -802,7 +761,6 @@ export function ChatPageClient() {
   const payForCoverPage = () => {
     clearErr();
     setCoverErr(null);
-    clearPayPalErr();
     setPayPalGateErr(null);
     if (!getAccessToken()) {
       useAuthDialogRequestStore.getState().requestLogin();
@@ -828,7 +786,7 @@ export function ChatPageClient() {
     if (!pub.coverSigningName?.trim()) {
       if (!pub.awaitingCoverSigningReply) {
         const ask: ChatMessage = {
-          id: crypto.randomUUID(),
+          id: newId(),
           role: "assistant",
           kind: "gate",
           content:
@@ -888,17 +846,12 @@ export function ChatPageClient() {
   }, [coverErr, err, retry]);
 
   const clearPaymentErrors = useCallback(() => {
-    clearPayPalErr();
     setPayPalGateErr(null);
-  }, [clearPayPalErr]);
-  const mappedPayPalErr = payPalErr;
-  const mappedPayPalGateErr = payPalGateErr;
-  const paymentGateError = mappedPayPalGateErr ?? mappedPayPalErr;
-  const paymentGateRetry = mappedPayPalGateErr
+  }, []);
+  const paymentGateError = payPalGateErr;
+  const paymentGateRetry = payPalGateErr
     ? () => void generateFullWithSubscription()
-    : mappedPayPalErr?.retryable
-      ? () => retryCheckout()
-      : undefined;
+    : undefined;
 
   return (
     <>
@@ -912,8 +865,9 @@ export function ChatPageClient() {
           <DialogHeader>
             <DialogTitle>Cover generation</DialogTitle>
             <DialogDescription className="text-left text-sm leading-relaxed text-foreground dark:text-zinc-200">
-              AI cover is purchased with your full book (package dialog). This dialog only appears
-              for legacy paths. To test cover generation locally without that flow, set{" "}
+              AI cover is purchased with your full book on the PayPal checkout page. This dialog
+              only appears for legacy paths. To test cover generation locally without that flow,
+              set{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">
                 NEXT_PUBLIC_COVER_PAYMENT_BYPASS=true
               </code>
@@ -950,20 +904,6 @@ export function ChatPageClient() {
           </div>
         </DialogContent>
       </Dialog>
-      <FullBookPricingDialog
-        open={fullBookPricingOpen}
-        onOpenChange={(open) => {
-          setFullBookPricingOpen(open);
-          if (!open) clearPayPalErr();
-        }}
-        loading={payPalLoading}
-        error={mappedPayPalErr}
-        onRetryPayment={
-          mappedPayPalErr?.retryable ? () => retryCheckout() : undefined
-        }
-        onDismissPayment={clearPaymentErrors}
-        onBuy={(tier, opts) => continueFullBookPayPal(tier, opts)}
-      />
       <ChatShell
         showConversationChrome={showConversationChrome}
         showGeneratedOutlineButton={Boolean(bookOutline)}
@@ -999,7 +939,7 @@ export function ChatPageClient() {
           fullBookGateMode={fullBookGateMode}
           generateFullBusy={generateFullBusy}
           changePreview={changePreview}
-          payPalLoading={payPalLoading}
+          payPalLoading={false}
           payPalError={paymentGateError}
           onRetryPayment={paymentGateRetry}
           onDismissPayment={clearPaymentErrors}

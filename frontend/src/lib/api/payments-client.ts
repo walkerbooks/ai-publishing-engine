@@ -7,6 +7,8 @@ const log = getLogger("payments-client");
 
 export type CreateCheckoutResponse = { checkout_url: string };
 
+export type CaptureCheckoutResponse = { captured: boolean };
+
 export type CreatePayPalCheckoutOptions = {
   packageTier?: FullBookPackageTier;
   includeCover?: boolean;
@@ -35,4 +37,26 @@ export async function createPayPalCheckout(
   }
   log.debug("createCheckout succeeded", { bookPublicId });
   return res.json() as Promise<CreateCheckoutResponse>;
+}
+
+/** Capture an approved PayPal order (return URL `token` query param). */
+export async function capturePayPalOrder(
+  orderId: string,
+  accessToken: string,
+): Promise<CaptureCheckoutResponse> {
+  const url = `${GO_API_PREFIX}/v1/payments/capture`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      ...goAuthHeaders(accessToken),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ order_id: orderId }),
+  });
+  if (!res.ok) {
+    log.warning(`captureCheckout failed: HTTP ${res.status}`);
+    await throwIfGoResponseFailed(res);
+  }
+  log.debug("captureCheckout succeeded", { orderId });
+  return res.json() as Promise<CaptureCheckoutResponse>;
 }
