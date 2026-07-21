@@ -601,7 +601,7 @@ export function ChatGatePanel({
               className={cn(btnPrimary)}
               disabled={payPalLoading}
             >
-              {payPalLoading ? "Opening PayPal…" : "Pay with PayPal (full book)"}
+              {payPalLoading ? "Opening PayPal…" : "Choose package & pay"}
             </Button>
           )}
           {fullBookGateMode === "generate" ? (

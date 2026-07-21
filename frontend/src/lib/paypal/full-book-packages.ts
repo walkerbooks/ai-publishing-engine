@@ -14,7 +14,9 @@ export type FullBookPackageBonusSection = {
 
 export type FullBookPackage = {
   tier: FullBookPackageTier;
+  eyebrow: string;
   name: string;
+  description: string;
   priceLabel: string;
   frequencyLabel: string;
   features: string[];
@@ -33,9 +35,12 @@ export const FULL_BOOK_COVER_ADDON_LABEL =
 export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
   {
     tier: "single",
+    eyebrow: "Fast start",
     name: "Single Book",
+    description:
+      "One fully personalized manuscript when you want a focused first book without a subscription.",
     priceLabel: "$19",
-    frequencyLabel: "One-Time",
+    frequencyLabel: "one-time",
     ctaLabel: "Buy Now",
     features: [
       "1 fully personalized book",
@@ -49,9 +54,12 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
   },
   {
     tier: "triple",
+    eyebrow: "Best value",
     name: "Triple Pack",
+    description:
+      "Three personalized books each month with member access, so you can keep publishing on a steady rhythm.",
     priceLabel: "$19",
-    frequencyLabel: "Per Month",
+    frequencyLabel: "per month",
     ctaLabel: "Subscribe",
     features: [
       "3 fully personalized books",
@@ -64,7 +72,7 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
     ],
     bonusSections: [
       {
-        title: "BONUS",
+        title: "Bonus",
         items: [
           "Access to your private member area: Triple Club Access",
           "Welcome Guide: Triple Pack Welcome PDF",
@@ -74,9 +82,12 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
   },
   {
     tier: "double",
+    eyebrow: "Ongoing",
     name: "Daily Club",
+    description:
+      "For authors shipping books every day, with daily covers and private club access built in.",
     priceLabel: "$49",
-    frequencyLabel: "Per Month",
+    frequencyLabel: "per month",
     ctaLabel: "Join Now",
     features: [
       "Up to 31 fully personalized books (1 per day)",

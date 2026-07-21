@@ -1,10 +1,7 @@
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { FullBookPackage } from "@/lib/paypal/full-book-packages";
-
-const NAVY = "#2E2E5C";
-const ORANGE = "#FFA500";
-const PRICE_LAVENDER = "#C9B8E8";
 
 type Props = {
   pkg: FullBookPackage;
@@ -29,109 +26,91 @@ export function FullBookPackageCard({
 }: Props) {
   const resolvedCtaLabel = ctaLabel ?? pkg.ctaLabel;
   const ctaDisabled = disabled || loading;
+
   const ctaClassName = cn(
-    "flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60",
+    "flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold transition",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-walker-teal focus-visible:ring-offset-2",
+    "disabled:pointer-events-none disabled:opacity-60",
+    highlighted
+      ? "bg-white text-walker-charcoal hover:bg-walker-mist focus-visible:ring-offset-walker-night"
+      : "bg-walker-charcoal text-white hover:bg-walker-navy focus-visible:ring-offset-walker-mist dark:bg-walker-mist dark:text-walker-charcoal dark:hover:bg-white",
   );
-  const ctaStyle = { backgroundColor: ORANGE };
 
   return (
     <article
       className={cn(
-        "relative flex flex-col overflow-hidden rounded-2xl border bg-white shadow-md dark:bg-zinc-950",
+        "relative flex h-full flex-col rounded-3xl p-5 sm:p-7",
         highlighted
-          ? "border-walker-teal/60 shadow-lg shadow-walker-teal/10 ring-2 ring-walker-teal/35 dark:border-walker-teal/50"
-          : "border-slate-200/90 dark:border-white/10",
+          ? "bg-walker-night text-walker-mist shadow-xl shadow-walker-navy/25 ring-1 ring-white/10 md:-mt-3 md:mb-0 md:pb-8"
+          : "border border-border bg-walker-mist/70 text-walker-charcoal dark:border-white/10 dark:bg-walker-nightPanel/80 dark:text-walker-mist",
       )}
     >
       {badge ? (
         <span
           className={cn(
-            "absolute right-3 top-3 z-20 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-            "bg-walker-teal text-walker-charcoal shadow-sm",
+            "absolute left-1/2 top-0 z-10 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5",
+            "rounded-full bg-walker-charcoal px-3 py-1 text-xs font-medium text-white shadow-md",
+            "ring-1 ring-white/15",
           )}
         >
+          <Check className="h-3.5 w-3.5 text-walker-teal" strokeWidth={2.5} aria-hidden />
           {badge}
         </span>
       ) : null}
 
-      <div
-        className="relative px-4 pb-10 pt-6 text-center"
-        style={{ backgroundColor: NAVY }}
-      >
-        <h3 className="text-lg font-semibold tracking-tight text-white">{pkg.name}</h3>
+      <div className={cn(badge ? "pt-2" : undefined)}>
         <p
-          className="mt-3 text-4xl font-bold tabular-nums sm:text-[2.75rem]"
-          style={{ color: PRICE_LAVENDER }}
+          className={cn(
+            "text-[11px] font-semibold uppercase tracking-[0.18em]",
+            highlighted ? "text-walker-slate" : "text-muted-foreground",
+          )}
         >
-          {pkg.priceLabel}
+          {pkg.eyebrow}
         </p>
+        <h3
+          className={cn(
+            "mt-2 text-2xl font-semibold tracking-tight",
+            highlighted ? "text-white" : "text-walker-charcoal dark:text-walker-mist",
+          )}
+        >
+          {pkg.name}
+        </h3>
         <p
-          className="mt-1 text-sm font-semibold uppercase tracking-wide"
-          style={{ color: ORANGE }}
+          className={cn(
+            "mt-3 text-sm leading-relaxed",
+            highlighted ? "text-walker-mist/75" : "text-muted-foreground",
+          )}
         >
-          {pkg.frequencyLabel}
+          {pkg.description}
         </p>
-        <div
-          className="pointer-events-none absolute -bottom-px left-1/2 z-10 h-0 w-0 -translate-x-1/2 translate-y-[1px] border-x-[18px] border-t-[14px] border-x-transparent border-t-white dark:border-t-zinc-950"
-          aria-hidden
-        />
       </div>
 
-      <ul className="bg-white px-1 py-0 text-center text-[13px] leading-snug text-slate-600 dark:bg-zinc-950 dark:text-zinc-300 sm:text-sm">
-        {pkg.features.map((line, i) => (
-          <li
-            key={line}
-            className={cn(
-              "px-3 py-2.5",
-              i % 2 === 0
-                ? "bg-white dark:bg-zinc-950"
-                : "bg-slate-50 dark:bg-white/5",
-            )}
-          >
-            {line}
-          </li>
-        ))}
-      </ul>
-
-      {pkg.bonusSections?.map((section) => (
-        <div
-          key={section.title}
-          className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-center dark:border-white/10 dark:bg-white/5"
+      <p
+        className={cn(
+          "mt-6 text-[1.75rem] font-semibold tracking-tight tabular-nums sm:text-[2rem]",
+          highlighted ? "text-white" : "text-walker-charcoal dark:text-walker-mist",
+        )}
+      >
+        {pkg.priceLabel}
+        <span
+          className={cn(
+            "text-base font-medium",
+            highlighted ? "text-walker-mist/65" : "text-muted-foreground",
+          )}
         >
-          <p className="text-xs font-bold uppercase tracking-wide text-walker-navy dark:text-walker-teal">
-            {section.title}:
-          </p>
-          <ul className="mt-2 space-y-1.5 text-[13px] leading-snug text-slate-600 dark:text-zinc-300 sm:text-sm">
-            {section.items.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          {section.link ? (
-            <p className="mt-2 text-[13px] leading-snug text-slate-600 dark:text-zinc-300 sm:text-sm">
-              {section.link.prefix}
-              <Link
-                href={section.link.href}
-                className="font-semibold text-walker-navy underline underline-offset-2 hover:text-walker-teal dark:text-walker-teal"
-              >
-                {section.link.label}
-              </Link>
-            </p>
-          ) : null}
-        </div>
-      ))}
+          {" "}
+          / {pkg.frequencyLabel}
+        </span>
+      </p>
 
-      <div className="border-t border-slate-100 bg-white p-4 dark:border-white/10 dark:bg-zinc-950">
+      <div className="mt-5">
         {ctaHref ? (
           <Link
             href={ctaHref}
             className={ctaClassName}
-            style={ctaStyle}
             aria-disabled={ctaDisabled}
+            tabIndex={ctaDisabled ? -1 : undefined}
           >
-            <span
-              className="h-0 w-0 shrink-0 border-y-[6px] border-l-[10px] border-y-transparent border-l-white"
-              aria-hidden
-            />
             {resolvedCtaLabel}
           </Link>
         ) : (
@@ -140,15 +119,89 @@ export function FullBookPackageCard({
             disabled={ctaDisabled}
             onClick={onCtaClick}
             className={ctaClassName}
-            style={ctaStyle}
           >
-            <span
-              className="h-0 w-0 shrink-0 border-y-[6px] border-l-[10px] border-y-transparent border-l-white"
-              aria-hidden
-            />
             {loading ? "Opening PayPal…" : resolvedCtaLabel}
           </button>
         )}
+      </div>
+
+      <div className="mt-7 flex-1">
+        <p
+          className={cn(
+            "text-[11px] font-semibold uppercase tracking-[0.18em]",
+            highlighted ? "text-walker-slate" : "text-muted-foreground",
+          )}
+        >
+          What&apos;s included
+        </p>
+        <ul className="mt-4 space-y-2.5">
+          {pkg.features.map((line) => (
+            <li key={line} className="flex gap-2.5 text-sm leading-snug">
+              <Check
+                className={cn(
+                  "mt-0.5 h-4 w-4 shrink-0",
+                  highlighted ? "text-walker-teal" : "text-walker-navy dark:text-walker-teal",
+                )}
+                strokeWidth={2.25}
+                aria-hidden
+              />
+              <span className={highlighted ? "text-walker-mist/85" : "text-foreground/85"}>
+                {line}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        {pkg.bonusSections?.map((section) => (
+          <div key={section.title} className="mt-5">
+            <p
+              className={cn(
+                "text-[11px] font-semibold uppercase tracking-[0.18em]",
+                highlighted ? "text-walker-teal" : "text-walker-navy dark:text-walker-teal",
+              )}
+            >
+              {section.title}
+            </p>
+            <ul className="mt-3 space-y-2.5">
+              {section.items.map((item) => (
+                <li key={item} className="flex gap-2.5 text-sm leading-snug">
+                  <Check
+                    className={cn(
+                      "mt-0.5 h-4 w-4 shrink-0",
+                      highlighted ? "text-walker-teal" : "text-walker-navy dark:text-walker-teal",
+                    )}
+                    strokeWidth={2.25}
+                    aria-hidden
+                  />
+                  <span className={highlighted ? "text-walker-mist/85" : "text-foreground/85"}>
+                    {item}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {section.link ? (
+              <p
+                className={cn(
+                  "mt-2 pl-[26px] text-sm leading-snug",
+                  highlighted ? "text-walker-mist/75" : "text-muted-foreground",
+                )}
+              >
+                {section.link.prefix}
+                <Link
+                  href={section.link.href}
+                  className={cn(
+                    "font-semibold underline underline-offset-2",
+                    highlighted
+                      ? "text-walker-teal hover:text-white"
+                      : "text-walker-navy hover:text-walker-teal dark:text-walker-teal",
+                  )}
+                >
+                  {section.link.label}
+                </Link>
+              </p>
+            ) : null}
+          </div>
+        ))}
       </div>
     </article>
   );

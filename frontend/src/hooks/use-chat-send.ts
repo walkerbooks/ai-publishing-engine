@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { usePublishingStore } from "@/stores/publishing-store";
 import { sendChatMessage } from "@/lib/api/chat-client";
 import { extractUserNameFromMessages } from "@/lib/chat/welcome-flow";
+import { newId } from "@/lib/utils/id";
 
 export function useChatSend() {
   const [busy, setBusy] = useState(false);
@@ -35,7 +36,7 @@ export function useChatSend() {
         usePublishingStore.getState().sessionId,
       );
       usePublishingStore.getState().pushAssistantMessage({
-        id: crypto.randomUUID(),
+        id: newId(),
         role: "assistant",
         kind: "intake",
         content: res.content,

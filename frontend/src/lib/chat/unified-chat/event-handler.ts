@@ -1,6 +1,7 @@
 import type { ChatBlockKind } from "@/lib/types/chat";
 import { syncBookToServerAfterPreview } from "@/lib/api/sync-server-book";
 import { userErrorMessage } from "@/lib/errors/user-error-message";
+import { newId } from "@/lib/utils/id";
 
 type Handlers = {
   pushAssistantMessage: (msg: any) => void;
@@ -74,7 +75,7 @@ export function handleUnifiedChatSseEvent(
         handlers.patchChatMessage(mid, patch);
       }
     }
-    const bookId = crypto.randomUUID();
+    const bookId = newId();
     handlers.setIntakeResult(
       Boolean(data.intakeComplete),
       spec,

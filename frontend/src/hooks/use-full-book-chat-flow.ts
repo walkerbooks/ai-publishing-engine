@@ -18,6 +18,7 @@ import {
 import { checkFullGenerationEntitlement } from "@/lib/api/subscriptions-client";
 import { getAccessToken, getUserFirstName } from "@/lib/auth/access-token";
 import { randomFullBookQuip } from "@/lib/chat/full-book-quips";
+import { newId } from "@/lib/utils/id";
 import type { FullBookGenPhase } from "@/lib/types/chat";
 import { buildBookDescriptionJson } from "@/lib/book/book-description-payload";
 import { userErrorMessage } from "@/lib/errors/user-error-message";
@@ -119,7 +120,7 @@ export function useFullBookChatFlow() {
         messageIdRef.current = fromStore.id;
         return fromStore.id;
       }
-      const id = crypto.randomUUID();
+      const id = newId();
       messageIdRef.current = id;
       pushAssistantMessage({
         id,

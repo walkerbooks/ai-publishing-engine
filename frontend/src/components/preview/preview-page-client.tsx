@@ -11,8 +11,8 @@ import { BuyFullBookBar } from "@/components/preview/buy-full-book-bar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserErrorBanner } from "@/components/ui/user-error-banner";
-import { usePayPalCheckout } from "@/hooks/use-paypal-checkout";
 import { mapUserError } from "@/lib/errors/user-error-message";
+import { getAccessToken } from "@/lib/auth/access-token";
 
 type Props = { bookId: string };
 
@@ -23,13 +23,6 @@ export function PreviewPageClient({ bookId }: Props) {
   const preview = usePublishingStore((s) => s.previewContent);
   const stream = usePublishingStore((s) => s.streamedPreviewContent);
   const { mutate, isPending, isError, error, reset } = usePreviewMutation();
-  const {
-    startCheckout,
-    retryCheckout,
-    loading: checkoutLoading,
-    error: checkoutErr,
-    clearError: clearCheckoutErr,
-  } = usePayPalCheckout();
 
   const previewError = useMemo(
     () => (isError && error ? mapUserError(error, "preview") : null),
@@ -47,6 +40,16 @@ export function PreviewPageClient({ bookId }: Props) {
 
   const onGen = () =>
     mutate({ spec, outline, simulateStream: true });
+
+  const goCheckout = () => {
+    if (!getAccessToken()) {
+      router.push(
+        `/login?next=${encodeURIComponent(`/paypal/checkout?book=${encodeURIComponent(bookId)}`)}`,
+      );
+      return;
+    }
+    router.push(`/paypal/checkout?book=${encodeURIComponent(bookId)}`);
+  };
 
   if (!preview && !isPending && !isError) {
     return (
@@ -92,16 +95,7 @@ export function PreviewPageClient({ bookId }: Props) {
           <Skeleton className="h-40 w-full" />
         )}
       </div>
-      <BuyFullBookBar
-        loading={checkoutLoading}
-        error={checkoutErr}
-        onRetryCheckout={checkoutErr?.retryable ? () => retryCheckout() : undefined}
-        onDismissCheckout={clearCheckoutErr}
-        onCheckout={() => {
-          clearCheckoutErr();
-          void startCheckout(bookId, `/book/${bookId}/preview`);
-        }}
-      />
+      <BuyFullBookBar onCheckout={goCheckout} />
       <Link href="/chat" className="mt-4 inline-block text-sm text-blue-600 hover:underline">
         Continue in chat for full book generation
       </Link>

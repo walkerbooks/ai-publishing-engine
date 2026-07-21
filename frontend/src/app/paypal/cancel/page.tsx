@@ -22,11 +22,15 @@ export default function PayPalCancelPage() {
   return (
     <PayPalFlowCard title="Payment canceled">
       <p className="min-w-0 text-sm leading-relaxed break-words text-muted-foreground sm:text-base">
-        You can return to your book preview and try again when you are ready.
+        Your PayPal checkout was canceled. No charge was made. You can return to your book and try
+        again when you are ready.
       </p>
       <div className="flex min-w-0 flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <Button variant="outline" asChild className="h-11 w-full min-w-0 sm:h-9 sm:w-auto">
+        <Button asChild className="h-11 w-full min-w-0 sm:h-9 sm:w-auto">
           <Link href="/chat">Back to chat</Link>
+        </Button>
+        <Button variant="outline" asChild className="h-11 w-full min-w-0 sm:h-9 sm:w-auto">
+          <Link href="/pricing">View packages</Link>
         </Button>
         <Button variant="ghost" asChild className="h-11 w-full min-w-0 sm:h-9 sm:w-auto">
           <Link href="/">Home</Link>
