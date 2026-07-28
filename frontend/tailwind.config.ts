@@ -49,10 +49,39 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "float-soft": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-8px)" },
+        },
+        bob: {
+          "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
+          "50%": { transform: "translateY(-5px) rotate(1.5deg)" },
+        },
+        "path-draw": {
+          "0%": { "stroke-dashoffset": "120" },
+          "100%": { "stroke-dashoffset": "0" },
+        },
+        "sand-fall": {
+          "0%": { transform: "translateY(0)", opacity: "0.85" },
+          "100%": { transform: "translateY(18px)", opacity: "0.15" },
+        },
+        "gear-spin": {
+          to: { transform: "rotate(360deg)" },
+        },
+        "writing-line": {
+          "0%, 100%": { "stroke-dashoffset": "0", opacity: "1" },
+          "50%": { "stroke-dashoffset": "40", opacity: "0.45" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "float-soft": "float-soft 4.5s ease-in-out infinite",
+        bob: "bob 3.8s ease-in-out infinite",
+        "path-draw": "path-draw 2.8s ease-in-out infinite alternate",
+        "sand-fall": "sand-fall 2.2s ease-in infinite",
+        "gear-spin": "gear-spin 14s linear infinite",
+        "writing-line": "writing-line 2.4s ease-in-out infinite",
       },
     },
   },

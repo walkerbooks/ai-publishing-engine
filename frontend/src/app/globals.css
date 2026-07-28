@@ -42,8 +42,14 @@ html {
     scroll-behavior: auto;
   }
 
-  .animate-login-shake {
-    animation: none;
+  .animate-login-shake,
+  .animate-float-soft,
+  .animate-bob,
+  .animate-path-draw,
+  .animate-sand-fall,
+  .animate-writing-line,
+  .animate-gear-spin {
+    animation: none !important;
   }
 }
 

@@ -103,6 +103,7 @@ def run_chapter(
             "last_chapter_beat": sync_state.get("last_chapter_beat", ""),
             "character_arc": sync_state.get("character_arc", ""),
             "character_bible": sync_state.get("character_bible", ""),
+            "environmental_pressure": sync_state.get("environmental_pressure", {}),
         },
         indent=2,
     )

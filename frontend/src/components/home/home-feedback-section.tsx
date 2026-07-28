@@ -89,7 +89,7 @@ export function HomeFeedbackSection() {
             </h2>
             <p className="mt-3 text-pretty leading-relaxed text-muted-foreground">
               Whether it&apos;s a rough edge in chat, a pricing question, or an idea for your next
-              book — we read every note. Share anything on your mind.
+              book. We read every note. Share anything on your mind.
             </p>
             <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
               <li className="flex gap-3">
@@ -136,7 +136,7 @@ export function HomeFeedbackSection() {
                   aria-hidden
                 />
                 <h3 className="mt-4 text-xl font-semibold text-foreground">
-                  Thanks — we got your feedback
+                  Thanks, we got your feedback
                 </h3>
                 <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
                   Your message helps us improve WalkerBook for every author on the path.

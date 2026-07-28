@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 
@@ -14,8 +15,21 @@ def default_sync_state() -> dict[str, Any]:
         "open_threads": [],
         "last_chapter_beat": "",
         "tone_anchors": "",
-        "character_arc": "",
+        "character_arc": {
+            "current_mindset": "",
+            "moral_position": "",
+            "hardness_level": "",
+            "last_decision_made": "",
+            "current_belief": "",
+            "arc_delta": "",
+        },
         "character_bible": "",
+        "environmental_pressure": {
+            "active_forces": [],
+            "pressure_level": "",
+            "last_causal_moment": "",
+            "escalation_due": "",
+        },
         "previous_excerpt_tail": "",
     }
 
@@ -24,7 +38,7 @@ def merge_with_defaults(raw: Any) -> dict[str, Any]:
     base = default_sync_state()
     if not isinstance(raw, dict):
         return base
-    for k, v in base.items():
+    for k in base:
         if k not in raw:
             continue
         if k == "chapter_summaries" and isinstance(raw[k], list):
@@ -35,7 +49,6 @@ def merge_with_defaults(raw: Any) -> dict[str, Any]:
             "narrative_arc",
             "last_chapter_beat",
             "tone_anchors",
-            "character_arc",
             "character_bible",
             "previous_excerpt_tail",
         ) and isinstance(raw[k], str):
@@ -61,13 +74,22 @@ def merge_with_defaults(raw: Any) -> dict[str, Any]:
                     "current_belief": "",
                     "arc_delta": "",
                 }
-        elif k == "environmental_pressure" and isinstance(raw[k], dict):
+        elif k == "environmental_pressure":
             ep = raw[k]
-            af = ep.get("active_forces")
-            base[k] = {
-                "active_forces": [str(x) for x in af] if isinstance(af, list) else [],
-                "pressure_level": str(ep.get("pressure_level") or ""),
-                "last_causal_moment": str(ep.get("last_causal_moment") or ""),
-                "escalation_due": str(ep.get("escalation_due") or ""),
-            }
+            if isinstance(ep, str):
+                try:
+                    parsed = json.loads(ep)
+                    ep = parsed if isinstance(parsed, dict) else {}
+                except Exception:
+                    ep = {}
+            if isinstance(ep, dict):
+                af = ep.get("active_forces")
+                base[k] = {
+                    "active_forces": [str(x) for x in af] if isinstance(af, list) else (
+                        [str(af)] if af else []
+                    ),
+                    "pressure_level": str(ep.get("pressure_level") or ""),
+                    "last_causal_moment": str(ep.get("last_causal_moment") or ""),
+                    "escalation_due": str(ep.get("escalation_due") or ""),
+                }
     return base

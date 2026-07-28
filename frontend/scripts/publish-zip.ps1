@@ -2,16 +2,30 @@ $ErrorActionPreference = "Stop"
 $frontend = Split-Path $PSScriptRoot -Parent
 $repoRoot = Split-Path $frontend -Parent
 $zipPath = Join-Path $repoRoot "frontend.zip"
-Set-Location $frontend
+
 if (Test-Path $zipPath) {
   Remove-Item $zipPath -Force
 }
-$exclude = @("node_modules", ".next", ".env.local")
-$items = Get-ChildItem -Force | Where-Object { $_.Name -notin $exclude }
-if (-not $items) {
-  Write-Error "No files to zip in $frontend"
-  exit 1
+
+# Compress-Archive uses backslash paths that break on Linux (Hostinger).
+# tar -a produces a zip with forward-slash entries Linux can extract.
+$excludeArgs = @(
+  "--exclude=node_modules",
+  "--exclude=.next",
+  "--exclude=.env.local",
+  "--exclude=.git"
+)
+
+Push-Location $frontend
+try {
+  & tar.exe @excludeArgs -a -c -f $zipPath *
+  if ($LASTEXITCODE -ne 0) {
+    Write-Error "tar failed with exit code $LASTEXITCODE"
+    exit $LASTEXITCODE
+  }
+} finally {
+  Pop-Location
 }
-Compress-Archive -Path ($items | ForEach-Object { $_.FullName }) -DestinationPath $zipPath -CompressionLevel Optimal -Force
+
 $sizeMb = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
 Write-Host "Created $zipPath ($sizeMb MB)"

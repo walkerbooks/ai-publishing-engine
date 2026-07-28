@@ -7,17 +7,13 @@ import {
   Eye,
   ListOrdered,
   MessageCircle,
-  Palette,
-  ShieldCheck,
   Sparkles,
-  Wand2,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FaqSection } from "@/components/home/faq-section";
+import { ProgressStorySection, WelcomeStorySection } from "@/components/home/feature-story-sections";
 import { HomeFeedbackSection } from "@/components/home/home-feedback-section";
 import { HomePricingSection } from "@/components/home/home-pricing-section";
-import { ArtStylesGallery } from "@/components/home/art-styles-gallery";
 import { TestimonialsCarousel } from "@/components/home/testimonials-carousel";
 import { cn } from "@/lib/utils/cn";
 
@@ -44,29 +40,6 @@ const steps = [
   },
 ] as const;
 
-const whyFeatures = [
-  {
-    icon: Wand2,
-    title: "Coauthor, not autopilot",
-    body: "WalkerBook nudges structure, voice, and pacing while you steer, so drafts feel like yours, not a template.",
-  },
-  {
-    icon: Palette,
-    title: "Covers that turn heads",
-    body: "Spin up cover directions fast, iterate on mood and typography, and land a look that belongs on a real shelf.",
-  },
-  {
-    icon: Zap,
-    title: "Progress you can feel",
-    body: "Outline, sample chapter, full manuscript, and each hop is visible, so momentum beats the blank page spiral.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Your book, your keys",
-    body: "You keep ownership of what you create. We’re the workshop lights, and you walk out with the manuscript.",
-  },
-] as const;
-
 export function HomeLanding() {
   return (
     <div className="flex min-h-[calc(100dvh-3.5rem)] flex-col sm:min-h-[calc(100dvh-5rem)]">
@@ -79,8 +52,7 @@ export function HomeLanding() {
             </p>
 
             <h1 className="w-full max-w-full text-balance text-[1.75rem] font-semibold leading-tight tracking-tight text-walker-charcoal dark:text-walker-mist min-[380px]:text-[1.875rem] sm:text-5xl sm:leading-tight lg:text-[3.25rem] lg:leading-[1.06]">
-              <span className="block sm:whitespace-nowrap">Turn the book in your head</span>
-              <span className="block sm:whitespace-nowrap">into something readers can hold</span>
+              Turn the book in your head into something readers can hold
             </h1>
 
             <p className="max-w-xl text-pretty text-base leading-snug text-walker-navy/90 dark:text-walker-mist/85 sm:text-lg sm:leading-relaxed">
@@ -145,6 +117,8 @@ export function HomeLanding() {
         </div>
       </section>
 
+      <WelcomeStorySection />
+
       <section
         id="how-it-works"
         className="scroll-mt-[calc(3.5rem+0.125rem)] sm:scroll-mt-[calc(5rem+0.125rem)] relative bg-background px-4 py-16 sm:py-20"
@@ -186,50 +160,7 @@ export function HomeLanding() {
         </div>
       </section>
 
-      <section
-        id="why-walkerbook"
-        className="border-t border-border bg-walker-mist/40 px-4 py-16 dark:bg-walker-nightPanel/30 sm:py-20"
-      >
-        <div className="mx-auto max-w-5xl">
-          <div className="grid gap-12 lg:grid-cols-2 lg:items-start lg:gap-14 xl:gap-16">
-            <div className="max-w-lg lg:mx-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-walker-teal dark:text-walker-teal">
-                Why WalkerBook
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-walker-charcoal dark:text-walker-mist sm:text-4xl">
-                Publishing help that actually fits your life
-              </h2>
-              <p className="mt-4 text-pretty text-base leading-relaxed text-walker-navy/90 dark:text-walker-mist/85 sm:text-lg">
-                Most of us juggle day jobs, doubt, and crowded calendars. WalkerBook is built for that reality, with fast
-                wins, honest guardrails, and a workflow that respects your voice from day one.
-              </p>
-            </div>
-
-            <ul className="grid gap-8 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-10 lg:mt-6">
-              {whyFeatures.map(({ icon: Icon, title, body }) => (
-                <li key={title}>
-                  <article className="flex h-full flex-col bg-transparent py-1">
-                    <div
-                      className={cn(
-                        "mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-violet-200 text-walker-navy",
-                        "dark:bg-walker-slate/40 dark:text-walker-mist",
-                      )}
-                    >
-                      <Icon className="h-6 w-6" strokeWidth={2} aria-hidden />
-                    </div>
-                    <h3 className="text-sm font-bold uppercase leading-snug tracking-wide text-walker-charcoal dark:text-walker-mist">
-                      {title}
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
-                  </article>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <ArtStylesGallery />
+      <ProgressStorySection />
 
       <TestimonialsCarousel />
       <HomePricingSection />

@@ -168,6 +168,8 @@ def _finalize_chapter_after_body(
         sync["tone_anchors"] = updated["tone_anchors"]
         sync["character_arc"] = updated["character_arc"]
         sync["character_bible"] = updated["character_bible"]
+        if "environmental_pressure" in updated:
+            sync["environmental_pressure"] = updated["environmental_pressure"]
     sync["previous_excerpt_tail"] = excerpt_tail
     if update_sync_state:
         patch_book_sync_state(book_id, sync)

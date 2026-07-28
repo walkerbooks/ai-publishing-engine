@@ -28,6 +28,19 @@ def _to_str_list(value: Any) -> list[str]:
     return [t] if t else []
 
 
+def _maybe_json_object(value: Any) -> Any:
+    """If the model returned a JSON object as a string, parse it."""
+    if not isinstance(value, str):
+        return value
+    t = value.strip()
+    if not t or t[0] not in "{[":
+        return value
+    try:
+        return json.loads(t)
+    except Exception:
+        return value
+
+
 class CharacterArcFields(BaseModel):
     """Structured protagonist trajectory used by chapter generation continuity."""
 
@@ -42,6 +55,7 @@ class CharacterArcFields(BaseModel):
 
     @classmethod
     def from_any(cls, value: Any) -> "CharacterArcFields":
+        value = _maybe_json_object(value)
         if isinstance(value, cls):
             return value
         if isinstance(value, dict):
@@ -69,6 +83,7 @@ class EnvironmentalPressureFields(BaseModel):
 
     @classmethod
     def from_any(cls, value: Any) -> "EnvironmentalPressureFields":
+        value = _maybe_json_object(value)
         if isinstance(value, cls):
             return value
         if isinstance(value, dict):
@@ -85,20 +100,40 @@ class EnvironmentalPressureFields(BaseModel):
 class SyncStateFields(BaseModel):
     """Structured LLM output merged into book sync_state after each chapter."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     narrative_arc: str = ""
     key_facts: list[str] = Field(default_factory=list)
     open_threads: list[str] = Field(default_factory=list)
     last_chapter_beat: str = ""
     tone_anchors: str = ""
-    character_arc: str = ""
+    character_arc: CharacterArcFields = Field(default_factory=CharacterArcFields)
     character_bible: str = ""
+    environmental_pressure: EnvironmentalPressureFields = Field(
+        default_factory=EnvironmentalPressureFields
+    )
 
     @field_validator("character_arc", mode="before")
     @classmethod
     def _coerce_character_arc(cls, v: Any) -> CharacterArcFields:
         return CharacterArcFields.from_any(v)
+
+    @field_validator("environmental_pressure", mode="before")
+    @classmethod
+    def _coerce_environmental_pressure(cls, v: Any) -> EnvironmentalPressureFields:
+        return EnvironmentalPressureFields.from_any(v)
+
+    @field_validator("character_bible", mode="before")
+    @classmethod
+    def _coerce_character_bible(cls, v: Any) -> str:
+        if v is None:
+            return ""
+        if isinstance(v, str):
+            return v.strip()
+        if isinstance(v, dict):
+            return json.dumps(v)
+        return str(v).strip()
+
 
 def run_sync_state_update(
     sync_state: dict[str, Any],
@@ -124,6 +159,7 @@ def run_sync_state_update(
             "tone_anchors": sync_state.get("tone_anchors", ""),
             "character_arc": sync_state.get("character_arc", ""),
             "character_bible": sync_state.get("character_bible", ""),
+            "environmental_pressure": sync_state.get("environmental_pressure", {}),
         },
         "chapter_index": chapter_index,
         "chapter_title": chapter_title,
@@ -142,6 +178,7 @@ def run_sync_state_update(
         "open_threads": out.open_threads[:12],
         "last_chapter_beat": out.last_chapter_beat,
         "tone_anchors": out.tone_anchors,
-        "character_arc": out.character_arc,
+        "character_arc": out.character_arc.model_dump(),
         "character_bible": out.character_bible,
+        "environmental_pressure": out.environmental_pressure.model_dump(),
     }
