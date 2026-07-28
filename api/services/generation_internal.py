@@ -523,29 +523,7 @@ def run_full_generation(book_id: int) -> None:
                 provider=provider,
             )
             if quality_enabled:
-                quality_eval = evaluate_chapter_quality(
-                    spec,
-                    outline,
-                    idx,
-                    title,
-                    body,
-                    provider=provider,
-                )
-                rewrite_count = 0
-                while (
-                    rewrite_count < max_rewrite_passes
-                    and not _passes_quality_gate(quality_eval, quality_thresholds)
-                ):
-                    body = rewrite_chapter_with_quality_feedback(
-                        spec,
-                        outline,
-                        idx,
-                        title,
-                        body,
-                        quality_eval,
-                        provider=provider,
-                    )
-                    rewrite_count += 1
+                try:
                     quality_eval = evaluate_chapter_quality(
                         spec,
                         outline,
@@ -553,6 +531,35 @@ def run_full_generation(book_id: int) -> None:
                         title,
                         body,
                         provider=provider,
+                    )
+                    rewrite_count = 0
+                    while (
+                        rewrite_count < max_rewrite_passes
+                        and not _passes_quality_gate(quality_eval, quality_thresholds)
+                    ):
+                        body = rewrite_chapter_with_quality_feedback(
+                            spec,
+                            outline,
+                            idx,
+                            title,
+                            body,
+                            quality_eval,
+                            provider=provider,
+                        )
+                        rewrite_count += 1
+                        quality_eval = evaluate_chapter_quality(
+                            spec,
+                            outline,
+                            idx,
+                            title,
+                            body,
+                            provider=provider,
+                        )
+                except Exception:
+                    log.exception(
+                        "quality gate failed for chapter %s book %s; keeping draft body",
+                        idx,
+                        book_id,
                     )
             sync, prev_excerpt = _finalize_chapter_after_body(
                 book_id,
