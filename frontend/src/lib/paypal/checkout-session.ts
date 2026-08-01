@@ -47,14 +47,15 @@ export function readPayPalCheckoutContext(): PayPalCheckoutContextV1 | null {
     ) {
       return null;
     }
-    const rawTier = (j as PayPalCheckoutContextV1).package_tier;
-    const package_tier =
-      rawTier === "single" ||
-      rawTier === "daily_club" ||
-      rawTier === "triple" ||
-      rawTier === "double"
-        ? ((rawTier === "double" ? "daily_club" : rawTier) as FullBookPackageTier)
-        : undefined;
+    // Read as string so legacy sessionStorage "double" can map to "daily_club".
+    const rawTierVal = (j as { package_tier?: unknown }).package_tier;
+    const rawTier = typeof rawTierVal === "string" ? rawTierVal : undefined;
+    const package_tier: FullBookPackageTier | undefined =
+      rawTier === "single" || rawTier === "daily_club" || rawTier === "triple"
+        ? rawTier
+        : rawTier === "double"
+          ? "daily_club"
+          : undefined;
     const rawCover = (j as PayPalCheckoutContextV1).include_cover;
     const include_cover = rawCover === true ? true : undefined;
     return {
