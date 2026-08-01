@@ -9,7 +9,7 @@ const log = getLogger("subscriptions-client");
 const FULL_BOOK_COOLDOWN_BYPASS =
   process.env.NEXT_PUBLIC_FULL_BOOK_COOLDOWN_BYPASS === "true";
 
-export type SubscriptionPlan = "single_book" | "double_book" | "triple_book";
+export type SubscriptionPlan = "single_book" | "daily_club" | "triple_book";
 
 export type SubscriptionRow = {
   public_id: string;
@@ -159,7 +159,7 @@ export function packageTierToSubscriptionPlan(
 ): SubscriptionPlan {
   const m: Record<FullBookPackageTier, SubscriptionPlan> = {
     single: "single_book",
-    double: "double_book",
+    daily_club: "daily_club",
     triple: "triple_book",
   };
   return m[tier];

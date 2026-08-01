@@ -49,8 +49,11 @@ export function readPayPalCheckoutContext(): PayPalCheckoutContextV1 | null {
     }
     const rawTier = (j as PayPalCheckoutContextV1).package_tier;
     const package_tier =
-      rawTier === "single" || rawTier === "double" || rawTier === "triple"
-        ? rawTier
+      rawTier === "single" ||
+      rawTier === "daily_club" ||
+      rawTier === "triple" ||
+      rawTier === "double"
+        ? ((rawTier === "double" ? "daily_club" : rawTier) as FullBookPackageTier)
         : undefined;
     const rawCover = (j as PayPalCheckoutContextV1).include_cover;
     const include_cover = rawCover === true ? true : undefined;

@@ -19,8 +19,8 @@ _REVISION_PAGE_PATTERNS = (
 
 def extract_target_pages_from_revision(text: str) -> int | None:
     """
-    If the user clearly states a page count, return it (1–200). Uses the last match so
-    phrases like "not 100 pages — only 5 pages" resolve to 5.
+    If the user clearly states a page count, return it (150–250). Uses the last match so
+    phrases like "not 200 pages — only 150 pages" resolve to 150.
     """
     if not (text and text.strip()):
         return None
@@ -31,7 +31,7 @@ def extract_target_pages_from_revision(text: str) -> int | None:
                 n = int(m.group(1))
             except (TypeError, ValueError):
                 continue
-            if 1 <= n <= 200:
+            if 150 <= n <= 250:
                 candidates.append(n)
     return candidates[-1] if candidates else None
 
@@ -141,7 +141,7 @@ def run_outline(
     outline: BookOutline = structured_llm.invoke(messages)
     data = outline.model_dump()
     tp = spec.get("target_length_pages")
-    if isinstance(tp, int) and 1 <= tp <= 200:
+    if isinstance(tp, int) and 150 <= tp <= 250:
         data = _align_outline_to_page_target(data, tp, words_per_page)
         outline = BookOutline.model_validate(data)
     return outline.model_dump(), spec

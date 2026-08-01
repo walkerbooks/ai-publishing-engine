@@ -1,0 +1,5 @@
+DejaVu fonts — Bitstream Vera Fonts Copyright, Arev Fonts Copyright,
+and DejaVu changes (see https://dejavu-fonts.github.io/).
+
+These fonts are free to use, modify, and redistribute.
+See the full DejaVu license for details.

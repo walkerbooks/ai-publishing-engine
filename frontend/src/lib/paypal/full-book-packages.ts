@@ -1,4 +1,4 @@
-export type FullBookPackageTier = "single" | "double" | "triple";
+export type FullBookPackageTier = "single" | "daily_club" | "triple";
 
 export type FullBookPackageBonusLink = {
   prefix: string;
@@ -81,7 +81,7 @@ export const FULL_BOOK_PACKAGES: FullBookPackage[] = [
     ],
   },
   {
-    tier: "double",
+    tier: "daily_club",
     eyebrow: "Ongoing",
     name: "Daily Club",
     description:

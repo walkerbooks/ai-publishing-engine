@@ -93,8 +93,8 @@ def run_intake(
                     "Respond again with ONE tool/structured object matching the schema exactly:\n"
                     "- No XML or <function=IntakeResponse> wrappers; no markdown fences.\n"
                     "- JSON-compatible strings only (double quotes); escape inner quotes.\n"
-                    f"- target_length_pages must be an integer from 1 to 200 (use {pages} if the user "
-                    "did not specify length — do not use a pamphlet length like 3 unless they asked).\n"
+                    f"- target_length_pages must be an integer from 150 to 250 (use {pages} if the user "
+                    "did not specify length — do not use a short length outside 150–250).\n"
                 )
                 if hint:
                     fix += f"\nProvider diagnostic (correct and retry):\n{hint}\n"

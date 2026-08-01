@@ -47,11 +47,11 @@ class Settings(BaseSettings):
         validation_alias="BOOK_WORDS_PER_PAGE",
     )
 
-    # When set (e.g. 20 for fast local testing), intake infers this target_length_pages if the user omits length.
+    # When set, intake infers this target_length_pages if the user omits length (must be 150–250).
     default_target_length_pages: int | None = Field(
         default=None,
-        ge=1,
-        le=200,
+        ge=150,
+        le=250,
         validation_alias="DEFAULT_TARGET_LENGTH_PAGES",
     )
 
@@ -117,9 +117,9 @@ class Settings(BaseSettings):
 
     # Skip expensive chapter expansion pass for longer books (page target at or above this).
     chapter_expand_max_pages: int = Field(
-        default=120,
-        ge=1,
-        le=200,
+        default=250,
+        ge=150,
+        le=250,
         validation_alias="CHAPTER_EXPAND_MAX_PAGES",
     )
 

@@ -32,9 +32,9 @@ export function minimalBookSpecFromOutline(
 ): Record<string, unknown> {
   const title =
     typeof outline.book_title === "string" ? outline.book_title : undefined;
-  let pages = 24;
+  let pages = 150;
   if (typeof outline.estimated_pages === "number" && Number.isFinite(outline.estimated_pages)) {
-    pages = Math.min(200, Math.max(1, Math.round(outline.estimated_pages)));
+    pages = Math.min(250, Math.max(150, Math.round(outline.estimated_pages)));
   }
   return {
     genre: "General nonfiction",

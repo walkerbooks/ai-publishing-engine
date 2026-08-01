@@ -11,9 +11,10 @@ paths:
     post:
       summary: Create a subscription row for the current user
       description: >
-        Records a one-time plan purchase (single_book, double_book, triple_book).
-        Initial books_remaining is 1, 2, or 3 by plan. When full book generation
-        completes, the server decrements credits and may set expired when none remain.
+        Records a one-time plan purchase (single_book, daily_club, triple_book).
+        Initial books_remaining is 1 (single_book), 31 (daily_club),
+        or 3 (triple_book) by plan. When full book generation completes, the server
+        decrements credits and may set expired when none remain.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -25,7 +26,7 @@ paths:
               properties:
                 plan:
                   type: string
-                  enum: [single_book, double_book, triple_book]
+                  enum: [single_book, daily_club, triple_book]
       responses:
         "201":
           description: Subscription created
@@ -125,7 +126,7 @@ components:
           format: int64
         plan:
           type: string
-          enum: [single_book, double_book, triple_book]
+          enum: [single_book, daily_club, triple_book]
         expired:
           type: boolean
         books_remaining:

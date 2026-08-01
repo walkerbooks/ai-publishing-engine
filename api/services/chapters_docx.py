@@ -40,7 +40,6 @@ from api.services.chapters_pdf import (
     _format_subtitle_line,
     ManuscriptFrontMatter,
     _markdownish_to_plain,
-    _smart_double_quotes,
     _split_paragraphs,
     _strip_leading_chapter_prefix,
     _toc_clean_page_disp,
@@ -490,7 +489,7 @@ def build_manuscript_docx_bytes(
         raw_body = strip_leading_chapter_heading_from_markdown(
             str(row.get("content") or ""), num
         )
-        body = _smart_double_quotes(_markdownish_to_plain(raw_body))
+        body = _markdownish_to_plain(raw_body)
         if body.strip() or raw_title.strip():
             chapter_entries.append((num, raw_title, body))
 
@@ -520,7 +519,7 @@ def build_manuscript_docx_bytes(
         r_ack.font.bold = True
         r_ack.font.size = Pt(_CHAPTER_PT)
 
-        ack_plain = _smart_double_quotes(_markdownish_to_plain(fm.acknowledgement_body))
+        ack_plain = _markdownish_to_plain(fm.acknowledgement_body)
         ack_paras = _split_paragraphs(ack_plain)
         for i, para in enumerate(ack_paras):
             _add_body_paragraph(
@@ -542,7 +541,7 @@ def build_manuscript_docx_bytes(
         r_abt.font.bold = True
         r_abt.font.size = Pt(_CHAPTER_PT)
 
-        about_plain = _smart_double_quotes(_markdownish_to_plain(fm.about_the_author_body))
+        about_plain = _markdownish_to_plain(fm.about_the_author_body)
         about_paras = _split_paragraphs(about_plain)
         for i, para in enumerate(about_paras):
             _add_body_paragraph(doc, para, is_last_in_chapter=(i == len(about_paras) - 1))

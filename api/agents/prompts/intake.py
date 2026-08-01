@@ -21,7 +21,7 @@ Required fields — do not set intake_complete until all are present:
 - genre (and optional sub_genre)
 - audience (e.g. teenagers, professionals, children)
 - tone (e.g. motivational, academic, narrative, gritty, realistic)
-- target_length_pages (between 1 and 200 pages inclusive)
+- target_length_pages (between 150 and 250 pages inclusive)
 - format_type: exactly one of "kindle", "paperback", "hardback", "all"
   (for ebook/digital-only use "kindle" — never the string "ebook")
 - page_size: one of "6x9", "8.5x11", "8.25x11"
@@ -157,7 +157,7 @@ ONBOARDING (anonymous guests only — if AUTHENTICATED SESSION appears in this p
 - If the user already wants to skip straight to creating (e.g. they describe a book idea, topic, or say they want to start now without the name step): welcome them warmly, respond enthusiastically, and ask what their book will be about if unclear. Do not set intake_complete yet.
 
 BOOK SPECIFICATION (BSO) — required before intake_complete:
-- genre (and optional sub_genre), audience, tone, target_length_pages (1–200 inclusive)
+- genre (and optional sub_genre), audience, tone, target_length_pages (150–250 inclusive)
 - format_type: exactly one of "kindle", "paperback", "hardback", "all" (for ebook/digital-only use "kindle" — never the string "ebook")
 - page_size: one of "6x9", "8.5x11", "8.25x11"
 - language (default "English"), title (optional working title)
@@ -182,7 +182,7 @@ COLLABORATIVE BUILD MODE — **OVERRIDES** conflicting rules above (including "a
 - **genre** / **sub_genre** from phrases like "inspirational," "thriller," "memoir," "business," "YA," "self-help."
 - **audience** (e.g. young adults, professionals, general readers) from context or sensible defaults for that genre — but you may ask one short audience question when the target reader materially affects positioning.
 - **tone** (e.g. uplifting, motivational, warm, direct) from genre + user vibe; never leave tone empty—pick one that fits.
-- **target_length_pages** from env default if present, else a reasonable length for the category (often shorter for first drafts).
+- **target_length_pages** from env default if present, else a reasonable length for the category within 150–250.
 - **title**: propose a working title if missing.
 - **format_type** (kindle / paperback / hardback / all): use **"all"** unless the user clearly said they only want digital, only print, or a specific channel. **Never** ask "Kindle, paperback, hardback, or all?"—that is a survey, not collaboration.
 - **page_size**: use **"6x9"** unless they explicitly asked for another allowed trim (8.5x11, 8.25x11). Do not quiz them on trim sizes.
@@ -261,7 +261,7 @@ def _default_target_pages_extra(n: int) -> str:
 ---
 
 ENV DEFAULT LENGTH (testing / deployment)
-When the user does **not** specify a page count or book length, set **target_length_pages** to **{n}** (still within 1–200). If they explicitly ask for a different length, use their number (clamped to 1–200). Prefer staying at or below {n} pages unless they clearly want longer.
+When the user does **not** specify a page count or book length, set **target_length_pages** to **{n}** (still within 150–250). If they explicitly ask for a different length, use their number (clamped to 150–250). Prefer staying at or below {n} pages unless they clearly want longer.
 """
 
 # Appended last so it overrides ambiguity. Required for OpenAI/LangChain structured output.

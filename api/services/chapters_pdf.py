@@ -56,13 +56,13 @@ def legacy_manuscript_front_matter(author_display: str | None) -> ManuscriptFron
     )
 
 
-# Optional bundled DejaVu fonts (avoid Windows Fonts charmap decode errors).
-_BUNDLED_DEJAVU = (
-    Path(__file__).resolve().parent.parent / "data" / "fonts" / "DejaVuSans.ttf"
-)
-_BUNDLED_DEJAVU_SERIF = (
-    Path(__file__).resolve().parent.parent / "data" / "fonts" / "DejaVuSerif.ttf"
-)
+# Bundled Unicode TTFs — required so curly quotes/apostrophes render as-is
+# (never latin-1 ``errors="replace"``, which turns them into ``?``).
+_FONTS_DIR = Path(__file__).resolve().parent.parent / "data" / "fonts"
+_BUNDLED_DEJAVU = _FONTS_DIR / "DejaVuSans.ttf"
+_BUNDLED_DEJAVU_BOLD = _FONTS_DIR / "DejaVuSans-Bold.ttf"
+_BUNDLED_DEJAVU_SERIF = _FONTS_DIR / "DejaVuSerif.ttf"
+_BUNDLED_DEJAVU_SERIF_BOLD = _FONTS_DIR / "DejaVuSerif-Bold.ttf"
 
 # ---------------------------------------------------------------------------
 # Page geometry — matched to reference XML (DXA ÷ 1440 × 25.4 = mm)
@@ -232,10 +232,6 @@ def _cover_by_author_block_height_mm(
     return n_by * h_line + gap + n_auth * h_line
 
 
-def _latin1_safe(text: str) -> str:
-    return text.encode("latin-1", errors="replace").decode("latin-1")
-
-
 def _markdownish_to_plain(text: str) -> str:
     t = text.replace("\r\n", "\n").replace("\r", "\n")
     t = re.sub(r"^#+\s+",        "", t, flags=re.MULTILINE)
@@ -246,43 +242,6 @@ def _markdownish_to_plain(text: str) -> str:
     t = re.sub(r"^\s*[-*+]\s+",   "• ",  t, flags=re.MULTILINE)
     t = re.sub(r"\n{3,}", "\n\n", t)
     return t.strip()
-
-
-def _smart_double_quotes(s: str) -> str:
-    """
-    Replace ASCII double quotes with typographic quotes (“ U+201C / ” U+201D).
-    Alternating open/close works for normal dialogue and quoted phrases like "the price".
-    """
-    if '"' not in s:
-        return s
-    parts = s.split('"')
-    out: list[str] = [parts[0]]
-    for i, part in enumerate(parts[1:], start=1):
-        out.append("\u201c" if (i % 2 == 1) else "\u201d")
-        out.append(part)
-    return "".join(out)
-
-
-def _unicode_ttf_path() -> Path | None:
-    try:
-        if _BUNDLED_DEJAVU.is_file():
-            return _BUNDLED_DEJAVU
-    except OSError:
-        pass
-    candidates = [
-        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
-        Path("/usr/share/fonts/TTF/DejaVuSans.ttf"),
-        Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
-        Path("/Library/Fonts/Arial Unicode.ttf"),
-        Path("/System/Library/Fonts/Supplemental/Arial Unicode.ttf"),
-    ]
-    for p in candidates:
-        try:
-            if p.is_file():
-                return p
-        except OSError:
-            continue
-    return None
 
 
 def _windows_fonts_dir() -> Path:
@@ -310,62 +269,51 @@ def _try_register_font(
         return (False, False)
 
 
-def _dejavu_sans_bold_path(regular: Path) -> Path:
-    return regular.parent / regular.name.replace("DejaVuSans.ttf", "DejaVuSans-Bold.ttf")
+def _manuscript_font_candidates() -> list[tuple[Path, Path | None]]:
+    """Prefer Times when present; always include bundled DejaVu as a Unicode fallback."""
+    wf = _windows_fonts_dir()
+    return [
+        (wf / "times.ttf", wf / "timesbd.ttf"),
+        (_BUNDLED_DEJAVU_SERIF, _BUNDLED_DEJAVU_SERIF_BOLD),
+        (
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"),
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"),
+        ),
+        (
+            Path("/usr/share/fonts/TTF/DejaVuSerif.ttf"),
+            Path("/usr/share/fonts/TTF/DejaVuSerif-Bold.ttf"),
+        ),
+        (_BUNDLED_DEJAVU, _BUNDLED_DEJAVU_BOLD),
+        (
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+        ),
+        (
+            Path("/usr/share/fonts/TTF/DejaVuSans.ttf"),
+            Path("/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"),
+        ),
+    ]
 
 
-def _register_manuscript_fonts(pdf: Any) -> tuple[str, str, bool, bool, bool]:
+def _register_manuscript_fonts(pdf: Any) -> tuple[str, str, bool, bool]:
     """
-    Register Times New Roman for all text (cover, headings, body, TOC).
-    Returns (title_fam, body_fam, use_unicode, body_has_bold, title_has_bold);
-    ``title_fam`` and ``body_fam`` are the same registered family when load succeeds.
+    Register a Unicode-capable TTF for cover, headings, body, and TOC.
+
+    Returns (title_fam, body_fam, body_has_bold, title_has_bold).
+    Raises RuntimeError if no Unicode font can be loaded — never falls back to
+    Helvetica/latin-1, which would corrupt curly quotes and apostrophes into ``?``.
     """
     fam = "MsBody"
-    wf = _windows_fonts_dir()
+    for reg, bld in _manuscript_font_candidates():
+        ok, bold_ok = _try_register_font(pdf, fam, reg, bld)
+        if ok:
+            return (fam, fam, bold_ok, bold_ok)
 
-    body_ok, body_bold = _try_register_font(
-        pdf, fam, wf / "times.ttf", wf / "timesbd.ttf"
+    raise RuntimeError(
+        "No Unicode TTF available for manuscript PDF export. "
+        f"Expected bundled fonts under {_FONTS_DIR} "
+        "(DejaVuSerif.ttf / DejaVuSans.ttf) or system Times/DejaVu."
     )
-
-    if not body_ok:
-        serif_candidates: list[tuple[Path, Path | None]] = [
-            (
-                Path("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"),
-                Path("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"),
-            ),
-            (
-                Path("/usr/share/fonts/TTF/DejaVuSerif.ttf"),
-                Path("/usr/share/fonts/TTF/DejaVuSerif-Bold.ttf"),
-            ),
-        ]
-        try:
-            if _BUNDLED_DEJAVU_SERIF.is_file():
-                serif_candidates.insert(
-                    0,
-                    (
-                        _BUNDLED_DEJAVU_SERIF,
-                        _BUNDLED_DEJAVU_SERIF.parent / "DejaVuSerif-Bold.ttf",
-                    ),
-                )
-        except OSError:
-            pass
-        for reg, bld in serif_candidates:
-            ok, bb = _try_register_font(pdf, fam, reg, bld)
-            if ok:
-                body_ok = True
-                body_bold = bb
-                break
-
-    if not body_ok:
-        p = _unicode_ttf_path()
-        if p is not None:
-            body_ok, body_bold = _try_register_font(
-                pdf, fam, p, _dejavu_sans_bold_path(p)
-            )
-
-    if not body_ok:
-        return ("Helvetica", "Helvetica", False, False, False)
-    return (fam, fam, True, body_bold, body_bold)
 
 
 def _register_cover_fonts(
@@ -508,15 +456,16 @@ def build_manuscript_pdf_bytes(
     if illustrated_cover_image:
         _add_illustrated_cover_bleed_page(pdf, illustrated_cover_image)
 
-    title_fam, body_fam, use_unicode, body_has_bold, title_has_bold = (
-        _register_manuscript_fonts(pdf)
+    title_fam, body_fam, body_has_bold, title_has_bold = _register_manuscript_fonts(
+        pdf
     )
     cover_fam, author_fam, cover_use_b, author_bold_loaded = _register_cover_fonts(
         pdf, None
     )
 
     def txt(s: str) -> str:
-        return s if use_unicode else _latin1_safe(s)
+        # Identity: Unicode TTF is required; never remap quotes/apostrophes.
+        return s
 
     # Derived measurements
     para_gap        = _pt_to_mm(_PARA_AFTER_PT)                # 8 pt → mm after each para
@@ -632,7 +581,7 @@ def build_manuscript_pdf_bytes(
         raw_body  = strip_leading_chapter_heading_from_markdown(
             str(row.get("content") or ""), num
         )
-        body    = txt(_smart_double_quotes(_markdownish_to_plain(raw_body)))
+        body    = txt(_markdownish_to_plain(raw_body))
         outline = txt(format_manuscript_chapter_heading(num, raw_title))
         if body or raw_title.strip():
             chapter_entries.append((outline, num, raw_title, body))
@@ -759,18 +708,14 @@ def build_manuscript_pdf_bytes(
         pdf.add_page()
         pdf.start_section("ACKNOWLEDGMENT", level=0)
         _render_section_heading("ACKNOWLEDGMENT")
-        ack_plain = txt(
-            _smart_double_quotes(_markdownish_to_plain(fm.acknowledgement_body))
-        )
+        ack_plain = txt(_markdownish_to_plain(fm.acknowledgement_body))
         _render_body_paragraphs(ack_plain)
 
     if fm.about_the_author_body is not None:
         pdf.add_page()
         pdf.start_section("ABOUT THE AUTHOR", level=0)
         _render_section_heading("ABOUT THE AUTHOR")
-        about_plain = txt(
-            _smart_double_quotes(_markdownish_to_plain(fm.about_the_author_body))
-        )
+        about_plain = txt(_markdownish_to_plain(fm.about_the_author_body))
         _render_body_paragraphs(about_plain)
 
     if ded_raw:
@@ -805,7 +750,8 @@ def build_manuscript_pdf_bytes(
     # ------------------------------------------------------------------
     out = pdf.output()
     if isinstance(out, str):
-        return out.encode("latin-1", errors="replace")
+        # fpdf2 should return bytes; never latin-1-replace (would corrupt Unicode glyphs).
+        raise RuntimeError("Unexpected str from FPDF.output(); expected bytes")
     return bytes(out)
 
 
