@@ -25,6 +25,23 @@ from api.config import get_settings
 router = APIRouter(prefix="/api", tags=["chat-unified"])
 
 
+def _title_confirm_gate_text(book_spec: dict[str, Any] | None) -> str:
+    """State the working title/subtitle, then ask whether the user wants to edit."""
+    spec = book_spec if isinstance(book_spec, dict) else {}
+    title = str(spec.get("title") or "").strip()
+    subtitle = str(spec.get("subtitle") or "").strip()
+    title_line = f"Title: {title}" if title else "Title: (none yet — we can set one now)"
+    subtitle_line = (
+        f"Subtitle: {subtitle}" if subtitle else "Subtitle: (none yet — optional)"
+    )
+    return (
+        "Your book brief is complete. Here's the working title I'm using:\n\n"
+        f"{title_line}\n"
+        f"{subtitle_line}\n\n"
+        "Would you like to check or edit the title and subtitle before we build the outline?"
+    )
+
+
 class UnifiedChatStepRequest(BaseModel):
     message: str = Field(default="", description="User message or revision instructions")
     session_id: str | None = None
@@ -100,7 +117,8 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                         return
 
                     ack_text = (
-                        "Perfect — your book brief is set. When you're ready, use **Proceed to outline** below."
+                        "Perfect — your book brief is set. Next you can check the title "
+                        "and subtitle, then proceed to the outline."
                     )
                     yield _sse(
                         "message_start",
@@ -131,10 +149,7 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                         },
                     )
 
-                    gate_text = (
-                        "Your book brief is complete. Generate the structured outline next, "
-                        "or tell me what to change about your requirements."
-                    )
+                    gate_text = _title_confirm_gate_text(spec_raw)
                     yield _sse(
                         "message_start",
                         {
@@ -203,9 +218,8 @@ async def unified_stream(payload: UnifiedChatStepRequest) -> StreamingResponse:
                 )
 
                 if intake_complete and book_spec and not defer_collab_confirm:
-                    gate_text = (
-                        "Your book brief is complete. Generate the structured outline next, "
-                        "or tell me what to change about your requirements."
+                    gate_text = _title_confirm_gate_text(
+                        book_spec if isinstance(book_spec, dict) else None
                     )
                     yield _sse(
                         "message_start",

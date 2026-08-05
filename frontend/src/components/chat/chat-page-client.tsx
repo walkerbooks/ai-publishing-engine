@@ -31,6 +31,11 @@ import { persistBookDescriptionToGo } from "@/lib/book/book-description-payload"
 import { useFullBookChatFlow } from "@/hooks/use-full-book-chat-flow";
 import { threadPastBookKickoff } from "@/lib/chat/book-kickoff";
 import {
+  formatTitleConfirmAskCopy,
+  specTitleKey,
+  type TitleConfirmStage,
+} from "@/lib/chat/title-confirm";
+import {
   buildBookCoverPrompt,
   COVER_VARIANT_COUNT,
 } from "@/lib/chat/cover-prompt";
@@ -137,6 +142,7 @@ export function ChatPageClient() {
   const messages = usePublishingStore((s) => s.chatMessages);
   const awaitingGate = usePublishingStore((s) => s.awaitingGate);
   const bookOutline = usePublishingStore((s) => s.bookOutline);
+  const bookSpec = usePublishingStore((s) => s.bookSpec);
   const previewContent = usePublishingStore((s) => s.previewContent);
   const composerStep = usePublishingStore((s) => s.composerStep);
   const conversationCount = useChatDirectoryStore((s) => s.conversations.length);
@@ -212,6 +218,10 @@ export function ChatPageClient() {
   const [bookKickoffStage, setBookKickoffStage] = useState<BookKickoffStage>("before_choice");
   const [bookKickoffTitle, setBookKickoffTitle] = useState("");
   const [bookKickoffSubtitle, setBookKickoffSubtitle] = useState("");
+  const [titleConfirmStage, setTitleConfirmStage] =
+    useState<TitleConfirmStage>("pending");
+  const [titleConfirmTitle, setTitleConfirmTitle] = useState("");
+  const titleConfirmDoneKeyRef = useRef<string | null>(null);
   const kickoffLoaderTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   /** Logged-in first message: inject kickoff once after welcome videos settle on the first assistant reply. */
   const loggedInPostWelcomeKickoffRef = useRef(false);
@@ -360,6 +370,72 @@ export function ChatPageClient() {
     composerStep,
   ]);
 
+  /**
+   * If intake already pitched a working title (or similar checkpoint) while kickoff
+   * was still open, close kickoff so Sounds good / change can show.
+   */
+  useEffect(() => {
+    if (bookKickoffStage === "done") return;
+    if (
+      bookKickoffStage !== "before_choice" &&
+      bookKickoffStage !== "choice"
+    ) {
+      return;
+    }
+    const last = messages.at(-1);
+    if (!last || last.role !== "assistant") return;
+    if (last.id === BOOK_KICKOFF_CHOICE_MESSAGE_ID) return;
+    const c = last.content.toLowerCase();
+    if (c.trim().startsWith("[")) return;
+    const pitched =
+      c.includes("working title") ||
+      c.includes("suggest a title") ||
+      c.includes("title like") ||
+      (c.includes("title") &&
+        (c.includes("i suggest") || c.includes("i propose") || c.includes("how about")));
+    if (!pitched) return;
+    setBookKickoffStage("done");
+    usePublishingStore.getState().setIntakeCollaborative(true);
+  }, [messages, bookKickoffStage]);
+
+  /** After intake brief is ready (outline gate), ask whether to edit title/subtitle. */
+  useEffect(() => {
+    if (awaitingGate !== "outline" || !bookSpec) return;
+    const key = specTitleKey(bookSpec);
+    if (titleConfirmDoneKeyRef.current != null) {
+      if (!key || titleConfirmDoneKeyRef.current === key) {
+        setTitleConfirmStage((s) => (s === "done" ? s : "done"));
+        return;
+      }
+    }
+    setTitleConfirmStage((s) =>
+      s === "title" || s === "subtitle" || s === "ask" ? s : "ask",
+    );
+  }, [awaitingGate, bookSpec]);
+
+  /** Ensure the outline-gate bubble states the title before the edit Yes/No. */
+  useEffect(() => {
+    if (awaitingGate !== "outline" || titleConfirmStage !== "ask" || !bookSpec) {
+      return;
+    }
+    const pub = usePublishingStore.getState();
+    const last = pub.chatMessages.at(-1);
+    if (!last || last.role !== "assistant") return;
+    if (last.kind !== "gate" && last.kind !== "intake") return;
+    const next = formatTitleConfirmAskCopy(bookSpec);
+    if (last.content.trim() === next.trim()) return;
+    // Only rewrite the generic "working title" gate — not mid-edit prompts.
+    const c = last.content.toLowerCase();
+    if (
+      !c.includes("would you like to check or edit") &&
+      !c.includes("including a working title") &&
+      !c.includes("here's the working title")
+    ) {
+      return;
+    }
+    pub.patchChatMessage(last.id, { content: next });
+  }, [awaitingGate, titleConfirmStage, bookSpec]);
+
   /** Returning signed-in user: empty thread shows kickoff immediately (no YouTube prerequisite). */
   useEffect(() => {
     if (messages.length) return;
@@ -469,6 +545,67 @@ export function ChatPageClient() {
     }
   }
 
+  const applyTitleConfirmEdits = (title: string, subtitle: string) => {
+    const pub = usePublishingStore.getState();
+    const prevSpec = pub.bookSpec;
+    const nextSpec: Record<string, unknown> = {
+      ...(prevSpec && typeof prevSpec === "object" ? prevSpec : {}),
+      title: title.trim(),
+      subtitle: subtitle.trim() || null,
+    };
+    pub.setIntakeResult(true, nextSpec, null);
+    const specMsg = [...pub.chatMessages]
+      .reverse()
+      .find(
+        (m) =>
+          m.role === "assistant" &&
+          (m.kind === "intake" || m.kind === "gate") &&
+          m.bookSpec,
+      );
+    if (specMsg?.id) {
+      pub.patchChatMessage(specMsg.id, { bookSpec: nextSpec });
+    }
+    titleConfirmDoneKeyRef.current = specTitleKey(nextSpec);
+    setTitleConfirmTitle("");
+    setTitleConfirmStage("done");
+    scheduleKickoffAssistantReveal(
+      newId(),
+      "Got it — title and subtitle are locked in. You can proceed to the outline when you're ready.",
+      kickoffLoaderTimersRef.current,
+    );
+  };
+
+  const handleTitleConfirmOption = (option: "edit" | "keep") => {
+    if (titleConfirmStage !== "ask") return;
+    const pub = usePublishingStore.getState();
+    if (option === "keep") {
+      pub.pushUserMessage("No, keep the title and subtitle.");
+      const u = usePublishingStore.getState().chatMessages.at(-1);
+      if (u?.role === "user") void persistChatMessageIfAuthenticated(u);
+      const key = specTitleKey(pub.bookSpec);
+      if (key) {
+        titleConfirmDoneKeyRef.current = key;
+      } else {
+        // No title yet — treat keep as done so they can still proceed.
+        titleConfirmDoneKeyRef.current = "::";
+      }
+      setTitleConfirmStage("done");
+      return;
+    }
+    pub.pushUserMessage("Yes, I'd like to check the title and subtitle.");
+    const u = usePublishingStore.getState().chatMessages.at(-1);
+    if (u?.role === "user") void persistChatMessageIfAuthenticated(u);
+    const currentTitle = String(pub.bookSpec?.title ?? "").trim();
+    scheduleKickoffAssistantReveal(
+      newId(),
+      currentTitle
+        ? `What's your preferred title? (Current: "${currentTitle}")`
+        : "What's your preferred title for the book?",
+      kickoffLoaderTimersRef.current,
+    );
+    setTitleConfirmStage("title");
+  };
+
   const handleSend = (text: string) => {
     const value = text.trim();
     if (!value) return;
@@ -486,6 +623,8 @@ export function ChatPageClient() {
       const { userName, guestEmail } = syncGuestOnboardingFromMessages(after);
       if (userName) pub.setUserName(userName);
       if (guestEmail) pub.setGuestEmail(guestEmail);
+      // Guests after email: prefer collaborative intake (infer, don't survey format/page size).
+      pub.setIntakeCollaborative(true);
       void syncGuestPromotionLead(userName, guestEmail ?? value, false);
       if (
         !after.some((m) => m.id === BOOK_KICKOFF_CHOICE_MESSAGE_ID)
@@ -546,6 +685,36 @@ export function ChatPageClient() {
       startNormalBookFlow(value);
       return;
     }
+    if (titleConfirmStage === "title") {
+      pub.pushUserMessage(value);
+      const u = usePublishingStore.getState().chatMessages.at(-1);
+      if (u?.role === "user") void persistChatMessageIfAuthenticated(u);
+      setTitleConfirmTitle(value);
+      const currentSub = String(
+        usePublishingStore.getState().bookSpec?.subtitle ?? "",
+      ).trim();
+      scheduleKickoffAssistantReveal(
+        newId(),
+        currentSub
+          ? `Nice. What subtitle would you like? (Current: "${currentSub}")`
+          : "Nice. What subtitle would you like? You can leave a short tagline, or type a dash (-) to skip.",
+        kickoffLoaderTimersRef.current,
+      );
+      setTitleConfirmStage("subtitle");
+      return;
+    }
+    if (titleConfirmStage === "subtitle") {
+      const subtitleRaw = value.trim();
+      const subtitle =
+        subtitleRaw === "-" || subtitleRaw.toLowerCase() === "skip"
+          ? ""
+          : subtitleRaw;
+      pub.pushUserMessage(value);
+      const u = usePublishingStore.getState().chatMessages.at(-1);
+      if (u?.role === "user") void persistChatMessageIfAuthenticated(u);
+      applyTitleConfirmEdits(titleConfirmTitle, subtitle);
+      return;
+    }
     void send(value);
   };
 
@@ -563,10 +732,14 @@ export function ChatPageClient() {
     usePublishingStore.getState().setComposerStep("outline"),
     usePublishingStore.getState().setComposerAction("proceed"),
     void send("Proceed"));
-  const changeRequirements = () =>
-    (usePublishingStore.getState().setAwaitingGate(null),
-    usePublishingStore.getState().setComposerStep("intake"),
-    usePublishingStore.getState().setComposerAction("proceed"));
+  const changeRequirements = () => {
+    titleConfirmDoneKeyRef.current = null;
+    setTitleConfirmStage("pending");
+    setTitleConfirmTitle("");
+    usePublishingStore.getState().setAwaitingGate(null);
+    usePublishingStore.getState().setComposerStep("intake");
+    usePublishingStore.getState().setComposerAction("proceed");
+  };
   const proceedToPreview = () =>
     (usePublishingStore.getState().setAwaitingGate(null),
     usePublishingStore.getState().setComposerStep("preview"),
@@ -946,6 +1119,9 @@ export function ChatPageClient() {
           bookKickoffStage={bookKickoffStage}
           onBookKickoffOptionSelect={handleBookKickoffOption}
           onBookKickoffInputSend={handleSend}
+          titleConfirmStage={titleConfirmStage}
+          onTitleConfirmOptionSelect={handleTitleConfirmOption}
+          onTitleConfirmInputSend={handleSend}
           onCollaborativeAgree={handleCollaborativeAgree}
           onCollaborativeQuickChange={handleCollaborativeQuickChange}
           onCollaborativeChangeSend={handleCollaborativeChangeSend}

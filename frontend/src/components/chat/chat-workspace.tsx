@@ -50,6 +50,14 @@ type GateHandlers = {
     | "done";
   onBookKickoffOptionSelect?: (option: "start_together" | "complete_idea") => void;
   onBookKickoffInputSend?: (text: string) => void;
+  titleConfirmStage?:
+    | "pending"
+    | "ask"
+    | "title"
+    | "subtitle"
+    | "done";
+  onTitleConfirmOptionSelect?: (option: "edit" | "keep") => void;
+  onTitleConfirmInputSend?: (text: string) => void;
   onCollaborativeAgree?: () => void;
   onCollaborativeQuickChange?: (message: string) => void;
   onCollaborativeChangeSend?: (text: string) => void;
@@ -114,6 +122,9 @@ export function ChatWorkspace({
   bookKickoffStage,
   onBookKickoffOptionSelect,
   onBookKickoffInputSend,
+  titleConfirmStage,
+  onTitleConfirmOptionSelect,
+  onTitleConfirmInputSend,
   onCollaborativeAgree,
   onCollaborativeQuickChange,
   onCollaborativeChangeSend,
@@ -202,6 +213,45 @@ export function ChatWorkspace({
       bookKickoffStage === "general_idea") &&
     messages.at(-1)?.role === "assistant" &&
     !assistantKickoffLoader;
+
+  const showTitleConfirmChoices =
+    !terminalFullBookPdfDone &&
+    awaitingGate === "outline" &&
+    titleConfirmStage === "ask" &&
+    messages.at(-1)?.role === "assistant" &&
+    !assistantKickoffLoader;
+
+  const showTitleConfirmInput =
+    !terminalFullBookPdfDone &&
+    awaitingGate === "outline" &&
+    (titleConfirmStage === "title" || titleConfirmStage === "subtitle") &&
+    messages.at(-1)?.role === "assistant" &&
+    !assistantKickoffLoader;
+
+  const titleConfirmBlocksOutlineGate =
+    awaitingGate === "outline" && titleConfirmStage !== "done";
+
+  const titleConfirmInputPlaceholder = useMemo(() => {
+    switch (titleConfirmStage) {
+      case "title":
+        return "Type your title...";
+      case "subtitle":
+        return "Type your subtitle (or - to skip)...";
+      default:
+        return "Type your answer...";
+    }
+  }, [titleConfirmStage]);
+
+  const titleConfirmInputAriaLabel = useMemo(() => {
+    switch (titleConfirmStage) {
+      case "title":
+        return "Book title";
+      case "subtitle":
+        return "Book subtitle";
+      default:
+        return "Your answer";
+    }
+  }, [titleConfirmStage]);
 
   const bookKickoffInputPlaceholder = useMemo(() => {
     switch (bookKickoffStage) {
@@ -330,6 +380,12 @@ export function ChatWorkspace({
                     onBookKickoffInputSend={onBookKickoffInputSend}
                     bookKickoffInputPlaceholder={bookKickoffInputPlaceholder}
                     bookKickoffInputAriaLabel={bookKickoffInputAriaLabel}
+                    showTitleConfirmChoices={showTitleConfirmChoices}
+                    onTitleConfirmOptionSelect={onTitleConfirmOptionSelect}
+                    showTitleConfirmInput={showTitleConfirmInput}
+                    onTitleConfirmInputSend={onTitleConfirmInputSend}
+                    titleConfirmInputPlaceholder={titleConfirmInputPlaceholder}
+                    titleConfirmInputAriaLabel={titleConfirmInputAriaLabel}
                     showCollaborativeFeedback={showCollaborativeFeedback}
                     collaborativeChangeMode={collaborativeChangeOpen}
                     onCollaborativeAgree={() => {
@@ -392,7 +448,7 @@ export function ChatWorkspace({
                 )}
               >
                 {dockNotices ? <div className="mb-3">{dockNotices}</div> : null}
-                {awaitingGate ? (
+                {awaitingGate && !titleConfirmBlocksOutlineGate ? (
                   <div className="space-y-3">
                     <ChatGatePanel
                       awaitingGate={awaitingGate}
@@ -425,6 +481,8 @@ export function ChatWorkspace({
                           guestInlineCaptureBlocksDock ||
                           showBookKickoffChoices ||
                           showBookKickoffInput ||
+                          showTitleConfirmChoices ||
+                          showTitleConfirmInput ||
                           showCollaborativeFeedback ||
                           assistantKickoffLoader
                         }
@@ -433,20 +491,22 @@ export function ChatWorkspace({
                       />
                     ) : null}
                   </div>
-                ) : (
+                ) : !titleConfirmBlocksOutlineGate ? (
                   <ChatComposer
                     disabled={
                       busy ||
                       guestInlineCaptureBlocksDock ||
                       showBookKickoffChoices ||
                       showBookKickoffInput ||
+                      showTitleConfirmChoices ||
+                      showTitleConfirmInput ||
                       showCollaborativeFeedback ||
                       assistantKickoffLoader
                     }
                     onSend={(t) => (clearThreadError(), onSend(t))}
                     variant="dock"
                   />
-                )}
+                ) : null}
               </div>
             </div>
           ) : null}

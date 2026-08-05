@@ -31,6 +31,13 @@ type Props = {
   /** Shown below kickoff inline input when `showBookKickoffInput` is true. */
   bookKickoffInputPlaceholder?: string;
   bookKickoffInputAriaLabel?: string;
+  /** After outline: edit title/subtitle before preview gate. */
+  showTitleConfirmChoices?: boolean;
+  onTitleConfirmOptionSelect?: (option: "edit" | "keep") => void;
+  showTitleConfirmInput?: boolean;
+  onTitleConfirmInputSend?: (text: string) => void;
+  titleConfirmInputPlaceholder?: string;
+  titleConfirmInputAriaLabel?: string;
   /** Collaborative intake: agree / change + optional inline change field */
   showCollaborativeFeedback?: boolean;
   collaborativeChangeMode?: boolean;
@@ -58,6 +65,12 @@ export function ChatThread({
   onBookKickoffInputSend,
   bookKickoffInputPlaceholder = "Type your answer...",
   bookKickoffInputAriaLabel = "Your answer",
+  showTitleConfirmChoices = false,
+  onTitleConfirmOptionSelect,
+  showTitleConfirmInput = false,
+  onTitleConfirmInputSend,
+  titleConfirmInputPlaceholder = "Type your answer...",
+  titleConfirmInputAriaLabel = "Your answer",
   showCollaborativeFeedback = false,
   collaborativeChangeMode = false,
   onCollaborativeAgree,
@@ -89,15 +102,14 @@ export function ChatThread({
           Boolean(onGuestEmailSend) &&
           !busy &&
           guestEmailStep &&
-          videosSettled &&
           i === lastIdx &&
           m.role === "assistant" &&
           (kind === "intake" || !m.kind);
 
         const guestEmailBridgeText =
-          showGuestEmailField && m.videos?.length
+          showGuestEmailField && videosSettled && m.videos?.length
             ? GUEST_EMAIL_BRIDGE_WITH_VIDEOS
-            : showGuestEmailField
+            : showGuestEmailField && videosSettled
               ? GUEST_EMAIL_BRIDGE_NO_VIDEOS
               : undefined;
 
@@ -165,6 +177,40 @@ export function ChatThread({
                     placeholder={bookKickoffInputPlaceholder}
                     autoComplete="off"
                     ariaLabel={bookKickoffInputAriaLabel}
+                    submitAriaLabel="Send response"
+                    inputType="text"
+                  />
+                </div>
+              </div>
+            ) : null}
+            {showTitleConfirmChoices && i === lastIdx ? (
+              <div className="mt-2 flex w-full max-w-[min(100%,36rem)] flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  className="rounded-xl bg-[#1e3a5f] px-3 py-2.5 text-sm text-white shadow transition hover:bg-[#274b79] dark:bg-zinc-700 dark:hover:bg-zinc-600 sm:py-2"
+                  onClick={() => onTitleConfirmOptionSelect?.("edit")}
+                >
+                  Yes, I want to edit
+                </button>
+                <button
+                  type="button"
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm transition hover:bg-slate-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700 sm:py-2"
+                  onClick={() => onTitleConfirmOptionSelect?.("keep")}
+                >
+                  No, keep these
+                </button>
+              </div>
+            ) : null}
+            {showTitleConfirmInput && i === lastIdx ? (
+              <div className="mt-2 flex justify-end">
+                <div className="w-full max-w-[min(100%,36rem)]">
+                  <GuestNameInlineField
+                    variant={variant}
+                    disabled={busy}
+                    onSend={onTitleConfirmInputSend!}
+                    placeholder={titleConfirmInputPlaceholder}
+                    autoComplete="off"
+                    ariaLabel={titleConfirmInputAriaLabel}
                     submitAriaLabel="Send response"
                     inputType="text"
                   />

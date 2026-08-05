@@ -24,7 +24,7 @@ OUTPUT STRUCTURE
 
 Return a BookOutline with:
 - book_title (use BSO title if provided, otherwise generate)
-- subtitle (optional)
+- subtitle (use BSO subtitle if the author already set one; otherwise optional)
 - dedication (optional)
 - chapters:
   - chapter_number (1-based)

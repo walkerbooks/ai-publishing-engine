@@ -176,7 +176,13 @@ export function useUnifiedChatSend() {
         const { userName, guestEmail } = syncGuestOnboardingFromMessages(after);
         const pubAfter = usePublishingStore.getState();
         if (userName) pubAfter.setUserName(userName);
-        if (guestEmail) pubAfter.setGuestEmail(guestEmail);
+        if (guestEmail) {
+          pubAfter.setGuestEmail(guestEmail);
+          // Prefer collaborative intake for signed-out guests after email is known.
+          if (!useAuthStore.getState().isAuthenticated) {
+            pubAfter.setIntakeCollaborative(true);
+          }
+        }
         setBusy(false);
         void syncGuestPromotionLead(
           userName,

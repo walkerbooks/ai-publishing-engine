@@ -24,7 +24,7 @@ export type CollaborativeFeedbackOpts = {
 
 /**
  * After each streamed assistant intake reply in collaborative mode, show agree / change UI.
- * Skips guest name & email inline steps and kickoff placeholders.
+ * Skips guest name & email inline steps and active kickoff placeholders.
  */
 export function shouldShowCollaborativeFeedback(
   messages: ChatMessage[],
@@ -34,7 +34,16 @@ export function shouldShowCollaborativeFeedback(
   if (opts.busy) return false;
   if (opts.awaitingGate !== null) return false;
   if (opts.composerStep !== "intake") return false;
-  if (opts.bookKickoffStage !== "done") return false;
+  // Only block while kickoff UI is actively collecting — not "before_choice".
+  if (
+    opts.bookKickoffStage === "choice" ||
+    opts.bookKickoffStage === "title" ||
+    opts.bookKickoffStage === "subtitle" ||
+    opts.bookKickoffStage === "summary" ||
+    opts.bookKickoffStage === "general_idea"
+  ) {
+    return false;
+  }
 
   const last = messages.at(-1);
   if (!last || last.role !== "assistant") return false;
@@ -51,12 +60,14 @@ export function shouldShowCollaborativeFeedback(
 
   const content = last.content.trim();
   if (!content || content.startsWith("[")) return false;
-  const allowsWithoutCollaborativeMode = isAssistantCheckpointPrompt(content);
+  const titlePitch = isWorkingTitlePitch(content);
+  const allowsWithoutCollaborativeMode =
+    isAssistantCheckpointPrompt(content) || titlePitch;
   if (!opts.intakeCollaborative && !allowsWithoutCollaborativeMode) return false;
 
   // Questions / multi-part asks need the dock — must run before pending-brief and before
   // offerCollaborativeFeedback === true (model sometimes sets that wrong while still asking).
-  if (assistantIntakeMessageExpectsTypedReply(content)) return false;
+  if (assistantIntakeMessageExpectsTypedReply(content) && !titlePitch) return false;
 
   const hasPendingCollaborativeBrief =
     Boolean(
@@ -67,12 +78,31 @@ export function shouldShowCollaborativeFeedback(
     !opts.intakeComplete;
 
   if (hasPendingCollaborativeBrief) return true;
+  if (titlePitch) return true;
 
   const ocf = last.offerCollaborativeFeedback;
   if (ocf === false) return false;
   if (ocf === true) return true;
 
   return true;
+}
+
+/** AI proposed a working title — user should get agree/change controls, not only the dock. */
+function isWorkingTitlePitch(content: string): boolean {
+  const s = content.toLowerCase();
+  if (s.includes("working title")) return true;
+  if (s.includes("suggest a title") || s.includes("suggested title")) return true;
+  if (s.includes("title like") || s.includes("title:")) return true;
+  if (
+    s.includes("title") &&
+    (s.includes("i suggest") ||
+      s.includes("i propose") ||
+      s.includes("how about") ||
+      s.includes("we could call"))
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function isAssistantCheckpointPrompt(content: string): boolean {

@@ -23,19 +23,58 @@ export function isGuestNameCaptureTurn(
 }
 
 /**
- * Guest onboarding: user → assistant (name) → user (name) → assistant (thanks + videos + asks for email).
+ * Guest onboarding: user → assistant (name) → user (name) → assistant (thanks + asks for email).
  * After this assistant message we show inline email capture below the bubble.
+ * Also matches when the last assistant turn clearly asks for email and the guest has not
+ * submitted one yet (covers slight turn-count drift).
  */
 export function shouldShowGuestEmailCapture(messages: ChatMessage[]): boolean {
-  if (messages.length !== 4) return false;
-  const [m0, m1, m2, m3] = messages;
-  if (m0.role !== "user" || !m0.content.trim()) return false;
-  if (m1.role !== "assistant") return false;
-  if (m2.role !== "user" || !m2.content.trim()) return false;
-  if (m3.role !== "assistant") return false;
-  const k = m3.kind ?? "intake";
+  const last = messages.at(-1);
+  if (!last || last.role !== "assistant") return false;
+  const k = last.kind ?? "intake";
   if (k !== "intake") return false;
-  return true;
+  const content = last.content.trim();
+  if (!content || content.startsWith("[")) return false;
+
+  if (messages.length === 4) {
+    const [m0, m1, m2, m3] = messages;
+    if (
+      m0.role === "user" &&
+      Boolean(m0.content.trim()) &&
+      m1.role === "assistant" &&
+      m2.role === "user" &&
+      Boolean(m2.content.trim()) &&
+      m3.role === "assistant"
+    ) {
+      return true;
+    }
+  }
+
+  if (messages.length >= 4) {
+    const nameUser = messages[2];
+    if (nameUser?.role !== "user" || !nameUser.content.trim()) return false;
+    const alreadyGaveEmail = messages
+      .slice(3)
+      .some((m) => m.role === "user" && m.content.includes("@"));
+    if (alreadyGaveEmail) return false;
+    return assistantAsksForGuestEmail(content);
+  }
+
+  return false;
+}
+
+function assistantAsksForGuestEmail(content: string): boolean {
+  const s = content.toLowerCase();
+  if (!s.includes("email") && !s.includes("e-mail")) return false;
+  return (
+    s.includes("share") ||
+    s.includes("send you") ||
+    s.includes("address") ||
+    s.includes("could you") ||
+    s.includes("what's your") ||
+    s.includes("what is your") ||
+    s.includes("please")
+  );
 }
 
 /** True once welcome video fetch completed, or the message already has videos (e.g. hydrated). */
